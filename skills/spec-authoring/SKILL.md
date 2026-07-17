@@ -99,6 +99,12 @@ obscure or private subject.)*
 - `OVERVIEW-template.md` — the project-overview (module map + data-flow diagram + glossary).
 - `SPEC-HEALTH-template.md` — the health/metrics layer.
 
+**Read the template file before writing — don't reproduce it from this skill's description.** The heading
+annotations (e.g. `### Invariants (*rules that must always hold*)`) are part of the contract, not decoration:
+they tell a reader what the section means without consulting this skill.
+
 ## Then check it
 Authoring produces the artifact; run **spec-check** afterward to confirm the new spec matches the code (drift),
 and a sufficiency pass to score how completely the spec captures the behavior (an indicator you still validate, not a guarantee).
+Check in a **fresh session** where you can: a checker that remembers its authoring decisions tends to echo them
+instead of re-reading the code.
