@@ -6,7 +6,7 @@
 
 *A trust-eval for your specs — coverage, drift, and sufficiency, measured against the code.*
 
-[Get started](#try-it) · [Tutorial](GETTING-STARTED.md) · [No API key?](#run-via-prompt-chat-no-setup) · [Second opinion](#higher-stakes-get-a-second-opinion) · [FAQ](FAQ.md)
+[Get started](#try-it) · [Tutorial](https://github.com/benjaminjones/spec-eval/blob/main/GETTING-STARTED.md) · [No API key?](#run-via-prompt-chat-no-setup) · [Second opinion](#higher-stakes-get-a-second-opinion) · [FAQ](https://github.com/benjaminjones/spec-eval/blob/main/FAQ.md)
 
 A **spec** is short for **specification** — a plain-English description of what your code should do. **spec-eval**
 keeps one beside your code — per file, or per folder — and checks the two still agree, so the spec stays worth
@@ -69,7 +69,7 @@ Everything it writes is plain markdown, right next to your code:
 
 ## Try it
 
-Prefer a guided walkthrough? **[Getting-started tutorial →](GETTING-STARTED.md)**
+Prefer a guided walkthrough? **[Getting-started tutorial →](https://github.com/benjaminjones/spec-eval/blob/main/GETTING-STARTED.md)**
 
 **The commands** — in the order you'll typically use them:
 
@@ -89,14 +89,14 @@ Three ways to run them, least setup first:
 Ask the coding agent you already have (Claude Code, Copilot, Cursor, …) — nothing to install, no key, answers
 land in the chat. Two skills, one per job — point your agent at the right one:
 
-**Write specs** — the [authoring skill](skills/spec-authoring/SKILL.md) carries the spec structure
+**Write specs** — the [authoring skill](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-authoring/SKILL.md) carries the spec structure
 (the `INV-*` invariant and `AC-*` acceptance-criteria tables come from its rubric and templates):
 ```text
 Read path/to/spec-eval/skills/spec-authoring/SKILL.md — and the templates
 in its templates/ folder — and follow it: write specs for my code.
 ```
 
-**Check specs** — the [checking skill](skills/spec-check/SKILL.md) grades what exists (drift + sufficiency):
+**Check specs** — the [checking skill](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md) grades what exists (drift + sufficiency):
 ```text
 Read path/to/spec-eval/skills/spec-check/SKILL.md and follow it —
 first check coverage, then check my specs against my code.
@@ -104,8 +104,8 @@ first check coverage, then check my specs against my code.
 
 > [!NOTE]
 > `path/to/spec-eval` is wherever you cloned this repo. No clone? Give your agent the skill's link by name:
-> [`spec-authoring/SKILL.md`](skills/spec-authoring/SKILL.md) to write specs,
-> [`spec-check/SKILL.md`](skills/spec-check/SKILL.md) to check them.
+> [`spec-authoring/SKILL.md`](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-authoring/SKILL.md) to write specs,
+> [`spec-check/SKILL.md`](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md) to check them.
 
 > [!TIP]
 > **Author and check in separate sessions.** A checker that still remembers its authoring decisions tends to
@@ -118,7 +118,7 @@ and save the results to spec-reports/
 ```
 The agent writes them itself (its own scores; the terminal adds the exact coverage % and a run history).
 
-**Make it a standing command** *(optional, one-time)* — copy the [`skills/`](skills/) into your agent's skills
+**Make it a standing command** *(optional, one-time)* — copy the [`skills/`](https://github.com/benjaminjones/spec-eval/tree/main/skills/) into your agent's skills
 folder (Claude Code: `.claude/skills/`). Then the prompt is the command:
 ```bash
 mkdir -p .claude/skills && cp -r path/to/spec-eval/skills/* .claude/skills/
@@ -153,7 +153,7 @@ export ANTHROPIC_API_KEY=sk-ant-...     # or OPENAI_API_KEY / GOOGLE_API_KEY
 
 > [!NOTE]
 > A typical first run is `coverage → generate → sufficiency`, then at every milestone after: `audit` — plus
-> `sufficiency` when you've added behavior. The [tutorial](GETTING-STARTED.md) has step-by-step guides for
+> `sufficiency` when you've added behavior. The [tutorial](https://github.com/benjaminjones/spec-eval/blob/main/GETTING-STARTED.md) has step-by-step guides for
 > starting with no specs and for existing docs.
 
 > [!TIP]
@@ -164,7 +164,7 @@ export ANTHROPIC_API_KEY=sk-ant-...     # or OPENAI_API_KEY / GOOGLE_API_KEY
 A few things worth knowing:
 
 - **No config needed** — by default each spec pairs with the code file of the same name beside it (`parser.md` ↔ `parser.py`).
-  Prefer one spec per folder? `--layout per-dir` ([FAQ](FAQ.md#can-i-use-one-spec-per-folder-instead-of-one-per-file)).
+  Prefer one spec per folder? `--layout per-dir` ([FAQ](https://github.com/benjaminjones/spec-eval/blob/main/FAQ.md#can-i-use-one-spec-per-folder-instead-of-one-per-file)).
 - **Any language, three providers** — swap the model with `--model openai:…`, `google:…`, or `claude-code`
   (Anthropic is the default); code is read as plain text. Want another provider? [Open an issue](#feedback).
 - **Your other docs are safe** — by default only a `.md` next to code with the same name counts as a spec, so your
@@ -172,7 +172,7 @@ A few things worth knowing:
 - **What's shared** — to grade a spec, its code and text go to your AI provider. That's it. (`coverage` sends nothing — it runs fully on your machine.)
 
 **Keep it honest on every commit** — add one line to a git hook (a script git runs before each commit) so new
-code always needs a spec; copy-paste setup in [the tutorial](GETTING-STARTED.md#make-it-routine):
+code always needs a spec; copy-paste setup in [the tutorial](https://github.com/benjaminjones/spec-eval/blob/main/GETTING-STARTED.md#make-it-routine):
 ```bash
 spec-eval coverage . --min 90    # fails the commit if coverage drops below 90%  (free — no AI)
 ```
@@ -203,20 +203,20 @@ the pair against a fixed rubric — one model call per pair. Two things follow f
 > your coding agent's own usage if you asked in chat. Every CLI run prints its exact call and token counts.
 
 **Want the exact rules behind each score?** spec-eval specs its own scoring — read
-[`spec_eval/coverage.md`](spec_eval/coverage.md) (how coverage counts),
-[`spec_eval/rubric.md`](spec_eval/rubric.md) (the drift rules), and
-[`spec_eval/sufficiency.md`](spec_eval/sufficiency.md) (how the 0–1 score is decided).
+[`spec_eval/coverage.md`](https://github.com/benjaminjones/spec-eval/blob/main/spec_eval/coverage.md) (how coverage counts),
+[`spec_eval/rubric.md`](https://github.com/benjaminjones/spec-eval/blob/main/spec_eval/rubric.md) (the drift rules), and
+[`spec_eval/sufficiency.md`](https://github.com/benjaminjones/spec-eval/blob/main/spec_eval/sufficiency.md) (how the 0–1 score is decided).
 
 ## Reading the scores
 
 Each run writes a short report to `spec-reports/` (a `.md` you read, a `.json` for tools):
 
-- **coverage** — the % of your code that has a spec, and which files don't. *(live example: [coverage.md](spec-reports/coverage.md))*
-- **drift** — each place a spec and the code disagree, with a suggested fix. `0` is clean. *(live example: [report.md](spec-reports/report.md))*
+- **coverage** — the % of your code that has a spec, and which files don't. *(live example: [coverage.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/coverage.md))*
+- **drift** — each place a spec and the code disagree, with a suggested fix. `0` is clean. *(live example: [report.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/report.md))*
 - **sufficiency** — a `0`–`1` score per spec (worst first), listing what's missing with a searchable code pointer
-  (`file.py (function)`). `1.0` = the grader found nothing missing — guidance, not a guarantee. *(live example: [sufficiency.md](spec-reports/sufficiency.md))*
+  (`file.py (function)`). `1.0` = the grader found nothing missing — guidance, not a guarantee. *(live example: [sufficiency.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/sufficiency.md))*
 
-The three examples are **spec-eval grading itself**, rolled up in [SPEC-HEALTH.md](SPEC-HEALTH.md).
+The three examples are **spec-eval grading itself**, rolled up in [SPEC-HEALTH.md](https://github.com/benjaminjones/spec-eval/blob/main/SPEC-HEALTH.md).
 
 Every command also appends a line to `runs.jsonl` — timestamp, git commit, scores — so you can track change over
 time.
@@ -247,8 +247,8 @@ so put both keys in one `.env` and each run picks up the one it needs. (Want one
 
 ## Proof it works
 
-- **spec-eval specs itself** — every module in [`spec_eval/`](spec_eval/) has its own spec:
-  **coverage 100% · drift 0 · sufficiency ≈0.86** ([receipt](SPEC-HEALTH.md) — the exact, dated score).
+- **spec-eval specs itself** — every module in [`spec_eval/`](https://github.com/benjaminjones/spec-eval/tree/main/spec_eval/) has its own spec:
+  **coverage 100% · drift 0 · sufficiency ≈0.86** ([receipt](https://github.com/benjaminjones/spec-eval/blob/main/SPEC-HEALTH.md) — the exact, dated score).
 
 ## More
 
@@ -260,13 +260,13 @@ so put both keys in one `.env` and each run picks up the one it needs. (Want one
   agent writes the code; the check is where they meet), so the spec is *born accurate* instead of written up
   afterward.
 - **Just want to vibe code?** Fine — build first, check later, automatically: a pre-commit gate and a GitHub
-  Action can run the checks for you — see [Make it routine](GETTING-STARTED.md#make-it-routine).
+  Action can run the checks for you — see [Make it routine](https://github.com/benjaminjones/spec-eval/blob/main/GETTING-STARTED.md#make-it-routine).
 - **Higher-stakes spec?** Run it past two vendors and compare — see [Higher stakes? Get a second opinion](#higher-stakes-get-a-second-opinion) above.
 
 ## FAQ
 
 Common questions — from *"which command do I run first?"* through costs, layouts, and score accuracy — live in
-**[FAQ.md](FAQ.md)**.
+**[FAQ.md](https://github.com/benjaminjones/spec-eval/blob/main/FAQ.md)**.
 
 ## Feedback
 
