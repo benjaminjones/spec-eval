@@ -107,7 +107,9 @@ first check coverage, then check my specs against my code.
 > echo them instead of re-reading the code — the same reason a PR isn't reviewed by its author. Write specs in
 > one session; open a fresh one to check them.
 
-The path is wherever you cloned this repo — no clone? Give your agent the file links above.
+The path is wherever you cloned this repo — no clone? Give your agent the skill's link by name:
+[`spec-authoring/SKILL.md`](skills/spec-authoring/SKILL.md) to write specs,
+[`spec-check/SKILL.md`](skills/spec-check/SKILL.md) to check them.
 
 Optionally save reports — add:
 ```text
