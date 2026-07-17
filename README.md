@@ -87,12 +87,27 @@ Three ways to run them, least setup first:
 ### Run via prompt chat (no setup)
 
 Ask the coding agent you already have (Claude Code, Copilot, Cursor, …) — nothing to install, no key, answers
-land in the chat:
+land in the chat. Two skills, one per job — point your agent at the right one:
+
+**Write specs** — the [authoring skill](skills/spec-authoring/SKILL.md) carries the spec structure
+(the `INV-*` invariant and `AC-*` acceptance-criteria tables come from its rubric and templates):
+```text
+Read path/to/spec-eval/skills/spec-authoring/SKILL.md — and the templates
+in its templates/ folder — and follow it: write specs for my code.
+```
+
+**Check specs** — the [checking skill](skills/spec-check/SKILL.md) grades what exists (drift + sufficiency):
 ```text
 Read path/to/spec-eval/skills/spec-check/SKILL.md and follow it —
 first check coverage, then check my specs against my code.
 ```
-The path is wherever you cloned this repo — no clone? Give your agent [the file's link](skills/spec-check/SKILL.md).
+
+> [!TIP]
+> **Author and check in separate sessions.** A checker that still remembers its authoring decisions tends to
+> echo them instead of re-reading the code — the same reason a PR isn't reviewed by its author. Write specs in
+> one session; open a fresh one to check them.
+
+The path is wherever you cloned this repo — no clone? Give your agent the file links above.
 
 Optionally save reports — add:
 ```text
