@@ -1,0 +1,32 @@
+name: Publish to PyPI
+
+# Publishes spec-eval to PyPI when you push a version tag, e.g.:
+#     git tag v0.2.0 && git push origin v0.2.0
+# Uses PyPI Trusted Publishing (OIDC) — no API token is stored anywhere. The short-lived
+# credential is minted per run from the `id-token: write` permission below and exchanged
+# with PyPI, which trusts this repo + workflow + environment (configured once on PyPI).
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi              # must match the "Environment name" in PyPI's publisher config
+    permissions:
+      id-token: write              # REQUIRED for trusted publishing; no other secrets needed
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Verify the tag matches __version__
+        run: |
+          ver=$(sed -n 's/^__version__ = "\(.*\)".*/\1/p' spec_eval/__init__.py)
+          [ "${GITHUB_REF_NAME#v}" = "$ver" ] || { echo "::error::tag ${GITHUB_REF_NAME} != __version__ ${ver}"; exit 1; }
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - name: Publish (trusted publishing / OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,56 @@
+[
+  {
+    "label": "audit",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  },
+  {
+    "label": "authoring",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  },
+  {
+    "label": "cli",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  },
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  },
+  {
+    "label": "providers",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  },
+  {
+    "label": "report",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  },
+  {
+    "label": "rubric",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  },
+  {
+    "label": "runlog",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  },
+  {
+    "label": "sufficiency",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  }
+]

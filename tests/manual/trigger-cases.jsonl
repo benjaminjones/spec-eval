@@ -1,0 +1,16 @@
+{"prompt": "does my spec still match the code?", "expect": "spec-check"}
+{"prompt": "did the code drift from the docs?", "expect": "spec-check"}
+{"prompt": "check my specs against my code before I commit", "expect": "spec-check"}
+{"prompt": "is this design doc still accurate for src/parser.py?", "expect": "spec-check"}
+{"prompt": "audit the code in src/ against the specs in spec/", "expect": "spec-check"}
+{"prompt": "which of my code files have no spec yet?", "expect": "spec-check"}
+{"prompt": "write a spec for src/parser.py", "expect": "spec-authoring"}
+{"prompt": "generate intent-led specs for this module", "expect": "spec-authoring"}
+{"prompt": "backfill specs for the code that has none", "expect": "spec-authoring"}
+{"prompt": "create a spec.md describing what payments.py does", "expect": "spec-authoring"}
+{"prompt": "author a project overview for these modules", "expect": "spec-authoring"}
+{"prompt": "refactor this function to be cleaner", "expect": "none"}
+{"prompt": "rename this variable everywhere in the repo", "expect": "none"}
+{"prompt": "fix the bug in the mean() function", "expect": "none"}
+{"prompt": "write unit tests for parser.py", "expect": "none"}
+{"prompt": "add a docstring to this function", "expect": "none"}

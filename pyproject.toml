@@ -1,0 +1,52 @@
+[project]
+name = "spec-eval"
+dynamic = ["version"]                     # single source of truth: spec_eval/__init__.py (__version__)
+description = "A trust-eval for your specs: coverage, drift, and sufficiency of markdown specs against code."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Ben Jones" }]
+keywords = ["spec-driven-development", "documentation-drift", "docs-as-code", "living-documentation",
+            "llm-as-judge", "code-documentation", "backfill-documentation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "anthropic>=0.40",
+    "openai>=1.50",
+    "google-genai>=1.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "hypothesis>=6", "ruff>=0.4"]
+
+[project.scripts]
+spec-eval = "spec_eval.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/benjaminjones/spec-eval"
+Repository = "https://github.com/benjaminjones/spec-eval"
+Issues = "https://github.com/benjaminjones/spec-eval/issues"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["spec_eval"]
+
+[tool.setuptools.dynamic]
+version = { attr = "spec_eval.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]                       # Layer 0 — static analysis
+line-length = 120

@@ -1,0 +1,9 @@
+# spec-eval auditing ITSELF — each behavioral surface → its (future) governing spec
+pairs:
+  - label: audit-engine
+    code: ["spec_eval/audit.py", "spec_eval/rubric.py"]
+    docs: ["SPEC.md"]
+  - label: providers
+    code: ["spec_eval/providers.py"]
+    docs: ["SPEC.md"]
+exclude: []

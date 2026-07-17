@@ -1,0 +1,47 @@
+[
+  {
+    "code": "audit.py",
+    "spec": "audit.md",
+    "status": "authored"
+  },
+  {
+    "code": "authoring.py",
+    "spec": "authoring.md",
+    "status": "authored"
+  },
+  {
+    "code": "cli.py",
+    "spec": "cli.md",
+    "status": "authored"
+  },
+  {
+    "code": "coverage.py",
+    "spec": "coverage.md",
+    "status": "authored"
+  },
+  {
+    "code": "providers.py",
+    "spec": "providers.md",
+    "status": "authored"
+  },
+  {
+    "code": "report.py",
+    "spec": "report.md",
+    "status": "authored"
+  },
+  {
+    "code": "rubric.py",
+    "spec": "rubric.md",
+    "status": "authored"
+  },
+  {
+    "code": "runlog.py",
+    "spec": "runlog.md",
+    "status": "authored"
+  },
+  {
+    "code": "sufficiency.py",
+    "spec": "sufficiency.md",
+    "status": "authored"
+  }
+]

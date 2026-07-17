@@ -1,0 +1,3 @@
+# Self-audit scope: the shippable package. Specs are co-located (`spec_eval/<module>.md`) and inferred
+# automatically, so no explicit pairs are needed.
+exclude: []

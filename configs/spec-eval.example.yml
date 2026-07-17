@@ -1,0 +1,43 @@
+# spec-eval example config — pass with `--config configs/spec-eval.example.yml`.
+# YAML or JSON. Everything is optional; the values below are the DEFAULTS, laid out
+# so every knob is visible in one place. The dotted key names in the comments
+# (e.g. `authoring.template`) match the docs and the code that reads them — grep
+# one to find where it applies.
+
+# ── shared: used by coverage / audit / sufficiency / generate ────────────────
+
+# code_ext — extensions treated as "code".
+#   Default: .py .ts .tsx .js .jsx .go .rs .java .rb .kt .swift .php .cs
+# code_ext: [".py", ".ts"]
+
+exclude: []          # extra globs to treat as NOT spec-worthy, e.g. ["**/migrations/**"]
+
+# caps — per-call INPUT limits in characters (the cost ceiling per pair). The defaults
+#   are calibrated to real-world file sizes: code covers ~p99 of source files, docs ~p95
+#   of design docs. Anything over a cap is truncated AND flagged in the report ("partial
+#   view"), never silently. Raise for very large files (e.g. C/C++ modules); lower to
+#   tighten a cost ceiling.
+# caps:
+#   code: 64000      # caps.code — chars of code per pair (audit / sufficiency / generate)
+#   docs: 28000      # caps.docs — chars of docs per pair (audit / sufficiency)
+#   reduce: 48000    # caps.reduce — chars of module intents per folder-synthesis pass (generate)
+
+# pairs — explicit code→doc pairs. Used by audit/sufficiency (what to check), by
+#   coverage (these code files count as covered), and by `generate` when
+#   `authoring.layout: per-pair`. Omit to rely on co-located `<stem>.md` specs.
+# pairs:
+#   - label: parser
+#     code: ["src/parser/**/*.py"]
+#     docs: ["docs/parser.md"]
+
+# ── authoring: drives `generate` (coverage mirrors layout / dir_spec_name) ────
+authoring:
+  layout: per-file          # authoring.layout — per-file (default) | per-dir | per-pair
+  dir_spec_name: "<dir>"    # authoring.dir_spec_name — (per-dir) folder-spec base name; "<dir>" = the folder's own name, or a literal like "README"
+  overview: none            # authoring.overview — none (default) | repo | per-dir | both
+  overview_min_files: 2     # authoring.overview_min_files — write a per-dir overview only for dirs with MORE than this many spec-worthy files
+
+  # authoring.template — path to a custom authoring template that REPLACES the built-in
+  #   section structure. spec-eval always appends its authoring discipline so the result
+  #   stays gradeable. Uncomment and point at your own file (a sample ships beside this one):
+  # template: configs/spec-template.example.md

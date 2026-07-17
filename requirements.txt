@@ -1,0 +1,5 @@
+# spec-eval — all permissive licenses (MIT / BSD / Apache-2.0). See discovery/appendix/license-due-diligence.md.
+anthropic>=0.40
+openai>=1.50
+google-genai>=1.0
+PyYAML>=6.0

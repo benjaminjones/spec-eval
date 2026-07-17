@@ -1,0 +1,44 @@
+{
+  "pct": 100.0,
+  "spec_worthy": 9,
+  "covered": [
+    "spec_eval/audit.py",
+    "spec_eval/authoring.py",
+    "spec_eval/cli.py",
+    "spec_eval/coverage.py",
+    "spec_eval/providers.py",
+    "spec_eval/report.py",
+    "spec_eval/rubric.py",
+    "spec_eval/runlog.py",
+    "spec_eval/sufficiency.py"
+  ],
+  "uncovered": [],
+  "orphans": [],
+  "excluded": {
+    "test": [
+      "tests/acceptance/test_ac_commands.py",
+      "tests/acceptance/test_ac_file_scope.py",
+      "tests/acceptance/test_ac_layouts.py",
+      "tests/acceptance/test_ac_orphans.py",
+      "tests/conftest.py",
+      "tests/contract/test_audit_parse.py",
+      "tests/contract/test_authoring_output.py",
+      "tests/contract/test_caps_sync.py",
+      "tests/contract/test_coverage.py",
+      "tests/contract/test_providers.py",
+      "tests/contract/test_report.py",
+      "tests/contract/test_rubric_sync.py",
+      "tests/contract/test_runlog.py",
+      "tests/contract/test_sufficiency_refs.py",
+      "tests/contract/test_synthesis_recursion.py",
+      "tests/contract/test_truncation.py",
+      "tests/doubles/fake_provider.py",
+      "tests/manual/run_trigger_eval.py",
+      "tests/system/test_e2e_smoke.py"
+    ],
+    "glue": [
+      "spec_eval/__init__.py",
+      "spec_eval/__main__.py"
+    ]
+  }
+}
