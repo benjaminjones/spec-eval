@@ -102,14 +102,15 @@ Read path/to/spec-eval/skills/spec-check/SKILL.md and follow it —
 first check coverage, then check my specs against my code.
 ```
 
+> [!NOTE]
+> `path/to/spec-eval` is wherever you cloned this repo. No clone? Give your agent the skill's link by name:
+> [`spec-authoring/SKILL.md`](skills/spec-authoring/SKILL.md) to write specs,
+> [`spec-check/SKILL.md`](skills/spec-check/SKILL.md) to check them.
+
 > [!TIP]
 > **Author and check in separate sessions.** A checker that still remembers its authoring decisions tends to
 > echo them instead of re-reading the code — the same reason a PR isn't reviewed by its author. Write specs in
 > one session; open a fresh one to check them.
-
-The path is wherever you cloned this repo — no clone? Give your agent the skill's link by name:
-[`spec-authoring/SKILL.md`](skills/spec-authoring/SKILL.md) to write specs,
-[`spec-check/SKILL.md`](skills/spec-check/SKILL.md) to check them.
 
 Optionally save reports — add:
 ```text
