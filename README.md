@@ -121,7 +121,7 @@ Read {{SKILL = https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-
 and follow it to check specs for: {{TARGET = ./  (a file, a folder, or the whole project)}}
 Before checking, echo TARGET and the report setting back in one message — with its full option list
 from the comment, so I can pick in my reply — and wait for my OK:
-  - first check coverage (which files have no spec), then check the specs against the code
+  - run both passes, in order: 1) coverage (which files have no spec), 2) drift (do the specs match the code)
   - reports:  chat only   # chat only (results land in the chat) | save (also save the results to spec-reports/)
 Check one folder at a time so a small-context agent doesn't run out of tokens.
 ```
@@ -146,9 +146,10 @@ folder (Claude Code: `.claude/skills/`). Then the prompt is the command:
 mkdir -p .claude/skills && cp -r path/to/spec-eval/skills/* .claude/skills/
 ```
 ```text
-Which files have no spec yet?        # coverage
-Write a spec for src/parser.py       # generate
-Check my specs against my code       # sufficiency + audit
+Which files have no spec yet?              # coverage
+Write a spec for src/parser.py             # generate
+How completely do my specs cover my code?  # sufficiency
+Check my specs against my code             # audit (drift)
 ```
 
 ### Run in the terminal, no key (Claude subscription)
