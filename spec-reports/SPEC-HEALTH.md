@@ -5,10 +5,10 @@
 > **Litmus:** a fact true regardless of who audited it → a spec. A score with a model + date that changes on
 > re-run without the code changing → here.
 
-**spec-eval** **specs itself**: every module in [`spec_eval/`](spec_eval/) has a co-located `<module>.md` intent spec,
+**spec-eval** **specs itself**: every module in [`spec_eval/`](../spec_eval/) has a co-located `<module>.md` intent spec,
 authored by `spec-eval generate` and graded by its own `audit` / `sufficiency` checks (scope:
-[`configs/self-audit.yml`](configs/self-audit.yml) — the shippable package). This is the dogfood — the raw
-reports are in [`spec-reports/`](spec-reports/).
+[`configs/self-audit.yml`](../configs/self-audit.yml) — the shippable package). This is the dogfood — the raw
+reports sit beside this file.
 
 ## Verdict
 > **Coverage 100%** (9/9 modules) · **drift 0** high/medium · **sufficiency 0.86** avg (1.0 = no gaps found — an
@@ -39,7 +39,7 @@ modules:
   - {name: runlog,      sufficiency: 0.93, drift_high: 0, drift_med: 0}
 ```
 
-## Fingerprint  *(markdown unicode bars — diffable; full run in [spec-reports/](spec-reports/))*
+## Fingerprint  *(markdown unicode bars — diffable; the full run sits beside this file)*
 > **detector `claude-code` · 2026-07-15.** A different model or date can move these bars — check the
 > run history below before reading a change as real.
 
@@ -55,7 +55,7 @@ modules:
 | `sufficiency` | `██████████████████░░` | 0.90 | ✓ clean |
 | `runlog`      | `███████████████████░` | 0.93 | ✓ clean |
 
-## Gaps / sufficiency misses  *(the backlog; full list in [spec-reports/sufficiency.md](spec-reports/sufficiency.md))*
+## Gaps / sufficiency misses  *(the backlog; full list in [sufficiency.md](sufficiency.md))*
 - **`authoring`** *(the one [major])* — the `AUTHORING_STRUCTURE`/`AUTHORING_DISCIPLINE` rubric is summarized,
   not restated verbatim (**by design** — the spec's own don't-restate discipline; the full text lives in
   `authoring.py`, mirrored in the skill, pinned by `test_rubric_sync`); plus minor cap edge-cases and unpinned
@@ -66,8 +66,8 @@ modules:
   templates. Every gap carries a searchable `file.py (symbol)` pointer.
 
 ## Run history  *(summary stats over time — spot whether a change came from the eval, the model, or the code)*
-> Fingerprint diff over time: **`git log -p SPEC-HEALTH.md`**. Each run's exact git SHA + per-module scores are
-> auto-logged to [spec-reports/runs.jsonl](spec-reports/runs.jsonl).
+> Fingerprint diff over time: **`git log -p spec-reports/SPEC-HEALTH.md`**. Each run's exact git SHA + per-module scores are
+> auto-logged to [runs.jsonl](runs.jsonl).
 
 | Date | Detector | Coverage | Avg suff | Worst | Drift H/M | Commit | What changed |
 |---|---|---|---|---|---|---|---|

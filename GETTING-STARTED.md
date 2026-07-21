@@ -66,7 +66,7 @@ spec-eval sufficiency .                  # 4. score how complete the new specs a
 Why this order:
 
 1. **`coverage` first, always** — it's free, and it shows exactly what step 2 will write. No surprises.
-2. **`generate`** writes ordinary new files beside your code. Want a top-level index too? Add `--overview repo`.
+2. **`generate`** writes ordinary new files beside your code. Want a top-level `OVERVIEW.md` too? Add `--overview repo`.
 3. **Your version control is the review.** Edit the specs that miss the point; `git checkout -- <file>` rejects
    one entirely; commit the keepers like code.
 4. **`sufficiency`** tells you what the specs still miss, worst-first — fix the `major` gaps and re-run.
@@ -121,10 +121,10 @@ Four shapes — the first three are one flag; the fourth adds a config:
 |---|---|
 | One spec per code file *(default)* | `spec-eval generate .` |
 | One spec per folder | `spec-eval generate . --layout per-dir` |
-| Per-file specs **plus** index READMEs per folder | `spec-eval generate . --overview per-dir` |
+| Per-file specs **plus** an overview `README.md` per folder | `spec-eval generate . --overview per-dir` |
 | Specs in a `docs/` folder — you name each path in a config | `spec-eval generate . --config pairs.yml --layout per-pair` |
 
-Add `--overview repo` to any of them for a single top-level `OVERVIEW.md` index. The checks (`coverage`,
+Add `--overview repo` to any of them for a single top-level `OVERVIEW.md`. The checks (`coverage`,
 `audit`, `sufficiency`) understand whichever layout you pick — put it in a config so they all agree:
 
 ```yaml

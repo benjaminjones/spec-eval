@@ -55,16 +55,19 @@ Your **code is the source of truth** — the spec is what gets graded against it
 Everything it writes is plain markdown, right next to your code:
 
 ```text
- your code                 specs beside it              spec-reports/
-┌────────────┐             ┌────────────┐             ┌────────────────┐
-│ parser.py  │  generate   │ parser.md  │  coverage   │ coverage.md    │
-│ api.py     │ ──────────► │ api.md     │  audit      │ report.md      │
-│ …          │             │ …          │ ──────────► │ sufficiency.md │
-└────────────┘             └────────────┘ sufficiency └───────┬────────┘
-                                                              │
-                                                              ▼
-                                                       SPEC-HEALTH.md
-                                                    (one-page scorecard)
+your-project/
+├─ src/
+│  ├─ parser.py
+│  ├─ parser.md        ← generate: a spec beside each code file
+│  ├─ api.py
+│  └─ api.md
+├─ OVERVIEW.md         ← optional overview of the spec set (--overview repo)
+└─ spec-reports/       ← the checks write here
+   ├─ coverage.md        which files have a spec
+   ├─ report.md          drift findings
+   ├─ sufficiency.md     0–1 completeness per spec
+   ├─ runs.jsonl         run history
+   └─ SPEC-HEALTH.md     one-page scorecard (ask the skill to write it, or edit by hand)
 ```
 
 ## Try it
@@ -87,36 +90,51 @@ Three ways to run them, least setup first:
 ### Run via prompt chat (no setup)
 
 Ask the coding agent you already have (Claude Code, Copilot, Cursor, …) — nothing to install, no key, answers
-land in the chat. Two skills, one per job — point your agent at the right one:
+land in the chat. Copy a block, adjust the `{{slots}}` if you want, paste it — each slot shows its default
+after `=`, and the agent echoes the settings for your OK before it writes.
 
-**Write specs** — the [authoring skill](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-authoring/SKILL.md) carries the spec structure
+<!-- KEEP IN SYNC: the defaults in these two blocks (layout per-file, overview none + its four values,
+     spec-reports/) mirror spec_eval/cli.py + spec_eval/authoring.py; tests/contract/test_prompt_snippets_sync.py
+     pins them so a code change can't silently leave the snippets stale. -->
+#### Write specs
+
+The [authoring skill](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-authoring/SKILL.md) carries the spec structure
 (the `INV-*` invariant and `AC-*` acceptance-criteria tables come from its rubric and templates):
 ```text
-Read path/to/spec-eval/skills/spec-authoring/SKILL.md — and the templates
-in its templates/ folder — and follow it: write specs for my code.
+Read {{SKILL = https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-authoring/SKILL.md}}
+and its templates/ folder, then follow it to write specs for: {{TARGET = ./  (a file, a folder, or the whole project)}}
+
+Settings — defaults below. Before writing anything, echo TARGET and these three settings back in one
+message and wait for my OK (I'll change values in my reply):
+  - layout:   per-file    # one spec beside each file (src/x.py -> src/x.md); a separate folder only if you name one
+  - overview: none        # overview files: none | repo | per-dir | both  (see the tip below)
+  - reports:  chat only   # to save a report too, change to: and save the results to spec-reports/
+Do one scoped job at a time (one file, or one folder) so a small-context agent doesn't run out of tokens.
 ```
 
-**Check specs** — the [checking skill](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md) grades what exists (drift + sufficiency):
+#### Check specs
+
+The [checking skill](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md) grades what exists (drift + sufficiency):
 ```text
-Read path/to/spec-eval/skills/spec-check/SKILL.md and follow it —
-first check coverage, then check my specs against my code.
+Read {{SKILL = https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md}}
+and follow it to check specs for: {{TARGET = ./  (a file, a folder, or the whole project)}}
+Before checking, echo TARGET and the report setting back in one message and wait for my OK:
+  - first check coverage (which files have no spec), then check the specs against the code
+  - reports:  chat only   # to save them too, change to: and save the results to spec-reports/
+Check one folder at a time so a small-context agent doesn't run out of tokens.
 ```
 
-> [!NOTE]
-> `path/to/spec-eval` is wherever you cloned this repo. No clone? Give your agent the skill's link by name:
-> [`spec-authoring/SKILL.md`](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-authoring/SKILL.md) to write specs,
-> [`spec-check/SKILL.md`](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md) to check them.
+> [!TIP]
+> Cloned the repo? Point `{{SKILL}}` at your local `path/to/spec-eval/skills/…/SKILL.md`. If your prompt and
+> the skill disagree, your prompt wins — the skill carries the method, your slots carry the choices.
+> The `overview` values: `none` *(default)* — no overview files · `repo` — one `OVERVIEW.md` at the top of the
+> scanned path · `per-dir` — a `README.md` overview in each folder with 2+ modules · `both` — repo + per-dir.
+> (`layout` places the *specs*; `overview` only adds overview files.)
 
 > [!TIP]
 > **Author and check in separate sessions.** A checker that still remembers its authoring decisions tends to
 > echo them instead of re-reading the code — the same reason a PR isn't reviewed by its author. Write specs in
 > one session; open a fresh one to check them.
-
-Optionally save reports — add:
-```text
-and save the results to spec-reports/
-```
-The agent writes them itself (its own scores; the terminal adds the exact coverage % and a run history).
 
 **Make it a standing command** *(optional, one-time)* — copy the [`skills/`](https://github.com/benjaminjones/spec-eval/tree/main/skills/) into your agent's skills
 folder (Claude Code: `.claude/skills/`). Then the prompt is the command:
@@ -168,7 +186,7 @@ A few things worth knowing:
 - **Any language, three providers** — swap the model with `--model openai:…`, `google:…`, or `claude-code`
   (Anthropic is the default); code is read as plain text. Want another provider? [Open an issue](#feedback).
 - **Your other docs are safe** — by default only a `.md` next to code with the same name counts as a spec, so your
-  READMEs are left alone. (Folder specs and overview indexes only appear if you opt in with `--layout` / `--overview`.)
+  READMEs are left alone. (Folder specs and overview files only appear if you opt in with `--layout` / `--overview`.)
 - **What's shared** — to grade a spec, its code and text go to your AI provider. That's it. (`coverage` sends nothing — it runs fully on your machine.)
 
 **Keep it honest on every commit** — add one line to a git hook (a script git runs before each commit) so new
@@ -216,7 +234,7 @@ Each run writes a short report to `spec-reports/` (a `.md` you read, a `.json` f
 - **sufficiency** — a `0`–`1` score per spec (worst first), listing what's missing with a searchable code pointer
   (`file.py (function)`). `1.0` = the grader found nothing missing — guidance, not a guarantee. *(live example: [sufficiency.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/sufficiency.md))*
 
-The three examples are **spec-eval grading itself**, rolled up in [SPEC-HEALTH.md](https://github.com/benjaminjones/spec-eval/blob/main/SPEC-HEALTH.md).
+The three examples are **spec-eval grading itself**, rolled up in [SPEC-HEALTH.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md).
 
 Every command also appends a line to `runs.jsonl` — timestamp, git commit, scores — so you can track change over
 time.
@@ -248,7 +266,7 @@ so put both keys in one `.env` and each run picks up the one it needs. (Want one
 ## Proof it works
 
 - **spec-eval specs itself** — every module in [`spec_eval/`](https://github.com/benjaminjones/spec-eval/tree/main/spec_eval/) has its own spec:
-  **coverage 100% · drift 0 · sufficiency ≈0.86** ([receipt](https://github.com/benjaminjones/spec-eval/blob/main/SPEC-HEALTH.md) — the exact, dated score).
+  **coverage 100% · drift 0 · sufficiency ≈0.86** ([receipt](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md) — the exact, dated score).
 
 ## More
 

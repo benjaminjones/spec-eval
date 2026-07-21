@@ -33,8 +33,8 @@ Written so a newcomer understands the point before opening any spec.>
 
 ## Health receipt
 Spec-set trust signal (coverage / drift / sufficiency, dated + SHA-pinned): see
-[SPEC-HEALTH.md](./SPEC-HEALTH.md). **This page carries no scores.**
+[SPEC-HEALTH.md](./spec-reports/SPEC-HEALTH.md). **This page carries no scores.**
 
 ## Reading order
-1. This overview → 2. the module specs (`<a>` → `<b>` → …) → 3. [SPEC-HEALTH.md](./SPEC-HEALTH.md) to confirm the
-   specs still match the code.
+1. This overview → 2. the module specs (`<a>` → `<b>` → …) → 3. [SPEC-HEALTH.md](./spec-reports/SPEC-HEALTH.md)
+   to confirm the specs still match the code.

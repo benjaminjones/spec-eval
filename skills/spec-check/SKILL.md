@@ -18,7 +18,7 @@ It runs in your coding-agent session (Claude Code, Copilot, Cursor, …) — **n
 setup**. For hands-off CI or a cross-vendor second opinion, pair it with a dedicated spec-audit CLI.
 
 ## When to use
-- **While building a feature with a spec** (e.g. you're drafting `spec/x.md` and writing `src/x/` together):
+- **While building a feature with a spec** (e.g. you're drafting `src/x.md` and writing `src/x.py` together):
   after a change, confirm the code and spec still match — catch the gap immediately, not in review.
 - **Before a commit / PR:** check that the changed code still matches the spec/doc that governs it.
 - **Auditing existing code:** when asked "does this spec match the code?", "did the code drift from the doc?",
@@ -28,10 +28,12 @@ setup**. For hands-off CI or a cross-vendor second opinion, pair it with a dedic
 > spec-check to confirm the new spec matches the code. Authoring generates the artifact; spec-check guards it.
 
 ## How to run it
-1. **Find the pairs.** The code + the spec/doc that governs it (a `spec/*.md`, a design doc, or a README section
-   that describes it). When building new, that's the spec you're drafting *alongside* the code. If the project
-   has a pairs config (e.g. a YAML/JSON listing `code` globs → `docs`), use it. If a code file has **no**
-   governing spec yet, say so — missing-spec is itself a coverage finding (decide whether it needs one).
+1. **Find the pairs.** The code + the spec/doc that governs it. **By default that's the co-located `<stem>.md`
+   beside the code** (`src/x.py` ↔ `src/x.md`) — the same pairing the CLI uses; it can also be a folder spec, a
+   design doc, or a README section that describes it. When building new, that's the spec you're drafting
+   *alongside* the code. If the project has a pairs config (e.g. a YAML/JSON listing `code` globs → `docs`), use
+   it. If a code file has **no** governing spec yet, say so — missing-spec is itself a coverage finding (decide
+   whether it needs one).
 2. **Apply the rubric below** to each (code, spec) pair — strictly, one pair at a time.
 3. **Report** a short table per pair: `severity · summary · code ref · doc ref · suggested fix`, then a one-line
    verdict (✓ in agreement / ⚠ N findings). Quote the conflicting code + doc as evidence. The fix can go
@@ -77,7 +79,9 @@ durable, reviewable receipts — the same files the `spec-eval` CLI produces:
 - `spec-reports/sufficiency.md` *(only if the user also wants a completeness score)* — a `0.0–1.0` score per
   pair answering *"could a developer rebuild this behavior from the spec alone?"*, worst pair first, listing the
   missing behaviors (each pointing at `file.py (symbol)`).
-- `spec-reports/SPEC-HEALTH.md` — a dated one-page rollup of coverage / drift / sufficiency at a glance.
+- `spec-reports/SPEC-HEALTH.md` — a dated one-page rollup of coverage / drift / sufficiency at a glance. This is
+  also the project's **standing scorecard**: if one already exists, refresh the scores and date but **preserve
+  the human-written verdict and run-history rows** (append a row — never clobber them).
 
 Two rules for writing these:
 - **State the honesty caveat in the files, not just the chat** — they are a single-model read, dated; the exact,

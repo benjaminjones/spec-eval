@@ -20,7 +20,7 @@ Two governing rules a reviewer can check:
 | per-file spec path | The co-located `.md`: `code_path` with its extension replaced by `.md`. |
 | per-dir spec path | `<dir>/<name>.md` for the file's directory, where `<name>` is the directory's own name (`dir_spec_name: "<dir>"`, default) or a literal like `README`. Computed by `coverage.dir_spec_path`, shared with the coverage module. |
 | overview | Navigation index to also write: `none` (default), `repo`, `per-dir`, or `both`. |
-| overview_min_files | A per-dir overview is written only for a directory with **more than** this many spec-worthy files (default 2). |
+| overview_min_files | A per-dir overview is written only for a directory with **at least** this many spec-worthy files (default 2). |
 | template | Optional path to a custom per-module authoring template; replaces the built-in STRUCTURE. |
 | authoring rubric | The per-module system prompt: `AUTHORING_STRUCTURE` + `AUTHORING_DISCIPLINE` by default; a custom template replaces the structure but the discipline is always appended. |
 | synthesis rubric | `FOLDER_SPEC_RUBRIC` (self-contained folder spec) or `OVERVIEW_RUBRIC` (an index that defers to linked specs). |
@@ -29,7 +29,7 @@ Two governing rules a reviewer can check:
 | REDUCE_CAP | Char budget for the per-module intents concatenated into one synthesis pass (`caps.reduce` in a config overrides the default). |
 | overwrite | Flag: regenerate already-present targets instead of skipping them. |
 | status | Per-target outcome: `authored` or `skipped`. |
-| note | Optional per-target message flagging a partial view or extra work: a multi-pass (recursive) synthesis, code input over the cap, or a model reply cut off at the token cap. |
+| note | Optional per-target message flagging a partial view or extra work: a multi-pass (recursive) synthesis, code input over the cap, a model reply cut off at the token cap, or a per-dir overview skipped below `overview_min_files`. |
 | on_progress | Optional callback invoked with a short status string as each module (map) and target is authored — never on a skip. |
 
 ## 3. Behavior
@@ -49,7 +49,9 @@ Two governing rules a reviewer can check:
 
 **Overview layer.** After every spec has been produced (so it can read them), an optional index is authored with `OVERVIEW_RUBRIC`, which links down to the specs and does not restate their detail. Its Map reuses each spec's canonical `**In one line:**` sentence verbatim (a copy-pointer, not a paraphrase that could drift):
 - `repo` / `both` → a repo-root `OVERVIEW.md` indexing all targets.
-- `per-dir` / `both` → a `README.md` in each directory with **more than** `overview_min_files` spec-worthy files.
+- `per-dir` / `both` → a `README.md` in each directory with **at least** `overview_min_files` spec-worthy files.
+  A directory below the threshold is recorded as `skipped` with a note naming the shortfall — small directories
+  are never silently omitted.
 
 **Custom template.** When `authoring.template` is set, its text replaces the built-in `AUTHORING_STRUCTURE`; `AUTHORING_DISCIPLINE` (the quality rules the drift/sufficiency checkers rely on) is always appended. **Why:** users own the structure, but the output stays gradeable.
 

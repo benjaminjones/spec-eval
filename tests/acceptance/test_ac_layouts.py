@@ -75,3 +75,17 @@ def test_acl006_custom_template_replaces_structure_but_keeps_discipline(tmp_path
     assert "MY CUSTOM STRUCTURE" in r
     assert "Output ONLY the finished markdown document" in r          # discipline appended
     assert authoring._rubric(None) == authoring.AUTHORING_RUBRIC       # default unchanged
+
+
+def test_acl007_per_dir_overview_covers_two_module_dirs_and_records_skips(tmp_path, fake_model):
+    """ACL-007. Given overview=per-dir, When generate runs, Then a directory with at least
+    overview_min_files modules (default 2) gets a README.md overview, and a smaller directory is recorded as
+    skipped with a note naming the shortfall — never silently omitted."""
+    _mkpkg(tmp_path)                                                   # src/pkg: 2 modules — at the default bar
+    (tmp_path / "src" / "tiny").mkdir()
+    (tmp_path / "src" / "tiny" / "solo.py").write_text("z = 3\n")      # 1 module — below it
+    res = authoring.generate_repo(str(tmp_path), {"authoring": {"overview": "per-dir"}}, fake_model)
+    assert (tmp_path / "src" / "pkg" / "README.md").exists()
+    assert not (tmp_path / "src" / "tiny" / "README.md").exists()
+    skip = next(r for r in res if r["spec"] == os.path.join("src", "tiny", "README.md"))
+    assert skip["status"] == "skipped" and "overview_min_files" in skip["note"]

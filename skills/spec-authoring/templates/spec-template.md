@@ -10,7 +10,7 @@
 - **Depends on:** <capabilities/specs this consumes>
 - **Consumed by:** <capabilities/specs that consume this>
 - **Status:** Draft | Accepted
-- **Health:** see [SPEC-HEALTH.md](./SPEC-HEALTH.md#<label>)   *(do NOT restate scores here)*
+- **Health:** see [SPEC-HEALTH.md](<path-to>/spec-reports/SPEC-HEALTH.md#<label>)   *(do NOT restate scores here)*
 
 ## 1. Purpose  *(prose — WHAT + WHY; nothing above this in reading order)*
 **In one line:** <the capability in ≤20 words — a reader can stop here and know what this is.>
