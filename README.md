@@ -67,7 +67,7 @@ your-project/
    ├─ report.md          drift findings
    ├─ sufficiency.md     0–1 completeness per spec
    ├─ runs.jsonl         run history
-   └─ SPEC-HEALTH.md     one-page scorecard (skill/hand-authored — not by the CLI)
+   └─ SPEC-HEALTH.md     one-page scorecard (ask the skill to write it, or edit by hand)
 ```
 
 ## Try it
