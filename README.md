@@ -91,7 +91,7 @@ Three ways to run them, least setup first:
 
 Ask the coding agent you already have (Claude Code, Copilot, Cursor, …) — nothing to install, no key, answers
 land in the chat. Copy a block, adjust the `{{slots}}` if you want, paste it — each slot shows its default
-after `=`.
+after `=`, and the agent echoes the settings for your OK before it writes.
 
 <!-- KEEP IN SYNC: the defaults in these two blocks (layout per-file, overview none + its four values,
      spec-reports/) mirror spec_eval/cli.py + spec_eval/authoring.py; tests/contract/test_prompt_snippets_sync.py
@@ -104,8 +104,8 @@ The [authoring skill](https://github.com/benjaminjones/spec-eval/blob/main/skill
 Read {{SKILL = https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-authoring/SKILL.md}}
 and its templates/ folder, then follow it to write specs for: {{TARGET = ./  (a file, a folder, or the whole project)}}
 
-Settings — use these defaults unless I changed the value; if a slot still shows its default and the
-choice is load-bearing, ask me once first:
+Settings — defaults below. Before writing anything, echo TARGET and these three settings back in one
+message and wait for my OK (I'll change values in my reply):
   - layout:   per-file    # one spec beside each file (src/x.py -> src/x.md); a separate folder only if you name one
   - overview: none        # overview files: none | repo | per-dir | both  (see the tip below)
   - reports:  chat only   # to save a report too, change to: and save the results to spec-reports/
@@ -118,6 +118,7 @@ The [checking skill](https://github.com/benjaminjones/spec-eval/blob/main/skills
 ```text
 Read {{SKILL = https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md}}
 and follow it to check specs for: {{TARGET = ./  (a file, a folder, or the whole project)}}
+Before checking, echo TARGET and the report setting back in one message and wait for my OK:
   - first check coverage (which files have no spec), then check the specs against the code
   - reports:  chat only   # to save them too, change to: and save the results to spec-reports/
 Check one folder at a time so a small-context agent doesn't run out of tokens.
