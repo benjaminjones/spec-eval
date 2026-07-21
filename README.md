@@ -105,10 +105,11 @@ Read {{SKILL = https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-
 and its templates/ folder, then follow it to write specs for: {{TARGET = ./  (a file, a folder, or the whole project)}}
 
 Settings — defaults below. Before writing anything, echo TARGET and these three settings back in one
-message and wait for my OK (I'll change values in my reply):
-  - layout:   per-file    # one spec beside each file (src/x.py -> src/x.md); a separate folder only if you name one
-  - overview: none        # overview files: none | repo | per-dir | both  (see the tip below)
-  - reports:  chat only   # to save a report too, change to: and save the results to spec-reports/
+message — each setting with its full option list from the comments, so I can pick in my reply — and
+wait for my OK:
+  - layout:   per-file    # per-file (a spec beside each file: src/x.py -> src/x.md) | per-dir (one spec per folder) | per-pair (folders you map in a config)
+  - overview: none        # none | repo | per-dir | both — none = no overview files; any other value adds them (both = top-level OVERVIEW.md + a README.md per folder)
+  - reports:  chat only   # chat only (results land in the chat) | save (also save the results to spec-reports/)
 Do one scoped job at a time (one file, or one folder) so a small-context agent doesn't run out of tokens.
 ```
 
@@ -118,14 +119,17 @@ The [checking skill](https://github.com/benjaminjones/spec-eval/blob/main/skills
 ```text
 Read {{SKILL = https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md}}
 and follow it to check specs for: {{TARGET = ./  (a file, a folder, or the whole project)}}
-Before checking, echo TARGET and the report setting back in one message and wait for my OK:
+Before checking, echo TARGET and the report setting back in one message — with its full option list
+from the comment, so I can pick in my reply — and wait for my OK:
   - first check coverage (which files have no spec), then check the specs against the code
-  - reports:  chat only   # to save them too, change to: and save the results to spec-reports/
+  - reports:  chat only   # chat only (results land in the chat) | save (also save the results to spec-reports/)
 Check one folder at a time so a small-context agent doesn't run out of tokens.
 ```
 
 > [!TIP]
-> Cloned the repo? Point `{{SKILL}}` at your local `path/to/spec-eval/skills/…/SKILL.md`. If your prompt and
+> Cloned the repo? Point `{{SKILL}}` at your local `path/to/spec-eval/skills/…/SKILL.md`. With the remote
+> default, your agent may ask you to approve each fetch (the skill, then its templates) — that's normal; the
+> local path skips the prompts. If your prompt and
 > the skill disagree, your prompt wins — the skill carries the method, your slots carry the choices.
 > The `overview` values: `none` *(default)* — no overview files · `repo` — one `OVERVIEW.md` at the top of the
 > scanned path · `per-dir` — a `README.md` overview in each folder with 2+ modules · `both` — repo + per-dir.
