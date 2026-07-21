@@ -35,7 +35,7 @@ authoring:
   layout: per-file          # authoring.layout — per-file (default) | per-dir | per-pair
   dir_spec_name: "<dir>"    # authoring.dir_spec_name — (per-dir) folder-spec base name; "<dir>" = the folder's own name, or a literal like "README"
   overview: none            # authoring.overview — none (default) | repo | per-dir | both
-  overview_min_files: 2     # authoring.overview_min_files — write a per-dir overview only for dirs with MORE than this many spec-worthy files
+  overview_min_files: 2     # authoring.overview_min_files — write a per-dir overview only for dirs with AT LEAST this many spec-worthy files
 
   # authoring.template — path to a custom authoring template that REPLACES the built-in
   #   section structure. spec-eval always appends its authoring discipline so the result

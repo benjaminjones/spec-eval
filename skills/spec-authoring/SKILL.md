@@ -14,14 +14,15 @@ skill produces that. It **generates** the spec artifact; the sibling **spec-chec
 Runs in your coding-agent session (Claude Code, Copilot, Cursor) — no API key, no setup.
 
 ## The three layers (produce all three)
-Trust you can lead with — often working from the spec, reaching for the code when you choose — comes from **layering**, where each doc names its source of truth and defers downward:
+Trust you can lead with — often working from the spec, reaching for the code when you choose — comes from **layering**, where each doc names its source of truth and defers downward. **By default every file is co-located** — a spec sits *beside* its code (`src/x.py` → `src/x.md`); a separate folder (`spec/`, `docs/`) is an explicit choice the user names, never a default you invent (see "Where the files go" below):
 
-1. **OVERVIEW — the *shape*** (`spec/OVERVIEW.md`): a navigation root — module map + a data-flow diagram +
-   glossary + reading order. Lets a reader orient from the map before opening a module. Links down; never restates a value.
-2. **Per-module intent specs — the *contract*** (`spec/<module>.md`): each leads with Purpose (what + why),
-   states invariants and acceptance criteria as *claims*, and demotes signatures to a reference appendix.
-3. **SPEC-HEALTH — the *measurement*** (`spec/SPEC-HEALTH.md`): the dated, SHA-pinned coverage/drift/sufficiency
-   fingerprint that *lets you verify* layer 2 still matches the code — "check me," not "trust me."
+1. **OVERVIEW — the *shape*** (`OVERVIEW.md`, at the top of the path you spec): a navigation root — module map +
+   a data-flow diagram + glossary + reading order. Lets a reader orient from the map before opening a module.
+   Links down; never restates a value.
+2. **Per-module intent specs — the *contract*** (`<module>.md`, beside each code file): each leads with Purpose
+   (what + why), states invariants and acceptance criteria as *claims*, and demotes signatures to a reference appendix.
+3. **SPEC-HEALTH — the *measurement*** (`SPEC-HEALTH.md`, at the top of the path you spec): the dated, SHA-pinned
+   coverage/drift/sufficiency fingerprint that *lets you verify* layer 2 still matches the code — "check me," not "trust me."
 
 **For a small project these three are enough** — no constitution or ADRs required. Every doc states its
 **boundary** (the deference contract): *"the code/spec is the source of truth; if this and the spec disagree, the
@@ -31,6 +32,27 @@ because it links instead of restating.
 **Trust is established early.** All three layers can exist from commit 1, *before* the specs are good: stub the
 OVERVIEW + SPEC-HEALTH with their boundaries, take a baseline fingerprint (even a low score is trustable because
 it's dated + pinned), then let the fingerprint drive the specs toward good.
+
+## Where the files go — layout & overview
+Two independent choices decide *where* the markdown lands. **Default to the first value of each** — it matches the
+`spec-eval` CLI, so a chat session and the terminal produce the same tree:
+
+- **layout** — the spec *granularity*:
+  - `per-file` *(default)* — one spec beside each code file (`src/x.py` → `src/x.md`).
+  - `per-dir` — one spec per folder (`src/parser/parser.md` covering `src/parser/*.py`), synthesised from its modules.
+  - `per-pair` — author the doc of each explicit `code → docs` entry in a pairs config — the way to put specs
+    in a separate folder (`docs/`, `spec/`) when the user names one. If a user asks for a separate folder in
+    chat, follow it — and tell them the `spec-eval` CLI checks need a matching pairs config to find those specs.
+- **overview** — optional overview files that map the specs (none by default):
+  - `none` *(default)* — no overview files.
+  - `repo` — one `OVERVIEW.md` at the top of the path you spec (a subfolder path → the top of *that* folder).
+  - `per-dir` — a `README.md` overview inside each folder that has **2+ modules** (single-module folders are
+    skipped; the `overview_min_files` config adjusts the bar). Specs are never size-gated — only these overviews.
+  - `both` — `repo` **and** `per-dir`.
+
+**`layout: per-dir` and `overview: per-dir` are different axes** — `layout` sets where the *specs* go, `overview`
+only adds overview files. If the user says just "per-dir" or "both," ask which they mean before writing. Unless the
+user asks otherwise, use **`per-file` + `none`** and write nothing but a spec beside each code file.
 
 <!-- KEEP IN SYNC: this rubric mirrors `spec_eval/authoring.py` (AUTHORING_STRUCTURE + AUTHORING_DISCIPLINE);
      the templates in `templates/` carry the same skeleton markers. If a principle changes in one place,

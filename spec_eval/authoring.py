@@ -322,10 +322,12 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
         for f in files:
             by_dir.setdefault(os.path.dirname(f), []).append(f)
         for d, dfiles in sorted(by_dir.items()):
-            if len(dfiles) <= overview_min_files:              # only index directories with several modules
-                continue
-            dtargets = {tp: cf for tp, cf in targets.items() if os.path.dirname(tp) == d}
             readme = os.path.join(d, "README.md")
+            if len(dfiles) < overview_min_files:               # only index directories with at least
+                results.append({"code": d or ".", "spec": readme, "status": "skipped",   # min_files modules —
+                                "note": f"below overview_min_files ({len(dfiles)} < {overview_min_files})"})
+                continue                                       # recorded, never silently omitted
+            dtargets = {tp: cf for tp, cf in targets.items() if os.path.dirname(tp) == d}
 
             def _dir_overview(dtargets=dtargets, d=d):
                 items = [(tp, target_md(tp, cf)) for tp, cf in sorted(dtargets.items())]

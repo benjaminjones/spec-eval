@@ -186,9 +186,17 @@ directory. Layouts (in a config or via flags):
 
 ```yaml
 authoring:
-  layout: per-dir          # per-file (default) | per-dir | per-pair
-  overview: repo           # also write a top-level OVERVIEW.md index (none | repo | per-dir | both)
+  layout: per-dir          # spec granularity: per-file (default) | per-dir | per-pair
+  overview: repo           # overview files over the specs — pick one:
+                           #   none    (default) no overview files
+                           #   repo    one OVERVIEW.md at the top of the path you scan
+                           #   per-dir a README.md overview inside each folder with 2+ modules
+                           #           (overview_min_files adjusts the bar; specs themselves are never size-gated)
+                           #   both    repo + per-dir
 ```
+
+Note `layout` and `overview` both offer `per-dir`, but they mean different things: `layout: per-dir` changes where
+the *specs* go, `overview: per-dir` only adds overview files beside per-file specs.
 
 `per-pair` authors the `docs` file of each explicit `pairs` entry from its `code` glob — the escape hatch for
 groupings the conventions don't cover.
