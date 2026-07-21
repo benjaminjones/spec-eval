@@ -21,8 +21,9 @@ Trust you can lead with — often working from the spec, reaching for the code w
    Links down; never restates a value.
 2. **Per-module intent specs — the *contract*** (`<module>.md`, beside each code file): each leads with Purpose
    (what + why), states invariants and acceptance criteria as *claims*, and demotes signatures to a reference appendix.
-3. **SPEC-HEALTH — the *measurement*** (`SPEC-HEALTH.md`, at the top of the path you spec): the dated, SHA-pinned
-   coverage/drift/sufficiency fingerprint that *lets you verify* layer 2 still matches the code — "check me," not "trust me."
+3. **SPEC-HEALTH — the *measurement*** (`spec-reports/SPEC-HEALTH.md`, with the check reports it rolls up): the
+   dated, SHA-pinned coverage/drift/sufficiency fingerprint that *lets you verify* layer 2 still matches the
+   code — "check me," not "trust me."
 
 **For a small project these three are enough** — no constitution or ADRs required. Every doc states its
 **boundary** (the deference contract): *"the code/spec is the source of truth; if this and the spec disagree, the

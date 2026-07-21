@@ -369,7 +369,7 @@ an optional second vendor add is **reliability**: how much of the real disagreem
 
 You can reproduce the effect on **spec-eval's own specs**: run `audit` with two different vendors over the same
 pairs and compare — where they disagree is exactly where a single pass would have handed you false confidence.
-The current dated receipt from spec-eval grading itself is in [SPEC-HEALTH.md](SPEC-HEALTH.md).
+The current dated receipt from spec-eval grading itself is in [SPEC-HEALTH.md](spec-reports/SPEC-HEALTH.md).
 
 None of this turns a score into a guarantee — `drift` and `sufficiency` are still AI judgments that wobble
 ([How accurate are the scores?](#how-accurate-are-the-scores-and-the-fingerprint)). The rubric and the second

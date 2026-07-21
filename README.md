@@ -62,12 +62,12 @@ your-project/
 │  ├─ api.py
 │  └─ api.md
 ├─ OVERVIEW.md         ← optional overview of the spec set (--overview repo)
-├─ SPEC-HEALTH.md      ← one-page scorecard
 └─ spec-reports/       ← the checks write here
    ├─ coverage.md        which files have a spec
    ├─ report.md          drift findings
    ├─ sufficiency.md     0–1 completeness per spec
-   └─ runs.jsonl         run history
+   ├─ runs.jsonl         run history
+   └─ SPEC-HEALTH.md     one-page scorecard (skill/hand-authored — not by the CLI)
 ```
 
 ## Try it
@@ -233,7 +233,7 @@ Each run writes a short report to `spec-reports/` (a `.md` you read, a `.json` f
 - **sufficiency** — a `0`–`1` score per spec (worst first), listing what's missing with a searchable code pointer
   (`file.py (function)`). `1.0` = the grader found nothing missing — guidance, not a guarantee. *(live example: [sufficiency.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/sufficiency.md))*
 
-The three examples are **spec-eval grading itself**, rolled up in [SPEC-HEALTH.md](https://github.com/benjaminjones/spec-eval/blob/main/SPEC-HEALTH.md).
+The three examples are **spec-eval grading itself**, rolled up in [SPEC-HEALTH.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md).
 
 Every command also appends a line to `runs.jsonl` — timestamp, git commit, scores — so you can track change over
 time.
@@ -265,7 +265,7 @@ so put both keys in one `.env` and each run picks up the one it needs. (Want one
 ## Proof it works
 
 - **spec-eval specs itself** — every module in [`spec_eval/`](https://github.com/benjaminjones/spec-eval/tree/main/spec_eval/) has its own spec:
-  **coverage 100% · drift 0 · sufficiency ≈0.86** ([receipt](https://github.com/benjaminjones/spec-eval/blob/main/SPEC-HEALTH.md) — the exact, dated score).
+  **coverage 100% · drift 0 · sufficiency ≈0.86** ([receipt](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md) — the exact, dated score).
 
 ## More
 

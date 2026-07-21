@@ -65,6 +65,18 @@ def test_colocated_spec_path_claim_matches_spec_path_for():
         "spec-check skill dropped the co-located default pairing"
 
 
+def test_spec_health_home_is_spec_reports():
+    """SPEC-HEALTH.md has ONE home: spec-reports/, beside the reports it rolls up. The standing receipt file
+    must live there, and every doc that names it must use that path — a root copy or a bare link is drift."""
+    assert os.path.exists(os.path.join(_ROOT, "spec-reports", "SPEC-HEALTH.md")), \
+        "the standing SPEC-HEALTH.md receipt is missing from spec-reports/"
+    assert not os.path.exists(os.path.join(_ROOT, "SPEC-HEALTH.md")), \
+        "a root SPEC-HEALTH.md reappeared — its one home is spec-reports/"
+    for doc in ("README.md", "FAQ.md", "skills/spec-authoring/SKILL.md", "skills/spec-check/SKILL.md"):
+        assert "spec-reports/SPEC-HEALTH.md" in _read(doc).replace("`", ""), \
+            f"{doc} no longer points at spec-reports/SPEC-HEALTH.md"
+
+
 def test_snippets_and_skill_name_the_same_reports_folder():
     """Both snippets' save line and the spec-check skill point at the folder the CLI writes."""
     save_line = "save the results to spec-reports/"

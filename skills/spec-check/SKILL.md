@@ -79,7 +79,9 @@ durable, reviewable receipts — the same files the `spec-eval` CLI produces:
 - `spec-reports/sufficiency.md` *(only if the user also wants a completeness score)* — a `0.0–1.0` score per
   pair answering *"could a developer rebuild this behavior from the spec alone?"*, worst pair first, listing the
   missing behaviors (each pointing at `file.py (symbol)`).
-- `spec-reports/SPEC-HEALTH.md` — a dated one-page rollup of coverage / drift / sufficiency at a glance.
+- `spec-reports/SPEC-HEALTH.md` — a dated one-page rollup of coverage / drift / sufficiency at a glance. This is
+  also the project's **standing scorecard**: if one already exists, refresh the scores and date but **preserve
+  the human-written verdict and run-history rows** (append a row — never clobber them).
 
 Two rules for writing these:
 - **State the honesty caveat in the files, not just the chat** — they are a single-model read, dated; the exact,

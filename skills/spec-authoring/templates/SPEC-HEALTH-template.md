@@ -43,7 +43,7 @@ modules:
 |---|---|---|---|
 | <module> | `██████████████░░░░░░` | 0.00 | <one line> |
 
-*(Full run in [../spec-reports/](../spec-reports/) — markdown reports.)*
+*(The full run — markdown reports — sits beside this file.)*
 
 ## Gaps / sufficiency misses  *(per-module, from `sufficiency.json` — the author's backlog)*
 - **`<module>`** — **[major]** <the one-sentence missing behavior>
