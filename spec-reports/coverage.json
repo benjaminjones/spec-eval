@@ -25,6 +25,7 @@
       "tests/contract/test_authoring_output.py",
       "tests/contract/test_caps_sync.py",
       "tests/contract/test_coverage.py",
+      "tests/contract/test_prompt_snippets_sync.py",
       "tests/contract/test_providers.py",
       "tests/contract/test_report.py",
       "tests/contract/test_rubric_sync.py",
