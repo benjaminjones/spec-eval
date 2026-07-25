@@ -21,6 +21,14 @@ Written so a newcomer understands the point before opening any spec.>
 ```
 *(For internal component diagrams and stateful flows, see the relevant module spec's §3 Behavior.)*
 
+## System context  *(the observed external seams — what `<project>` talks to)*
+| External system | Direction | What flows | Evidence |
+|---|---|---|---|
+| <AWS S3> | <outbound (infra)> | <domain-level payload, e.g. report artifacts> | <`src/store.py:41`> |
+| <HTTP surface exposed (Flask)> | <inbound> | <callers: unknown from this repo> | <`src/api.py:12`> |
+
+> Derived from this repository's code — rows are evidence of capability in the code, not proof of runtime traffic. Inbound callers and partner-system behavior are not observable from this repo — confirm asserted context with the owning teams. Systems and direction only: no installed-package lists, no endpoint schemas. A row needs code evidence you saw (`file:line`) — NEVER invent a row; when nothing was observed, omit this whole section.
+
 ## Module map  *(src → canonical spec → one-line intent; the navigation layer)*
 | Module | Canonical spec | Intent (not signatures) |
 |---|---|---|

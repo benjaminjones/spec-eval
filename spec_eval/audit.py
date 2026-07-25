@@ -11,8 +11,9 @@ REVIEW_MAX_TOKENS = 3000   # output-token budget for the two review checks (drif
                            # JSON list (findings / gaps) that is unparseable if cut mid-list — sufficiency reads
                            # THIS constant so the "same budget" coupling is structural, not a comment.
 CODE_CAP, DOC_CAP = 64000, 28000   # char caps per side (bound cost; directional). CODE_CAP=64k covers p99 of a
-                                   # broad real-world corpus (~20k tokens, below the ~50k context-rot onset);
-                                   # DOC_CAP=28k is p95 of real design docs. Larger inputs get a partial-view flag.
+                                   # broad real-world corpus (~20k tokens, under the ~50k onset where long-context
+                                   # accuracy measurably degrades); DOC_CAP=28k is p95 of real design docs.
+                                   # Larger inputs get a partial-view flag.
 
 
 def load_config(path):

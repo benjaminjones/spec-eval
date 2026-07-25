@@ -1,6 +1,7 @@
 """spec-eval CLI — portable spec coverage + code↔doc drift + sufficiency + spec authoring.
 
   spec-eval coverage    <repo> --config pairs.yml                             # free, no key
+  spec-eval context     <repo> [--config pairs.yml]                           # free, no key
   spec-eval generate    <repo> [--config pairs.yml] --model … --env .env      # author specs beside the code
   spec-eval audit       <repo> --config pairs.yml --model … --env .env        # drift
   spec-eval sufficiency <repo> --config pairs.yml --model … --env .env        # sufficiency
@@ -11,7 +12,7 @@ import argparse
 import os
 import sys
 import json
-from . import providers, audit, report, coverage as coverage_mod, sufficiency as sufficiency_mod, authoring, runlog
+from . import providers, audit, report, coverage as coverage_mod, sufficiency as sufficiency_mod, authoring, runlog, syscontext
 
 UNCOVERED_LIST_CAP = 25   # cap the per-line uncovered list printed to the terminal; full list always lands in coverage.md
 
@@ -81,6 +82,13 @@ def main(argv=None):
                    help="pairs config (YAML/JSON); optional — co-located `<file>.md` specs count as covered")
     c.add_argument("--out", "-o", default="spec-reports", help="output directory")
     c.add_argument("--min", type=float, default=None, help="fail (exit 1) if coverage %% is below this")
+
+    x = sub.add_parser("context", help="SYSTEM CONTEXT: what external systems does the code observably talk "
+                                       "to? (free; no API key)")
+    x.add_argument("repo", metavar="PROJECT_DIR", help="path to the project — a repo root or any subdirectory")
+    x.add_argument("--config", "-c", default=None,
+                   help="optional config (YAML/JSON) for code_ext / exclude rules")
+    x.add_argument("--out", "-o", default="spec-reports", help="output directory")
 
     args = ap.parse_args(argv)
 
@@ -186,6 +194,28 @@ def main(argv=None):
         if args.min is not None and cov["pct"] < args.min:
             print(f"FAIL: coverage {cov['pct']:.0f}% < --min {args.min:.0f}%")
             raise SystemExit(1)
+
+    elif args.cmd == "context":
+        if os.path.isfile(args.repo):
+            parent = os.path.dirname(args.repo) or "."
+            raise SystemExit(f"context scans directories — try `spec-eval context {parent}`.")
+        cfg = audit.load_config(args.config) if args.config else {}
+        os.makedirs(args.out, exist_ok=True)
+        ctx = syscontext.scan(args.repo, cfg)
+        json.dump(ctx, open(os.path.join(args.out, "system-context.json"), "w"), indent=2)
+        open(os.path.join(args.out, "system-context.md"), "w").write(syscontext.format_report(ctx, args.repo) + "\n")
+        print(f"system context: {len(ctx['entries'])} external system(s) observed across "
+              f"{ctx['files_scanned']} scanned code file(s)")
+        for rec in ctx["entries"]:
+            e = rec["evidence"][0]
+            print(f"  - {rec['system']}  ({rec['kind']}, {rec['direction']}; {e['file']}:{e['line']})")
+        note = syscontext.unscanned_note(ctx)
+        if note:
+            print(f"⚠ {note}")
+        print(f"wrote system-context.md + system-context.json → {os.path.abspath(args.out)}  (free; no API key)")
+        runlog.append_run(args.out, args.repo, "context", None,
+                          {"systems_observed": len(ctx["entries"]), "files_scanned": ctx["files_scanned"],
+                           "files_unscanned": sum(ctx["unscanned"].values())})
 
 
 if __name__ == "__main__":

@@ -50,7 +50,7 @@ spec-eval audit . --model claude-code
 export ANTHROPIC_API_KEY=sk-ant-...      # or OPENAI_API_KEY / GOOGLE_API_KEY
 ```
 
-`coverage` needs neither — it's free and never calls an AI.
+`coverage` and `context` need neither — they're free and never call an AI.
 
 ## Path 1 — No specs yet
 
@@ -186,5 +186,5 @@ opinion".)
 - **"Where did the reports go?"** — every command prints the absolute path it wrote to (default: a
   `spec-reports/` folder under your *current* directory, not the project's).
 - **`claude-code` errors** — the bridge needs the Claude Code CLI installed and logged in (`claude` on your PATH).
-- **Costs** — `coverage` is always free; the AI commands print exact token/call counts. Estimating spend:
+- **Costs** — `coverage` and `context` are always free; the AI commands print exact token/call counts. Estimating spend:
   [FAQ → "How much does a run cost?"](FAQ.md#how-much-does-a-run-cost).

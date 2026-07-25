@@ -64,6 +64,7 @@ your-project/
 ├─ OVERVIEW.md         ← optional overview of the spec set (--overview repo)
 └─ spec-reports/       ← the checks write here
    ├─ coverage.md        which files have a spec
+   ├─ system-context.md  which external systems the code talks to (with file:line evidence)
    ├─ report.md          drift findings
    ├─ sufficiency.md     0–1 completeness per spec
    ├─ runs.jsonl         run history
@@ -77,6 +78,9 @@ Prefer a guided walkthrough? **[Getting-started tutorial →](https://github.com
 **The commands** — in the order you'll typically use them:
 
 - **coverage** — which files have no spec yet? *(free — no AI)*
+- **context** — which external systems does the code talk to (S3, databases, partner APIs)? *(free — no AI)*
+  Strong support for the mainstream stacks (Python, JS/TS, Java, Kotlin, C#, Go, Rust, Swift, Ruby) — the
+  exact list lives in [`spec_eval/syscontext.md`](https://github.com/benjaminjones/spec-eval/blob/main/spec_eval/syscontext.md).
 - **generate** — writes a plain-English spec beside each file that has none *(uses AI)*
 - **sufficiency** — how completely does each spec capture the code? Scored 0–1 *(uses AI)*
 - **audit** — the drift check: does any spec clash with the code? Run it at every milestone *(uses AI)*
@@ -84,8 +88,8 @@ Prefer a guided walkthrough? **[Getting-started tutorial →](https://github.com
 None of them change your files — reports go to `spec-reports/`. The exception is `generate`, which writes new
 specs beside your code: review them and commit the keepers like code.
 
-The `(uses AI)` commands (`generate`, `sufficiency`, `audit`) need an AI behind them — `coverage` never does.
-Three ways to run them, least setup first:
+The `(uses AI)` commands (`generate`, `sufficiency`, `audit`) need an AI behind them — `coverage` and
+`context` never do. Three ways to run them, least setup first:
 
 ### Run via prompt chat (no setup)
 
@@ -156,10 +160,11 @@ Check my specs against my code             # audit (drift)
 
 Install once, then add `--model claude-code` to any `(uses AI)` command — **spec-eval** routes through the
 `claude` CLI you're already logged into (no key; your `ANTHROPIC_API_KEY` is hidden from the call, so it can't
-accidentally bill the paid API). The same four commands, in the same order as the list above:
+accidentally bill the paid API). The same commands, in the same order as the list above:
 ```bash
 pip install spec-eval                                     # or, from a clone:  pip install -e .
 spec-eval coverage    ./your-project                      # free — no AI, no key
+spec-eval context     ./your-project                      # free — no AI, no key
 spec-eval generate    ./your-project --model claude-code
 spec-eval sufficiency ./your-project --model claude-code
 spec-eval audit       ./your-project --model claude-code
@@ -192,7 +197,7 @@ A few things worth knowing:
   (Anthropic is the default); code is read as plain text. Want another provider? [Open an issue](#feedback).
 - **Your other docs are safe** — by default only a `.md` next to code with the same name counts as a spec, so your
   READMEs are left alone. (Folder specs and overview files only appear if you opt in with `--layout` / `--overview`.)
-- **What's shared** — to grade a spec, its code and text go to your AI provider. That's it. (`coverage` sends nothing — it runs fully on your machine.)
+- **What's shared** — to grade a spec, its code and text go to your AI provider. That's it. (`coverage` and `context` send nothing — they run fully on your machine.)
 
 **Keep it honest on every commit** — add one line to a git hook (a script git runs before each commit) so new
 code always needs a spec; copy-paste setup in [the tutorial](https://github.com/benjaminjones/spec-eval/blob/main/GETTING-STARTED.md#make-it-routine):

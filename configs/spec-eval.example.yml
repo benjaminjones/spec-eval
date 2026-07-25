@@ -4,7 +4,7 @@
 # (e.g. `authoring.template`) match the docs and the code that reads them — grep
 # one to find where it applies.
 
-# ── shared: used by coverage / audit / sufficiency / generate ────────────────
+# ── shared: used by coverage / context / audit / sufficiency / generate ──────
 
 # code_ext — extensions treated as "code".
 #   Default: .py .ts .tsx .js .jsx .go .rs .java .rb .kt .swift .php .cs
