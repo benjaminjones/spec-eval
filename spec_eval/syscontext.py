@@ -16,7 +16,11 @@ partner-repo knowledge are invisible to this scan: the report says so instead of
 """
 import os
 import re
+import hashlib
 from . import coverage as coverage_mod
+
+SCHEMA = 2            # fingerprint layout version — bump when the JSON shape changes; a differing schema
+                      # (like a differing scanner digest) makes a diff a re-baseline, never code drift
 
 EVIDENCE_CAP = 8      # evidence sites kept per entry PER DIRECTORY (so per-dir scoping can never lose a
                       # system whose evidence sits in a busy sibling dir); the total count is always reported
@@ -381,8 +385,30 @@ def scan(repo, config):
         rec["evidence"].sort(key=lambda e: (e["file"], e["line"]))
         out.append(rec)
     out.sort(key=lambda r: (KIND_ORDER.get(r["kind"], 9), r["system"], r["direction"]))
-    return {"schema": 1, "repo": os.path.basename(repo), "files_scanned": files_scanned,
+    return {"schema": SCHEMA, "scanner": scanner_provenance(),
+            "repo": os.path.basename(repo), "files_scanned": files_scanned,
             "unscanned": dict(sorted(unscanned.items())), "entries": out}
+
+
+def _tables_digest():
+    """A stable 16-char hash of ALL detection knowledge. A change to any table (a new SDK key, a new scheme,
+    an env suffix) changes the digest — so a fingerprint diff across differing digests is a re-baseline
+    ('the scanner learned to see more'), never code drift. This is what keeps table growth from firing false
+    drift in every consuming repo once baselines are stored."""
+    payload = repr([
+        sorted(SDK_IMPORTS.items()), sorted(INBOUND_FRAMEWORKS.items()), sorted(SCHEME_SYSTEMS.items()),
+        sorted(AWS_SERVICES.items()), sorted(SKIP_HOST_SUFFIXES), sorted(KEEP_HOSTS),
+        sorted(ILLUSTRATIVE_DIRS), sorted(OTHER_SOURCE_EXT), _ENV_SUFFIX,
+    ])
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+def scanner_provenance():
+    """Identity of the scanner that produced a fingerprint: package version + detection-table digest.
+    The drift check compares this FIRST — a differing provenance means the two fingerprints are not
+    comparable as code drift."""
+    from spec_eval import __version__
+    return {"version": __version__, "tables_digest": _tables_digest()}
 
 
 def _scoped(result, scope_dir):
@@ -457,3 +483,59 @@ def format_report(result, repo):
         lines.append("")
         lines.append(f"> ⚠ {note}")
     return "\n".join(lines)
+
+
+# --- drift check: compare a fresh scan against a stored fingerprint -----------------------------------------
+
+def _delta_entry(e):
+    """The change-relevant slice of an entry for a receipt: identity + how + one verifiable evidence site."""
+    site = (e.get("evidence") or [{}])[0]
+    ref = f"{site.get('file')}:{site.get('line')}" if site.get("file") else None
+    return {"system": e["system"], "direction": e["direction"], "kind": e.get("kind"),
+            "via": e.get("via", []), "evidence": ref}
+
+
+def diff(baseline, current):
+    """Compare two scan results by their (system, direction) KEY SET — the identity that matters — never by
+    JSON bytes (evidence line-churn, a second call site, or a file rename are not drift). Returns
+    `{outcome, scanner_changed, added[], removed[]}`:
+      - 'clean'      — the same systems; only verification payload moved.
+      - 'drift'      — a system was added or removed (the only outcome a gate fails on).
+      - 'rebaseline' — the scanner (version / tables digest) or schema differs, so the two fingerprints are
+                       NOT comparable as code drift; re-store the baseline. Never counts as drift."""
+    def prov(r):
+        return (r.get("schema"), (r.get("scanner") or {}).get("tables_digest"))
+    scanner_changed = prov(baseline) != prov(current)
+
+    bi = {(e["system"], e["direction"]): e for e in baseline.get("entries", [])}
+    ci = {(e["system"], e["direction"]): e for e in current.get("entries", [])}
+    added = [_delta_entry(ci[k]) for k in sorted(set(ci) - set(bi))]
+    removed = [_delta_entry(bi[k]) for k in sorted(set(bi) - set(ci))]
+
+    outcome = "rebaseline" if scanner_changed else ("drift" if (added or removed) else "clean")
+    return {"outcome": outcome, "scanner_changed": scanner_changed, "added": added, "removed": removed}
+
+
+def _delta_lines(d):
+    lines = []
+    for e in d["added"]:
+        ev = f" — {e['evidence']}" if e["evidence"] else ""
+        lines.append(f"  + {e['system']} ({e['direction']}, via {', '.join(e['via'])}){ev}")
+    for e in d["removed"]:
+        lines.append(f"  - {e['system']} ({e['direction']})")
+    return "\n".join(lines)
+
+
+def diff_receipt(d, sha=None):
+    """A named-delta receipt in SPEC-HEALTH's click-to-verify style — one line per changed system, each with
+    an evidence site — never a full-table reprint or an evidence-churn row."""
+    at = f" @ {sha}" if sha else ""
+    if d["outcome"] == "clean":
+        return f"0 system-context changes{at}"
+    if d["outcome"] == "rebaseline":
+        head = (f"scanner changed — re-baseline{at}: the stored fingerprint came from a different scanner "
+                f"version/tables, so its diff is scanner coverage, not code drift. Re-run `spec-eval "
+                f"context` to re-store.")
+        body = _delta_lines(d)
+        return head + ("\n" + body if body else "")
+    return f"System-context drift{at}:\n" + _delta_lines(d)

@@ -126,7 +126,8 @@ def test_cli_context_writes_both_artifacts_without_a_key(ctx_repo, tmp_path, cap
     cli.main(["context", str(ctx_repo), "--out", str(out)])
     assert "external system(s) observed" in capsys.readouterr().out
     data = json.load(open(out / "system-context.json"))
-    assert data["schema"] == 1 and data["entries"]
+    assert data["schema"] == syscontext.SCHEMA and data["entries"]
+    assert data["scanner"]["version"] and data["scanner"]["tables_digest"]
     assert "# System context" in open(out / "system-context.md").read()
     assert any(json.loads(l)["command"] == "context" for l in open(out / "runs.jsonl"))
 
@@ -134,6 +135,97 @@ def test_cli_context_writes_both_artifacts_without_a_key(ctx_repo, tmp_path, cap
 def test_cli_context_rejects_a_file_path(ctx_repo):
     with pytest.raises(SystemExit):
         cli.main(["context", str(ctx_repo / "store.py")])
+
+
+# --- drift check: fingerprint diff by key set, 3 outcomes, provenance-first ---
+
+def _scan(tmp_path, files):
+    for name, body in files.items():
+        p = tmp_path / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(body)
+    return syscontext.scan(str(tmp_path), {})
+
+
+def test_identical_scan_is_clean(tmp_path):
+    a = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    d = syscontext.diff(a, a)
+    assert d["outcome"] == "clean" and not d["added"] and not d["removed"]
+
+
+def test_line_churn_is_not_drift(tmp_path):
+    """The same system at a different line/second call site must NOT count as drift (key-set identity)."""
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    moved = _scan(tmp_path, {"db.py": "# a new top comment\n\nimport psycopg2\nquery = 1\n"})
+    d = syscontext.diff(base, moved)
+    assert d["outcome"] == "clean"                       # evidence line moved from 1 to 3; identity unchanged
+
+
+def test_added_and_removed_systems_are_drift(tmp_path):
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    changed = _scan(tmp_path, {"db.py": "import redis\n"})       # dropped PostgreSQL, added Redis
+    d = syscontext.diff(base, changed)
+    assert d["outcome"] == "drift"
+    assert [a["system"] for a in d["added"]] == ["Redis"]
+    assert [r["system"] for r in d["removed"]] == ["PostgreSQL"]
+    assert d["added"][0]["evidence"] and d["added"][0]["via"] == ["sdk"]
+
+
+def test_scanner_change_is_rebaseline_not_drift(tmp_path):
+    """A differing tables digest (the scanner learned to see more) must read as re-baseline, never drift —
+    even when the entry sets genuinely differ."""
+    base = _scan(tmp_path, {"db.py": "import psycopg2\nimport redis\n"})
+    base_stale = {**base, "scanner": {**base["scanner"], "tables_digest": "0000olddigest00"}}
+    current = _scan(tmp_path, {"db.py": "import psycopg2\n"})     # Redis gone — would be drift under same scanner
+    d = syscontext.diff(base_stale, current)
+    assert d["outcome"] == "rebaseline" and d["scanner_changed"] is True
+
+
+def test_schema_change_is_rebaseline(tmp_path):
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    old = {**base, "schema": 1}
+    d = syscontext.diff(old, syscontext.scan(str(tmp_path), {}))
+    assert d["outcome"] == "rebaseline"
+
+
+def test_receipt_is_named_deltas_with_evidence(tmp_path):
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    changed = _scan(tmp_path, {"db.py": "import redis\n"})
+    r = syscontext.diff_receipt(syscontext.diff(base, changed), sha="abc1234")
+    assert "System-context drift @ abc1234" in r
+    assert "+ Redis (outbound, via sdk)" in r and "db.py:" in r
+    assert "- PostgreSQL (outbound)" in r
+    assert syscontext.diff_receipt(syscontext.diff(base, base)) == "0 system-context changes"
+
+
+def test_cli_check_gates_on_drift(tmp_path, capsys):
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    out = tmp_path / "reports"
+    cli.main(["context", str(tmp_path), "--out", str(out)])       # store the baseline
+    (tmp_path / "db.py").write_text("import redis\n")             # code drifts
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(out)])
+    assert ex.value.code == 1
+    assert "drift" in capsys.readouterr().out.lower()
+    assert json.load(open(out / "system-context.json"))["entries"][0]["system"] == "PostgreSQL"  # not overwritten
+
+
+def test_cli_check_clean_passes(tmp_path, capsys):
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    out = tmp_path / "reports"
+    cli.main(["context", str(tmp_path), "--out", str(out)])
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(out)])
+    assert ex.value.code == 0
+    assert "0 system-context changes" in capsys.readouterr().out
+
+
+def test_cli_check_without_baseline_is_a_no_op(tmp_path, capsys):
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(tmp_path / "empty")])
+    assert ex.value.code == 0
+    assert "no baseline" in capsys.readouterr().out
 
 
 # --- regressions pinned by the adversarial review ---
