@@ -65,6 +65,26 @@ Report only **real, defensible** disagreements, with the evidence quoted. If you
 single-model check with no second opinion, so be conservative; for high-stakes or ambiguous calls, recommend a
 cross-vendor review as the next step.
 
+## System context reconciliation (when an overview has a `## System context` section)
+An `OVERVIEW.md` is a conventional doc, so it is **not** one of the code↔spec pairs above — its System context
+table (the external systems the code talks to) would otherwise go unchecked. When the tree you're checking has
+an overview or README with a `## System context` section, reconcile it against the deterministic scanner: run
+`spec-eval context <dir>` (or read an existing `spec-reports/system-context.json`) and compare the observed
+systems to the table's rows. The **containment contract** sets the direction — the scanner is the floor, the
+author's reading is the ceiling — so the severity is **asymmetric**:
+
+- **high** — a table row whose cited `file:line` evidence does not exist or does not show that system. Fabricated
+  or stale evidence breaks the one promise the table makes (every row is verifiable against the code).
+- **medium** — a system the scanner observes that is **missing** from the table. The table under-reports; the
+  scanner is the floor and the table must include every system it reports.
+- **not a finding** — a table row the scanner does **not** observe but that carries valid cited `file:line`
+  evidence (the author legitimately saw something the tables miss — an internal wrapper SDK, a niche vendor);
+  the table may exceed the scan, never fall short of it.
+
+Also check freshness: if the overview carries a `<!-- system-context-fingerprint: … -->` stamp and
+`spec-eval context --check` reports it stale (or the stamp's digest no longer matches a fresh scan), note that
+the overview needs regenerating — a **medium** staleness finding, fixable by `generate --overview`, not by hand.
+
 ## Save the results as files (optional)
 <!-- KEEP IN SYNC: the report filenames below mirror the CLI's outputs (spec_eval/cli.py writes coverage.md /
      report.md / sufficiency.md); tests/contract/test_caps_sync.py pins them so a rename can't silently diverge.
