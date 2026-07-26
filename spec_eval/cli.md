@@ -34,7 +34,7 @@ The one governing constraint a reviewer can check: **`coverage` and `context` ne
 
 **Command surface.** A required subcommand selects the capability: `audit`, `sufficiency`, `generate`, `coverage`, `context`. `audit` and `sufficiency` share the same argument set (`repo`, `--config/-c`, `--model/-m`, `--out/-o`, `--env`, `--fingerprint/--no-fingerprint`). `generate` adds `--overwrite`, `--layout`, `--overview`, and `--template`. `coverage` drops model/env/fingerprint and adds `--min`; `context` takes only `repo`, `--config`, and `--out`.
 
-**Single-file scope.** For `audit`, `sufficiency`, and `generate`, `PROJECT_DIR` may be a single code file: the command narrows to that file's directory with one synthesized pair — the file's co-located `<stem>.md`, or the folder spec when the loaded config sets a `per-dir` layout — so no pairs config is needed to scope a check to the file just changed. `generate` then authors exactly that file's spec (overview layer forced off). `coverage` remains directory-only: given a file it exits with a message pointing at the directory. **Why:** checking the one file you just touched is the everyday case, and the previous behavior (a silently empty run) was a footgun.
+**Single-file scope.** For `audit`, `sufficiency`, and `generate`, `PROJECT_DIR` may be a single code file: the command narrows to that file's directory with one synthesized pair — the file's co-located `<stem>.md`, or the folder spec when the loaded config sets a `per-dir` layout — so no pairs config is needed to scope a check to the file just changed. `generate` then authors exactly that file's spec (overview layer forced off). `coverage` and `context` remain directory-only: given a file they exit with a message pointing at the directory. **Why:** checking the one file you just touched is the everyday case, and the previous behavior (a silently empty run) was a footgun.
 
 **Key loading (all key-requiring commands).** Before analysis, keys are loaded in a fixed precedence sequence: (1) the explicit `--env` file if given; (2) a `.env` sitting next to the `--config` file, if a config was given; (3) a `.env` in the current working directory. **Why:** lets a team keep keys beside their pairs config or in the repo root without passing `--env` every time. `coverage` and `context` skip key loading entirely — **Why:** they never call a provider.
 
@@ -61,6 +61,7 @@ The one governing constraint a reviewer can check: **`coverage` and `context` ne
 - `results` (audit) — list of pair findings; each may carry `skipped` and a `label`.
 - `results` (sufficiency) — list of pairs; each carries `label` and `sufficiency ∈ [0.0,1.0] | null`.
 - `cov` (coverage) — `{ pct, covered[], uncovered[], spec_worthy, orphans[] }`.
+- `ctx` (context) — `{ schema, repo, files_scanned, unscanned{ext:count}, entries[] }`.
 - `res` (generate) — list of `{ status, spec, note? }`; status ∈ {`authored`, `skipped`}.
 
 ### Invariants (*rules that must always hold*)
