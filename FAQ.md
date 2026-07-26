@@ -116,7 +116,7 @@ commands, point one at a skill or at a `spec-eval <subcommand>` shell call.
 
 ### How much does a run cost?
 
-`coverage` is always free — no AI, no key, no tokens. For the AI commands, it depends on how you pay:
+`coverage` and `context` are always free — no AI, no key, no tokens. For the AI commands, it depends on how you pay:
 
 - **Claude subscription** (`--model claude-code`) — no per-token bill; runs count as normal subscription usage.
 - **API key** — you pay per token. **spec-eval** never prints dollars (prices change); it prints the exact
@@ -147,7 +147,7 @@ A full audit, by repo size:
 | ~10,000 files — a large monorepo | ~$700–900 | ~$150–180 |
 
 Two durable ways to pay less: provider **batch APIs** (async — fine for audits; typically about half price)
-and a **cheaper model** for routine runs. And at any size, `coverage` stays free, and `--model claude-code`
+and a **cheaper model** for routine runs. And at any size, `coverage` and `context` stay free, and `--model claude-code`
 bills your subscription, not an API.
 
 ### Can I redirect where specs or reports are written — say, to compare two models?
@@ -392,7 +392,7 @@ sections where behavior, defaults, and contracts live will produce specs that ca
 First, what each number *is*: [How the scores are made](README.md#how-the-scores-are-made). How much to *trust*
 each — three different answers for the three layers:
 
-- **coverage** is exact and deterministic: it counts files, no AI involved.
+- **coverage** and **context** are exact and deterministic: they count files and scan code text, no AI involved.
 - **drift** and **sufficiency** are **AI judgments**, and they wobble — the same spec might score 0.78 one run
   and 0.72 the next.
 - **The fingerprint** adds no error of its own — it's a bar-chart of the numbers behind it.

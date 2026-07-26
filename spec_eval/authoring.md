@@ -24,6 +24,7 @@ Two governing rules a reviewer can check:
 | template | Optional path to a custom per-module authoring template; replaces the built-in STRUCTURE. |
 | authoring rubric | The per-module system prompt: `AUTHORING_STRUCTURE` + `AUTHORING_DISCIPLINE` by default; a custom template replaces the structure but the discipline is always appended. |
 | synthesis rubric | `FOLDER_SPEC_RUBRIC` (self-contained folder spec) or `OVERVIEW_RUBRIC` (an index that defers to linked specs). |
+| system-context evidence | The `OBSERVED SYSTEM EVIDENCE` block from the deterministic `syscontext` scan (free, no model call), appended to an overview call's final user message. It is the ONLY source the overview's `## System context` section may draw rows from. |
 | module intent | The per-module spec markdown — read from an existing co-located `<stem>.md` if present, else authored (map). Reused across synthesis passes. |
 | CODE_CAP | Max code characters fed to a per-module authoring call (`caps.code` in a config, default `audit.CODE_CAP`). |
 | REDUCE_CAP | Char budget for the per-module intents concatenated into one synthesis pass (`caps.reduce` in a config overrides the default). |
@@ -52,6 +53,16 @@ Two governing rules a reviewer can check:
 - `per-dir` / `both` → a `README.md` in each directory with **at least** `overview_min_files` spec-worthy files.
   A directory below the threshold is recorded as `skipped` with a note naming the shortfall — small directories
   are never silently omitted.
+
+**System context (evidence-fed, never invented).** When any overview is authored, the deterministic
+`syscontext` scan runs once (free — no model call) and its `OBSERVED SYSTEM EVIDENCE` block is appended to the
+overview call's **final** user message (intermediate synthesis passes summarise modules and do not receive it).
+The rubric renders it as a `## System context` table — one row per observed system, evidence `file:line`
+copied verbatim, unknowable cells written as `unknown from this repo` — closed by a fixed boundary line saying
+inbound callers and partner-system behavior are not observable from this repo. The repo overview receives the
+whole scan; a per-dir overview receives only the evidence sitting directly in its directory. **When the scan
+observes nothing (or nothing in that directory), no block is passed and the section is omitted entirely** — an
+overview can never carry an invented system-context row.
 
 **Custom template.** When `authoring.template` is set, its text replaces the built-in `AUTHORING_STRUCTURE`; `AUTHORING_DISCIPLINE` (the quality rules the drift/sufficiency checkers rely on) is always appended. **Why:** users own the structure, but the output stays gradeable.
 
@@ -97,3 +108,5 @@ Semantic shapes:
 | AC-7 | `overview: repo` | `generate_repo` runs | a repo-root `OVERVIEW.md` index is authored after the specs. |
 | AC-8 | a custom `template` path | rubric is built | the template's text is used and `AUTHORING_DISCIPLINE` is appended. |
 | AC-9 | model returns text wrapped in triple-backtick fences | authoring runs | the returned markdown has the outer fence removed. |
+| AC-10 | `overview: repo`, code with observable external systems | `generate_repo` runs | the overview call's user message carries the `OBSERVED SYSTEM EVIDENCE` block from the `syscontext` scan. |
+| AC-11 | `overview: repo`, code with no observable external systems | `generate_repo` runs | no evidence block is passed — the overview carries no `## System context` section. |

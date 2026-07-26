@@ -17,8 +17,8 @@ Runs in your coding-agent session (Claude Code, Copilot, Cursor) — no API key,
 Trust you can lead with — often working from the spec, reaching for the code when you choose — comes from **layering**, where each doc names its source of truth and defers downward. **By default every file is co-located** — a spec sits *beside* its code (`src/x.py` → `src/x.md`); a separate folder (`spec/`, `docs/`) is an explicit choice the user names, never a default you invent (see "Where the files go" below):
 
 1. **OVERVIEW — the *shape*** (`OVERVIEW.md`, at the top of the path you spec): a navigation root — module map +
-   a data-flow diagram + glossary + reading order. Lets a reader orient from the map before opening a module.
-   Links down; never restates a value.
+   a data-flow diagram + system context (the observed external seams) + glossary + reading order. Lets a reader
+   orient from the map before opening a module. Links down; never restates a value.
 2. **Per-module intent specs — the *contract*** (`<module>.md`, beside each code file): each leads with Purpose
    (what + why), states invariants and acceptance criteria as *claims*, and demotes signatures to a reference appendix.
 3. **SPEC-HEALTH — the *measurement*** (`spec-reports/SPEC-HEALTH.md`, with the check reports it rolls up): the
@@ -84,6 +84,27 @@ user asks otherwise, use **`per-file` + `none`** and write nothing but a spec be
 - **Right-size to the module** — collapse to one sentence, or omit, any section that would carry ≤1 real row;
   empty scaffolding and N/A rows are fatigue, not rigor. A small utility module gets a short spec.
 
+## System context (the observed external seams)
+The OVERVIEW's `## System context` section inventories what the project *talks to* — infrastructure services
+(S3, databases, queues), partner applications, configured endpoints, and any surface the code exposes to
+callers. Three rules keep it trustworthy:
+- **Observed only.** A row needs code evidence you actually saw — an SDK/driver import, a client call, a
+  literal URL, an endpoint-shaped env var — cited as `file:line` in the Evidence column. NEVER invent a row or
+  list a system you cannot point at; when nothing was observed, omit the section entirely.
+- **Unknowable cells stay honest.** What flows, and who calls an exposed surface, is often not in this repo:
+  write `unknown from this repo`, don't guess. Rows are evidence of capability in the code, not proof of runtime traffic.
+  Close the section with the fixed boundary line — inbound
+  callers and partner-system behavior are not observable from this repo; confirm asserted context with the
+  owning teams.
+- **Systems and direction only.** No installed-package lists, no endpoint schemas, no ownership registers —
+  those change faster than an overview should, and already have better homes (lockfiles, contracts, catalogs).
+
+These rules take precedence over the right-sizing rule: render the full table even if it carries a single row —
+an evidence-backed row is a real row, and `unknown from this repo` is a filled cell, not an N/A.
+
+*(CLI equivalent: `spec-eval context` — a free, deterministic scan writing `spec-reports/system-context.md` +
+`.json`; `generate --overview` feeds the same observed evidence into `OVERVIEW.md`.)*
+
 ## Reconstructed intent (reverse-engineering code you didn't write)
 When specifying code with no stated rationale, you may *infer* the "why" — but **label it**:
 `> Reconstructed intent (confidence: low/med/high) — inferred from the code, not the author's stated law.`
@@ -119,7 +140,7 @@ obscure or private subject.)*
 
 ## Templates (in `templates/`)
 - `spec-template.md` — the per-module intent spec.
-- `OVERVIEW-template.md` — the project-overview (module map + data-flow diagram + glossary).
+- `OVERVIEW-template.md` — the project-overview (module map + data-flow diagram + system context + glossary).
 - `SPEC-HEALTH-template.md` — the health/metrics layer.
 
 **Read the template file before writing — don't reproduce it from this skill's description.** The heading

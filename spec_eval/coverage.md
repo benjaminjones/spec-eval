@@ -12,7 +12,7 @@ The governing constraint a reviewer can check: **a code file counts as covered i
 
 | Term | Meaning |
 |------|---------|
-| Code universe (`code_ext`) | Extensions treated as code. Default: `.py .ts .tsx .js .jsx .go .rs .java .rb .kt .swift .php .cs`; overridable per-repo via config `code_ext`. |
+| Code universe (`code_ext`) | Extensions treated as code. Default: `.py .ts .tsx .js .jsx .mjs .cjs .go .rs .java .rb .kt .kts .swift .php .cs`; overridable per-repo via config `code_ext`. |
 | COVERED | A code file matched by any config pair's `code` glob, OR having a sibling `<stem>.md`, OR (under `authoring.layout: per-dir`) whose directory has a folder spec `<dir>/<dir>.md`. |
 | CANDIDATE | Every code file under the repo (by extension), minus pruned directories. |
 | Exclusion tier | The class making a file impractical to spec: `user`, `test`, `glue`, `tooling`, `generated`, `config`, `skill/doc`. |
@@ -26,7 +26,7 @@ The governing constraint a reviewer can check: **a code file counts as covered i
 ## 3. Behavior
 
 ### Building the candidate set
-Walk the repo, skipping any directory whose name is in the prune list (`.git`, `.venv`, `build`, `dist`, `node_modules`, `__pycache__`, caches, `mutants`, IDE dirs, `site-packages`, and vendored third-party dirs: `vendor`, `vendored`, `third_party`, `bower_components`, …). Any file ending in a configured code extension becomes a candidate.
+Walk the repo, skipping any directory whose name is in the prune list (`.git`, `.venv`, `build`, `dist`, `target`, `node_modules`, `__pycache__`, caches, `mutants`, IDE dirs, `site-packages`, and vendored third-party dirs: `vendor`, `vendored`, `third_party`, `bower_components`, …). Any file ending in a configured code extension becomes a candidate.
 **Why:** vendored and generated trees are enormous and never author-owned; descending into them wastes time and pollutes the report.
 
 ### Determining coverage

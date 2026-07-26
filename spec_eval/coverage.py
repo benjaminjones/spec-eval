@@ -13,7 +13,8 @@ import glob
 import fnmatch
 
 # the code universe — language-agnostic by default; override per-repo via the config's `code_ext:` list.
-DEFAULT_CODE_EXT = (".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java", ".rb", ".kt", ".swift", ".php", ".cs")
+DEFAULT_CODE_EXT = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".java", ".rb",
+                    ".kt", ".kts", ".swift", ".php", ".cs")
 
 
 def classify_exclude(rel, user_excludes):
@@ -51,7 +52,7 @@ CONVENTIONAL_DOC_STEMS = {"readme", "overview", "changelog", "changes", "contrib
                           "code_of_conduct", "skill", "todo", "authors", "maintainers", "install", "upgrading"}
 
 # directories never worth walking into (vendored deps, build output, caches, generated test artifacts)
-PRUNE_DIRS = {".git", ".venv", "venv", "env", "build", "dist", "node_modules", "__pycache__",
+PRUNE_DIRS = {".git", ".venv", "venv", "env", "build", "dist", "target", "node_modules", "__pycache__",
               ".mypy_cache", ".pytest_cache", ".ruff_cache", ".tox", "htmlcov", "site-packages",
               "mutants", ".idea", ".vscode", ".eggs",
               "vendor", "vendored", "third_party", "thirdparty", "bower_components", "jspm_packages"}

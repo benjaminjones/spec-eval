@@ -9,7 +9,9 @@ file with no governing spec yet, author a spec. The layout is chosen by config (
   per-pair           — author the `docs` file of each explicit config pair from its `code` glob.
 
 An optional `authoring.overview` (none | repo | per-dir | both) adds a navigation index (a repo-level
-`OVERVIEW.md` and/or a per-directory `README.md`) that links down to the specs the layout produced. The built-in
+`OVERVIEW.md` and/or a per-directory `README.md`) that links down to the specs the layout produced. Each
+overview call is fed the deterministic system-context scan (`syscontext.py`), so the index's '## System
+context' section can only carry OBSERVED external systems — none observed, no section. The built-in
 per-module rubric can be swapped with `authoring.template`; the built-in authoring DISCIPLINE is always appended
 so a swapped template still yields specs the drift/sufficiency checkers can grade.
 
@@ -19,7 +21,7 @@ don't want (`git checkout --`). See skills/spec-authoring/SKILL.md.
 """
 import os
 import glob
-from . import providers, audit, coverage as coverage_mod
+from . import providers, audit, coverage as coverage_mod, syscontext
 
 # The built-in rubric is split so a custom template can replace the STRUCTURE while the authoring DISCIPLINE
 # (the quality rules the checkers rely on) is always applied.
@@ -91,6 +93,20 @@ OVERVIEW_RUBRIC = (
     "- '## How it fits together' — the flow across these modules, in prose.\n"
     "- '## Shared contract' — only invariants / definitions that span modules; DEFER all module detail to the "
     "linked specs, never restate them.\n"
+    "- '## System context' — ONLY when the input carries an 'OBSERVED SYSTEM EVIDENCE' block: a table "
+    "'| External system | Direction | What flows | Evidence |' with one row per listed system, keeping the "
+    "block's order. NEVER invent a row or add a system the block does not list. 'What flows' is the "
+    "domain-level payload inferred from the module intents; when the intents do not say, write 'unknown from "
+    "this repo'. Copy each row's evidence reference (file:line) from the block verbatim. Close the section "
+    "with the fixed line: '> Derived from this repository's code — rows are evidence of capability in the "
+    "code, not proof of runtime traffic. Inbound callers and partner-system behavior "
+    "are not observable from this repo — confirm asserted context with the owning teams.' When there is no "
+    "evidence block, OMIT the section entirely. If the block ends with a 'Not scanned:' line, reproduce that "
+    "line verbatim beneath the table — a language gap must stay visible. These System-context rules take "
+    "precedence over the general "
+    "RULES below: while an evidence block is present, render the full table even if it carries a single row — "
+    "an evidence-backed row is a real row, and 'unknown from this repo' is a filled cell, not an N/A; never "
+    "right-size this section away.\n"
     + AUTHORING_DISCIPLINE
 )
 
@@ -159,24 +175,27 @@ def _pack(items, cap):
     return groups
 
 
-def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce_cap=None):
+def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce_cap=None, extra=None):
     """Reduce: synthesise (label, intent-markdown) modules into one document. Returns
     (markdown, levels, reply_capped). When the concatenated intents exceed the reduce cap, the items are packed
     into sub-groups, each sub-group is synthesised into an intermediate intent, and the intermediates are
     reduced in turn (recursively) — modules are NEVER dropped. `levels` counts the stacked synthesis passes
     (1 = a single call); `reply_capped` is True when ANY pass's reply hit the token cap.
+    `extra` is an optional evidence block appended to the FINAL call's user message only (intermediate passes
+    summarise modules; the final pass is the one that renders sections from it).
     Termination is guaranteed: past _MAX_LEVELS, or when a pass stops reducing the item count, the remaining
     items are force-fitted into one final call (each sliced to an equal share of the cap, visibly marked)."""
     cap = REDUCE_CAP if reduce_cap is None else reduce_cap
+    tail = f"\n\n{extra}" if extra else ""
     groups = _pack(items, cap)
     if len(groups) == 1:
-        user = f"# {header}\n\n" + "\n".join(block for _, block in groups[0])
+        user = f"# {header}\n\n" + "\n".join(block for _, block in groups[0]) + tail
         md = _unfence(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
         return md, _level, providers.LAST["truncated"]
     if _level >= _MAX_LEVELS or (_level > 1 and len(groups) >= len(items)):
         share = max(200, cap // len(items) - 40)
         blocks = [f"### {label}\n{(md or '').strip()[:share]}\n...[truncated]\n" for label, md in items]
-        user = f"# {header}\n\n" + "\n".join(blocks)
+        user = f"# {header}\n\n" + "\n".join(blocks) + tail
         md = _unfence(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
         return md, _level, providers.LAST["truncated"]
     intermediates, capped = [], False
@@ -187,7 +206,7 @@ def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce
         gmd = _unfence(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
         capped = capped or providers.LAST["truncated"]
         intermediates.append((f"{group[0][0]} … {group[-1][0]}", gmd))
-    md, levels, sub_capped = _synthesize(model, rubric, intermediates, header, on_progress, _level + 1, cap)
+    md, levels, sub_capped = _synthesize(model, rubric, intermediates, header, on_progress, _level + 1, cap, extra)
     return md, levels, capped or sub_capped
 
 
@@ -307,11 +326,15 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
             emit(spec_path, code_ref, _folder, f"authoring {spec_path} ({len(code_files)} modules)")
 
     # 2. Overview layer — an index that links down to the specs the layout produced (runs after every spec exists).
+    # A deterministic system-context scan (free, no model call) feeds each overview call its OBSERVED SYSTEM
+    # EVIDENCE, so the '## System context' section can only ever carry observed, file:line-backed entries.
+    ctx = syscontext.scan(repo, config) if overview != "none" else None
     if overview in ("repo", "both"):
         def _repo_overview():
             items = [(sp, target_md(sp, cf)) for sp, cf in sorted(targets.items())]
             md, levels, reply_capped = _synthesize(model, OVERVIEW_RUBRIC, items, "Repository overview",
-                                                   on_progress, reduce_cap=reduce_cap)
+                                                   on_progress, reduce_cap=reduce_cap,
+                                                   extra=syscontext.evidence_block(ctx) or None)
             return md, _cap_notes(
                 f"index synthesised in {levels} passes over all {len(items)} specs (nothing dropped)" if levels > 1 else None,
                 "reply hit the token cap — the index may end mid-section" if reply_capped else None)
@@ -333,7 +356,8 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
                 items = [(tp, target_md(tp, cf)) for tp, cf in sorted(dtargets.items())]
                 md, levels, reply_capped = _synthesize(model, OVERVIEW_RUBRIC, items,
                                                        f"Directory overview — `{d or '.'}`", on_progress,
-                                                       reduce_cap=reduce_cap)
+                                                       reduce_cap=reduce_cap,
+                                                       extra=syscontext.evidence_block(ctx, scope_dir=d) or None)
                 return md, _cap_notes(
                     f"index synthesised in {levels} passes (nothing dropped)" if levels > 1 else None,
                     "reply hit the token cap — the index may end mid-section" if reply_capped else None)
