@@ -212,7 +212,13 @@ def main(argv=None):
             if not os.path.exists(baseline_path):
                 print(f"no baseline at {baseline_path} — run `spec-eval context {args.repo}` first to store one")
                 raise SystemExit(0)
-            d = syscontext.diff(json.load(open(baseline_path)), ctx)
+            try:
+                baseline = json.load(open(baseline_path))
+                assert isinstance(baseline, dict)
+            except (ValueError, AssertionError, OSError):     # corrupt/empty/non-dict → re-baseline, don't crash
+                print(f"unreadable baseline at {baseline_path} — re-run `spec-eval context {args.repo}` to re-store")
+                raise SystemExit(0)
+            d = syscontext.diff(baseline, ctx)
             print(syscontext.diff_receipt(d, sha=runlog.git_sha(args.repo)))
             overview_path = os.path.join(args.repo, "OVERVIEW.md")           # second edge: fingerprint -> overview
             overview_stale = (os.path.exists(overview_path)

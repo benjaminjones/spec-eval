@@ -62,7 +62,7 @@ The one governing constraint a reviewer can check: **`coverage` and `context` ne
 - `results` (audit) — list of pair findings; each may carry `skipped` and a `label`.
 - `results` (sufficiency) — list of pairs; each carries `label` and `sufficiency ∈ [0.0,1.0] | null`.
 - `cov` (coverage) — `{ pct, covered[], uncovered[], spec_worthy, orphans[] }`.
-- `ctx` (context) — `{ schema, repo, files_scanned, unscanned{ext:count}, entries[] }`.
+- `ctx` (context) — `{ schema, scanner{version, tables_digest}, repo, files_scanned, unscanned{ext:count}, entries[] }`.
 - `res` (generate) — list of `{ status, spec, note? }`; status ∈ {`authored`, `skipped`}.
 
 ### Invariants (*rules that must always hold*)

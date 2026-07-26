@@ -176,6 +176,19 @@ _AWS_ECOSYSTEMS = (
     re.compile(r"software\.amazon\.awssdk\.services\.([a-z0-9]+)"),   # Java v2
     re.compile(r"^\s*(?:global\s+)?using\s+Amazon\.([A-Za-z0-9]+)"),  # .NET (AWSSDK.*)
 )
+_AWS_PLUMBING = ("runtime", "extensions", "util", "core", "config", "auth")   # SDK namespaces, not services
+_AWS_JAVA_MARKERS = ("software.amazon.awssdk", "com.amazonaws")               # SDK present but no service named
+# Detectors that live off the module-level tables — hoisted so they are named, compiled once, and hashable by
+# `_tables_digest` (any change to detection knowledge MUST move the digest — that is what keeps a scanner
+# upgrade a re-baseline instead of false drift).
+_GOOGLE_CLOUD_RE = re.compile(r"google\.cloud[\./]([a-z_]+)|from\s+google\.cloud\s+import\s+([a-z_]+)"
+                              r"|@google-cloud/([a-z-]+)")
+_GOOGLE_GENAI_RE = re.compile(r"from\s+google\s+import\s+genai\b")
+_DJANGO_BACKENDS_RE = re.compile(r"django\.db\.backends\.(postgresql(?:_psycopg2)?|mysql|oracle)")
+_DJANGO_ENGINE_MAP = {"mysql": "MySQL", "oracle": "Oracle"}                    # else PostgreSQL
+_AZURE_SDK = {"azure.storage.blob": "Azure Blob Storage", "@azure/storage-blob": "Azure Blob Storage",
+              "azure.servicebus": "Azure Service Bus", "@azure/service-bus": "Azure Service Bus",
+              "azure.cosmos": "Azure Cosmos DB", "@azure/cosmos": "Azure Cosmos DB"}
 
 
 def _token_hit(line, key):
@@ -278,29 +291,26 @@ def _scan_file(repo, rel, add):
                 if _token_hit(vis, key):
                     add(f"HTTP surface exposed ({fw})", "inbound-surface", "inbound", "framework",
                         rel, lineno, line)
-            m = re.search(r"google\.cloud[\./]([a-z_]+)|from\s+google\.cloud\s+import\s+([a-z_]+)"
-                          r"|@google-cloud/([a-z-]+)", vis)
+            m = _GOOGLE_CLOUD_RE.search(vis)
             if m:
                 svc = (m.group(1) or m.group(2) or m.group(3)).replace("_", " ").replace("-", " ").title()
                 add(f"Google Cloud {svc}", "infra", "outbound", "sdk", rel, lineno, line)
-            if re.search(r"from\s+google\s+import\s+genai\b", vis):
+            if _GOOGLE_GENAI_RE.search(vis):
                 add("Google Gemini API", "application", "outbound", "sdk", rel, lineno, line)
             aws_hit = False
             for rx in _AWS_ECOSYSTEMS:
                 m = rx.search(vis)
                 if m:
                     sid = m.group(1).replace("_", "-").lower()
-                    if sid in ("runtime", "extensions", "util", "core", "config", "auth"):
+                    if sid in _AWS_PLUMBING:
                         continue                     # SDK plumbing namespaces, not services
                     name = AWS_SERVICES.get(sid) or (sid.upper() if len(sid) <= 4
                                                      else sid.replace("-", " ").title())
                     add(f"AWS {name}", "infra", "outbound", "sdk", rel, lineno, line)
                     aws_hit = True
-            if not aws_hit and ("software.amazon.awssdk" in vis or "com.amazonaws" in vis):
+            if not aws_hit and any(marker in vis for marker in _AWS_JAVA_MARKERS):
                 add("AWS (service not resolved)", "infra", "outbound", "sdk", rel, lineno, line)
-            for key, system in {"azure.storage.blob": "Azure Blob Storage", "@azure/storage-blob": "Azure Blob Storage",
-                                "azure.servicebus": "Azure Service Bus", "@azure/service-bus": "Azure Service Bus",
-                                "azure.cosmos": "Azure Cosmos DB", "@azure/cosmos": "Azure Cosmos DB"}.items():
+            for key, system in _AZURE_SDK.items():
                 if key in vis:
                     add(system, "infra", "outbound", "sdk", rel, lineno, line)
         m = _AWS_CLIENT.search(vis)
@@ -313,9 +323,9 @@ def _scan_file(repo, rel, add):
                 boto3_resolved = True
                 name = sid.upper() if len(sid) <= 4 else sid.replace("-", " ").title()
                 add(f"AWS {name}", "infra", "outbound", "sdk", rel, lineno, line)
-        m = re.search(r"django\.db\.backends\.(postgresql(?:_psycopg2)?|mysql|oracle)", vis)
+        m = _DJANGO_BACKENDS_RE.search(vis)
         if m:                           # the engine literal resolves what the django.db import hedges
-            add({"mysql": "MySQL", "oracle": "Oracle"}.get(m.group(1), "PostgreSQL"),
+            add(_DJANGO_ENGINE_MAP.get(m.group(1), "PostgreSQL"),
                 "infra", "outbound", "sdk", rel, lineno, line)
         for m in _URL.finditer(vis):
             host = m.group(1).lower()
@@ -391,14 +401,19 @@ def scan(repo, config):
 
 
 def _tables_digest():
-    """A stable 16-char hash of ALL detection knowledge. A change to any table (a new SDK key, a new scheme,
-    an env suffix) changes the digest — so a fingerprint diff across differing digests is a re-baseline
-    ('the scanner learned to see more'), never code drift. This is what keeps table growth from firing false
-    drift in every consuming repo once baselines are stored."""
+    """A stable 16-char hash of ALL detection knowledge — every table AND every hoisted regex/literal that can
+    change the observed `(system, direction)` key set. A change to any of them (a new SDK key, a new scheme, a
+    new AWS ecosystem regex, an Azure entry) moves the digest, so a fingerprint diff across differing digests
+    is a re-baseline ('the scanner learned to see more'), never code drift. This is what keeps table growth
+    from firing false drift in every consuming repo once baselines are stored. `sorted()` on every set/dict
+    makes the hash order-independent, hence deterministic across Python runs."""
     payload = repr([
         sorted(SDK_IMPORTS.items()), sorted(INBOUND_FRAMEWORKS.items()), sorted(SCHEME_SYSTEMS.items()),
         sorted(AWS_SERVICES.items()), sorted(SKIP_HOST_SUFFIXES), sorted(KEEP_HOSTS),
         sorted(ILLUSTRATIVE_DIRS), sorted(OTHER_SOURCE_EXT), _ENV_SUFFIX,
+        [r.pattern for r in _AWS_ECOSYSTEMS], sorted(_AWS_PLUMBING), sorted(_AWS_JAVA_MARKERS),
+        sorted(_AZURE_SDK.items()), sorted(_DJANGO_ENGINE_MAP.items()),
+        _GOOGLE_CLOUD_RE.pattern, _GOOGLE_GENAI_RE.pattern, _DJANGO_BACKENDS_RE.pattern,
     ])
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
@@ -504,8 +519,9 @@ def diff(baseline, current):
       - 'rebaseline' — the scanner (version / tables digest) or schema differs, so the two fingerprints are
                        NOT comparable as code drift; re-store the baseline. Never counts as drift."""
     def prov(r):
-        return (r.get("schema"), (r.get("scanner") or {}).get("tables_digest"))
-    scanner_changed = prov(baseline) != prov(current)
+        s = r.get("scanner") or {}
+        return (r.get("schema"), s.get("version"), s.get("tables_digest"))   # version is the catch-all: ANY
+    scanner_changed = prov(baseline) != prov(current)                        # released scanner change -> rebaseline
 
     bi = {(e["system"], e["direction"]): e for e in baseline.get("entries", [])}
     ci = {(e["system"], e["direction"]): e for e in current.get("entries", [])}

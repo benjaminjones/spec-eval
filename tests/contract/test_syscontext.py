@@ -3,6 +3,7 @@ section and the free `context` command. Pins the ACs of spec_eval/syscontext.md:
 exclusion of test fixtures, dedup/merge, stable (diffable) ordering, and the empty-scan guarantee."""
 import json
 import os
+import re
 
 import pytest
 
@@ -171,6 +172,39 @@ def test_added_and_removed_systems_are_drift(tmp_path):
     assert d["added"][0]["evidence"] and d["added"][0]["via"] == ["sdk"]
 
 
+def test_tables_digest_covers_all_detection_knowledge(tmp_path, monkeypatch):
+    """A change to ANY detector — including the hoisted regexes/literals off the module tables — must move
+    tables_digest, or a scanner upgrade misfires as drift (the false-drift the mechanism must prevent)."""
+    base = syscontext._tables_digest()
+    for attr, mutate in [
+        ("_AZURE_SDK", lambda v: {**v, "azure.newthing": "Azure New"}),
+        ("_AWS_PLUMBING", lambda v: v + ("newplumbing",)),
+        ("_AWS_JAVA_MARKERS", lambda v: v + ("aws.new.marker",)),
+        ("_DJANGO_ENGINE_MAP", lambda v: {**v, "sqlite": "SQLite"}),
+    ]:
+        monkeypatch.setattr(syscontext, attr, mutate(getattr(syscontext, attr)))
+        assert syscontext._tables_digest() != base, f"{attr} change did not move tables_digest"
+        monkeypatch.undo()
+    # a new AWS-ecosystem regex must also move it
+    monkeypatch.setattr(syscontext, "_AWS_ECOSYSTEMS",
+                        syscontext._AWS_ECOSYSTEMS + (re.compile(r"newcloud_aws_([a-z]+)"),))
+    assert syscontext._tables_digest() != base
+
+
+def test_tables_digest_is_deterministic_across_calls(tmp_path):
+    assert syscontext._tables_digest() == syscontext._tables_digest()   # sorted() → order-independent
+
+
+def test_version_bump_is_rebaseline_even_with_same_digest(tmp_path):
+    """A released scanner upgrade (version bump) whose new detection lives outside the hashed tables must
+    still read as rebaseline, never drift."""
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    old_version = {**base, "scanner": {**base["scanner"], "version": "0.0.1"}}
+    current = _scan(tmp_path, {"db.py": "import psycopg2\nimport redis\n"})   # Redis added
+    d = syscontext.diff(old_version, current)
+    assert d["outcome"] == "rebaseline" and d["scanner_changed"] is True
+
+
 def test_scanner_change_is_rebaseline_not_drift(tmp_path):
     """A differing tables digest (the scanner learned to see more) must read as re-baseline, never drift —
     even when the entry sets genuinely differ."""
@@ -226,6 +260,20 @@ def test_cli_check_without_baseline_is_a_no_op(tmp_path, capsys):
         cli.main(["context", str(tmp_path), "--check", "--out", str(tmp_path / "empty")])
     assert ex.value.code == 0
     assert "no baseline" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("bad", ["{ broken json", "", "[]", "not json at all"])
+def test_cli_check_degrades_on_a_corrupt_baseline(tmp_path, capsys, bad):
+    """A malformed/empty/non-dict baseline must degrade to a re-store hint (exit 0), never a traceback that
+    a CI reads as failure."""
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    out = tmp_path / "reports"
+    out.mkdir()
+    (out / "system-context.json").write_text(bad)
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(out)])
+    assert ex.value.code == 0
+    assert "unreadable baseline" in capsys.readouterr().out
 
 
 # --- overview freshness stamp (edge 2: fingerprint -> overview) ---
