@@ -40,7 +40,7 @@ Two governing rules a reviewer can check:
 - **per-dir** — one target per directory, at `<dir>/<name>.md`, covering every spec-worthy file in that directory.
 - **per-pair** — one target per config pair, at the pair's first `docs` entry, covering every file its `code` globs match.
 
-**Why coverage drives it:** the same spec-worthiness rules (tests/config/generated/glue excluded) apply to authoring, and — for `per-dir` — coverage and generate share `dir_spec_path`, so a folder spec that generate writes is exactly the one coverage counts as covering that folder.
+**Why coverage drives it:** the same spec-worthiness rules (tests/config/generated/glue excluded) drive **per-file and per-dir** target selection, and — for `per-dir` — coverage and generate share `dir_spec_path`, so a folder spec that generate writes is exactly the one coverage counts as covering that folder. **`per-pair` is the exception:** its targets come directly from each pair's `code` glob matched off disk, not filtered by coverage's spec-worthiness rules.
 
 **Per-module authoring (map).** For a single-file target the code file is read (decode errors ignored), truncated to `CODE_CAP`, embedded in a fenced user message, and sent with the authoring rubric (capped at the `AUTHOR_MAX_TOKENS` output budget). The result has any accidental outer code fence stripped. Returns `(markdown, note)` — the note flags code input over `CODE_CAP` and/or a reply cut off at the token cap, either of which can otherwise silently ship a spec that ends mid-section.
 

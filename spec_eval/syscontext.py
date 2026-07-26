@@ -414,6 +414,9 @@ def _tables_digest():
         [r.pattern for r in _AWS_ECOSYSTEMS], sorted(_AWS_PLUMBING), sorted(_AWS_JAVA_MARKERS),
         sorted(_AZURE_SDK.items()), sorted(_DJANGO_ENGINE_MAP.items()),
         _GOOGLE_CLOUD_RE.pattern, _GOOGLE_GENAI_RE.pattern, _DJANGO_BACKENDS_RE.pattern,
+        # the matching regexes themselves shape the key set too — widen one and new systems match
+        _URL.pattern, _SCHEME.pattern, _AWS_CLIENT.pattern,
+        _ENV_QUOTED.pattern, _ENV_BARE.pattern, _ENV_DESTRUCTURE.pattern, _ENV_NAME.pattern,
     ])
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
