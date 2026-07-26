@@ -214,10 +214,16 @@ def main(argv=None):
                 raise SystemExit(0)
             d = syscontext.diff(json.load(open(baseline_path)), ctx)
             print(syscontext.diff_receipt(d, sha=runlog.git_sha(args.repo)))
+            overview_path = os.path.join(args.repo, "OVERVIEW.md")           # second edge: fingerprint -> overview
+            overview_stale = (os.path.exists(overview_path)
+                              and syscontext.overview_stale(open(overview_path, errors="ignore").read(), ctx))
+            if overview_stale:
+                print("⚠ OVERVIEW.md system context is stale — regenerate its overview (`generate --overview`)")
             runlog.append_run(args.out, args.repo, "context-check", None,
-                              {"outcome": d["outcome"], "added": len(d["added"]), "removed": len(d["removed"])})
+                              {"outcome": d["outcome"], "added": len(d["added"]), "removed": len(d["removed"]),
+                               "overview_stale": overview_stale})
             if d["outcome"] == "drift":
-                raise SystemExit(1)                # gate: a system was added or removed
+                raise SystemExit(1)                # gate: a system was added or removed (overview staleness warns)
             raise SystemExit(0)
 
         json.dump(ctx, open(os.path.join(args.out, "system-context.json"), "w"), indent=2)

@@ -44,6 +44,8 @@ Scope by design: systems and direction only. Installed-package lists, endpoint s
 
 **Drift check (`diff` + `spec-eval context --check`).** `diff(baseline, current)` compares two scan results by their `(system, direction)` **key set** — the identity that matters — never by JSON bytes, so an evidence line moving, a second call site, or a file rename is `clean`, not drift. It compares scanner provenance FIRST: a differing `tables_digest` or `schema` yields `rebaseline` (the scanner learned to see more — re-store the baseline; never counts as drift), which is what stops table growth from firing false drift in every consuming repo once baselines are committed. Otherwise an added or removed system is `drift`. `diff_receipt` renders the outcome as named `+`/`-` delta lines in the SPEC-HEALTH click-to-verify style — one line per changed system with an evidence site, never a full-table reprint or an evidence-churn row. The `context --check` command loads the stored `system-context.json` baseline, diffs the fresh scan, prints the receipt, and **exits 1 only on `drift`** (a re-baseline or a clean run exit 0); it never overwrites the baseline — a plain `context` run does that.
 
+**Overview freshness stamp (the second edge).** The drift check verifies two edges. Edge 1 (above) is code → stored fingerprint. Edge 2 is stored fingerprint → the generated `OVERVIEW.md`: when `generate --overview` renders a System context section, it appends an invisible HTML-comment stamp (`fingerprint_digest` — a hash of the observed `(system, direction)` key set) recording the fingerprint the section came from. `context --check` reads that stamp back (`overview_stale`) and prints a ⚠ warning when it no longer matches the current scan — the code's external systems changed but the overview was not regenerated. **Overview staleness warns; it does not fail the gate** (regenerating a doc is a different action from investigating code drift). An overview with no stamp is never flagged.
+
 ## 4. Contracts
 
 *Reference — consult when implementing or reviewing a change; skip on a first read for intent.*
@@ -67,6 +69,8 @@ Semantic shapes:
 | INV-8 | Every fingerprint carries `scanner` provenance (version + tables digest); a change to any detection table changes `tables_digest`, so the digest is a total function of the scanner's recognition. |
 | INV-9 | `diff` decides identity by the `(system, direction)` key set only; two results differing solely in evidence sites, `via`, counts, or repo name are `clean`. |
 | INV-10 | When provenance (`tables_digest` or `schema`) differs, `diff` returns `rebaseline` and never `drift`, regardless of how the entry sets differ. |
+| INV-11 | `fingerprint_digest` depends only on the observed `(system, direction)` key set; two scans with the same systems produce the same stamp even if evidence sites moved. |
+| INV-12 | `overview_stale` returns False when the markdown carries no stamp — an unstamped overview is never flagged stale. |
 
 ### Acceptance criteria (*Given / When / Then*)
 
@@ -95,3 +99,5 @@ Semantic shapes:
 | AC-21 | a baseline with PostgreSQL, then code that drops it and adds Redis | `diff` runs | outcome `drift`; `added` = Redis (with a `file:line`), `removed` = PostgreSQL. |
 | AC-22 | a baseline whose `tables_digest` differs from the current scanner | `diff` runs | outcome `rebaseline`, `scanner_changed` true — never `drift`. |
 | AC-23 | a stored baseline, then drifted code | `spec-eval context --check` runs | prints the named-delta receipt and exits 1; the baseline file is not overwritten. |
+| AC-24 | an overview stamped from a scan, then code that adds a system | `overview_stale(md, fresh_scan)` | returns True — the stamped digest no longer matches the current systems. |
+| AC-25 | `generate --overview` on code with observed systems | authoring runs | the written `OVERVIEW.md` ends with a `<!-- system-context-fingerprint: … -->` stamp. |

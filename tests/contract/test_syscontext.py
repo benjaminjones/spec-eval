@@ -228,6 +228,54 @@ def test_cli_check_without_baseline_is_a_no_op(tmp_path, capsys):
     assert "no baseline" in capsys.readouterr().out
 
 
+# --- overview freshness stamp (edge 2: fingerprint -> overview) ---
+
+def test_fingerprint_digest_ignores_evidence_movement(tmp_path):
+    a = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    b = _scan(tmp_path, {"db.py": "\n\nimport psycopg2\nx = 1\n"})   # same system, moved line
+    assert syscontext.fingerprint_digest(a) == syscontext.fingerprint_digest(b)
+
+
+def test_overview_stale_detects_a_changed_system_set(tmp_path):
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    md = f"## System context\n| ... |\n\n{syscontext.stamp_comment(base)}\n"
+    assert syscontext.overview_stale(md, base) is False                 # matches
+    changed = _scan(tmp_path, {"db.py": "import psycopg2\nimport redis\n"})
+    assert syscontext.overview_stale(md, changed) is True               # Redis added, overview not regenerated
+
+
+def test_overview_without_a_stamp_is_never_stale(tmp_path):
+    scan = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    assert syscontext.overview_stale("## System context\n| ... |\n", scan) is False
+
+
+def test_generate_stamps_the_repo_overview(tmp_path, monkeypatch):
+    from spec_eval import providers
+    monkeypatch.setattr(providers, "gen", lambda m, s, u, max_tokens=1200: "## System context\n\n| x |\n")
+    (tmp_path / "store.py").write_text("import boto3\nboto3.client('s3')\n")
+    (tmp_path / "more.py").write_text("import psycopg2\n")
+    from spec_eval import authoring
+    authoring.generate_repo(str(tmp_path), {"authoring": {"overview": "repo"}}, "fake:model")
+    overview = (tmp_path / "OVERVIEW.md").read_text()
+    assert syscontext.read_stamp(overview) is not None
+    scan = syscontext.scan(str(tmp_path), {})
+    assert syscontext.overview_stale(overview, scan) is False           # stamp matches the code it came from
+
+
+def test_cli_check_warns_on_stale_overview(tmp_path, capsys):
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    out = tmp_path / "reports"
+    cli.main(["context", str(tmp_path), "--out", str(out)])             # baseline for psycopg2 only
+    base = syscontext.scan(str(tmp_path), {})
+    (tmp_path / "OVERVIEW.md").write_text(f"## System context\n\n{syscontext.stamp_comment(base)}\n")
+    (tmp_path / "cache.py").write_text("import redis\n")                # add a system -> overview now stale + drift
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(out)])
+    o = capsys.readouterr().out
+    assert ex.value.code == 1                                           # drift gate still fires
+    assert "OVERVIEW.md system context is stale" in o
+
+
 # --- regressions pinned by the adversarial review ---
 
 def test_getenv_idiom_counts_as_an_env_endpoint(tmp_path):

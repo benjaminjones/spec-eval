@@ -539,3 +539,34 @@ def diff_receipt(d, sha=None):
         body = _delta_lines(d)
         return head + ("\n" + body if body else "")
     return f"System-context drift{at}:\n" + _delta_lines(d)
+
+
+# --- overview freshness stamp: does a generated overview still match the scan it was rendered from? ---------
+
+STAMP_RE = re.compile(r"<!--\s*system-context-fingerprint:\s*([0-9a-f]+)\s*-->")
+
+
+def fingerprint_digest(result):
+    """A 12-char hash of the observed `(system, direction)` key set — the same identity `diff` uses. Two
+    scans with the same systems share a digest even if evidence sites moved."""
+    keys = sorted((e["system"], e["direction"]) for e in result.get("entries", []))
+    return hashlib.sha256(repr(keys).encode()).hexdigest()[:12]
+
+
+def stamp_comment(result):
+    """The HTML-comment receipt appended to a generated overview: the fingerprint the System context section
+    was rendered from. Invisible in rendered markdown; read back by `overview_stale`."""
+    return f"<!-- system-context-fingerprint: {fingerprint_digest(result)} -->"
+
+
+def read_stamp(markdown):
+    m = STAMP_RE.search(markdown)
+    return m.group(1) if m else None
+
+
+def overview_stale(markdown, current):
+    """True when the overview carries a stamp whose digest no longer matches the current scan — the code's
+    external systems changed but the overview was not regenerated. Absent stamp -> not stale (nothing to
+    verify)."""
+    stamp = read_stamp(markdown)
+    return stamp is not None and stamp != fingerprint_digest(current)

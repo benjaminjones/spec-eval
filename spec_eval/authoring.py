@@ -331,10 +331,12 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
     ctx = syscontext.scan(repo, config) if overview != "none" else None
     if overview in ("repo", "both"):
         def _repo_overview():
+            block = syscontext.evidence_block(ctx) or None
             items = [(sp, target_md(sp, cf)) for sp, cf in sorted(targets.items())]
             md, levels, reply_capped = _synthesize(model, OVERVIEW_RUBRIC, items, "Repository overview",
-                                                   on_progress, reduce_cap=reduce_cap,
-                                                   extra=syscontext.evidence_block(ctx) or None)
+                                                   on_progress, reduce_cap=reduce_cap, extra=block)
+            if block:            # stamp the fingerprint this System context section was rendered from, so a
+                md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # later `--check` can flag staleness
             return md, _cap_notes(
                 f"index synthesised in {levels} passes over all {len(items)} specs (nothing dropped)" if levels > 1 else None,
                 "reply hit the token cap — the index may end mid-section" if reply_capped else None)
