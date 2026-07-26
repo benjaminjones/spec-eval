@@ -89,6 +89,10 @@ def main(argv=None):
     x.add_argument("--config", "-c", default=None,
                    help="optional config (YAML/JSON) for code_ext / exclude rules")
     x.add_argument("--out", "-o", default="spec-reports", help="output directory")
+    x.add_argument("--check", action="store_true",
+                   help="compare a fresh scan against the stored system-context.json baseline in --out and "
+                        "exit 1 if any external system was added or removed (a scanner change is a re-baseline, "
+                        "not drift); does not overwrite the baseline")
 
     args = ap.parse_args(argv)
 
@@ -202,6 +206,32 @@ def main(argv=None):
         cfg = audit.load_config(args.config) if args.config else {}
         os.makedirs(args.out, exist_ok=True)
         ctx = syscontext.scan(args.repo, cfg)
+
+        if args.check:
+            baseline_path = os.path.join(args.out, "system-context.json")
+            if not os.path.exists(baseline_path):
+                print(f"no baseline at {baseline_path} — run `spec-eval context {args.repo}` first to store one")
+                raise SystemExit(0)
+            try:
+                baseline = json.load(open(baseline_path))
+                assert isinstance(baseline, dict)
+            except (ValueError, AssertionError, OSError):     # corrupt/empty/non-dict → re-baseline, don't crash
+                print(f"unreadable baseline at {baseline_path} — re-run `spec-eval context {args.repo}` to re-store")
+                raise SystemExit(0)
+            d = syscontext.diff(baseline, ctx)
+            print(syscontext.diff_receipt(d, sha=runlog.git_sha(args.repo)))
+            overview_path = os.path.join(args.repo, "OVERVIEW.md")           # second edge: fingerprint -> overview
+            overview_stale = (os.path.exists(overview_path)
+                              and syscontext.overview_stale(open(overview_path, errors="ignore").read(), ctx))
+            if overview_stale:
+                print("⚠ OVERVIEW.md system context is stale — regenerate its overview (`generate --overview`)")
+            runlog.append_run(args.out, args.repo, "context-check", None,
+                              {"outcome": d["outcome"], "added": len(d["added"]), "removed": len(d["removed"]),
+                               "overview_stale": overview_stale})
+            if d["outcome"] == "drift":
+                raise SystemExit(1)                # gate: a system was added or removed (overview staleness warns)
+            raise SystemExit(0)
+
         json.dump(ctx, open(os.path.join(args.out, "system-context.json"), "w"), indent=2)
         open(os.path.join(args.out, "system-context.md"), "w").write(syscontext.format_report(ctx, args.repo) + "\n")
         print(f"system context: {len(ctx['entries'])} external system(s) observed across "

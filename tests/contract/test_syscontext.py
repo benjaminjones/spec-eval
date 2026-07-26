@@ -3,6 +3,7 @@ section and the free `context` command. Pins the ACs of spec_eval/syscontext.md:
 exclusion of test fixtures, dedup/merge, stable (diffable) ordering, and the empty-scan guarantee."""
 import json
 import os
+import re
 
 import pytest
 
@@ -126,7 +127,8 @@ def test_cli_context_writes_both_artifacts_without_a_key(ctx_repo, tmp_path, cap
     cli.main(["context", str(ctx_repo), "--out", str(out)])
     assert "external system(s) observed" in capsys.readouterr().out
     data = json.load(open(out / "system-context.json"))
-    assert data["schema"] == 1 and data["entries"]
+    assert data["schema"] == syscontext.SCHEMA and data["entries"]
+    assert data["scanner"]["version"] and data["scanner"]["tables_digest"]
     assert "# System context" in open(out / "system-context.md").read()
     assert any(json.loads(l)["command"] == "context" for l in open(out / "runs.jsonl"))
 
@@ -134,6 +136,192 @@ def test_cli_context_writes_both_artifacts_without_a_key(ctx_repo, tmp_path, cap
 def test_cli_context_rejects_a_file_path(ctx_repo):
     with pytest.raises(SystemExit):
         cli.main(["context", str(ctx_repo / "store.py")])
+
+
+# --- drift check: fingerprint diff by key set, 3 outcomes, provenance-first ---
+
+def _scan(tmp_path, files):
+    for name, body in files.items():
+        p = tmp_path / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(body)
+    return syscontext.scan(str(tmp_path), {})
+
+
+def test_identical_scan_is_clean(tmp_path):
+    a = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    d = syscontext.diff(a, a)
+    assert d["outcome"] == "clean" and not d["added"] and not d["removed"]
+
+
+def test_line_churn_is_not_drift(tmp_path):
+    """The same system at a different line/second call site must NOT count as drift (key-set identity)."""
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    moved = _scan(tmp_path, {"db.py": "# a new top comment\n\nimport psycopg2\nquery = 1\n"})
+    d = syscontext.diff(base, moved)
+    assert d["outcome"] == "clean"                       # evidence line moved from 1 to 3; identity unchanged
+
+
+def test_added_and_removed_systems_are_drift(tmp_path):
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    changed = _scan(tmp_path, {"db.py": "import redis\n"})       # dropped PostgreSQL, added Redis
+    d = syscontext.diff(base, changed)
+    assert d["outcome"] == "drift"
+    assert [a["system"] for a in d["added"]] == ["Redis"]
+    assert [r["system"] for r in d["removed"]] == ["PostgreSQL"]
+    assert d["added"][0]["evidence"] and d["added"][0]["via"] == ["sdk"]
+
+
+def test_tables_digest_covers_all_detection_knowledge(tmp_path, monkeypatch):
+    """A change to ANY detector — including the hoisted regexes/literals off the module tables — must move
+    tables_digest, or a scanner upgrade misfires as drift (the false-drift the mechanism must prevent)."""
+    base = syscontext._tables_digest()
+    for attr, mutate in [
+        ("_AZURE_SDK", lambda v: {**v, "azure.newthing": "Azure New"}),
+        ("_AWS_PLUMBING", lambda v: v + ("newplumbing",)),
+        ("_AWS_JAVA_MARKERS", lambda v: v + ("aws.new.marker",)),
+        ("_DJANGO_ENGINE_MAP", lambda v: {**v, "sqlite": "SQLite"}),
+    ]:
+        monkeypatch.setattr(syscontext, attr, mutate(getattr(syscontext, attr)))
+        assert syscontext._tables_digest() != base, f"{attr} change did not move tables_digest"
+        monkeypatch.undo()
+    # a new AWS-ecosystem regex must also move it
+    monkeypatch.setattr(syscontext, "_AWS_ECOSYSTEMS",
+                        syscontext._AWS_ECOSYSTEMS + (re.compile(r"newcloud_aws_([a-z]+)"),))
+    assert syscontext._tables_digest() != base
+
+
+def test_tables_digest_is_deterministic_across_calls(tmp_path):
+    assert syscontext._tables_digest() == syscontext._tables_digest()   # sorted() → order-independent
+
+
+def test_version_bump_is_rebaseline_even_with_same_digest(tmp_path):
+    """A released scanner upgrade (version bump) whose new detection lives outside the hashed tables must
+    still read as rebaseline, never drift."""
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    old_version = {**base, "scanner": {**base["scanner"], "version": "0.0.1"}}
+    current = _scan(tmp_path, {"db.py": "import psycopg2\nimport redis\n"})   # Redis added
+    d = syscontext.diff(old_version, current)
+    assert d["outcome"] == "rebaseline" and d["scanner_changed"] is True
+
+
+def test_scanner_change_is_rebaseline_not_drift(tmp_path):
+    """A differing tables digest (the scanner learned to see more) must read as re-baseline, never drift —
+    even when the entry sets genuinely differ."""
+    base = _scan(tmp_path, {"db.py": "import psycopg2\nimport redis\n"})
+    base_stale = {**base, "scanner": {**base["scanner"], "tables_digest": "0000olddigest00"}}
+    current = _scan(tmp_path, {"db.py": "import psycopg2\n"})     # Redis gone — would be drift under same scanner
+    d = syscontext.diff(base_stale, current)
+    assert d["outcome"] == "rebaseline" and d["scanner_changed"] is True
+
+
+def test_schema_change_is_rebaseline(tmp_path):
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    old = {**base, "schema": 1}
+    d = syscontext.diff(old, syscontext.scan(str(tmp_path), {}))
+    assert d["outcome"] == "rebaseline"
+
+
+def test_receipt_is_named_deltas_with_evidence(tmp_path):
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    changed = _scan(tmp_path, {"db.py": "import redis\n"})
+    r = syscontext.diff_receipt(syscontext.diff(base, changed), sha="abc1234")
+    assert "System-context drift @ abc1234" in r
+    assert "+ Redis (outbound, via sdk)" in r and "db.py:" in r
+    assert "- PostgreSQL (outbound)" in r
+    assert syscontext.diff_receipt(syscontext.diff(base, base)) == "0 system-context changes"
+
+
+def test_cli_check_gates_on_drift(tmp_path, capsys):
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    out = tmp_path / "reports"
+    cli.main(["context", str(tmp_path), "--out", str(out)])       # store the baseline
+    (tmp_path / "db.py").write_text("import redis\n")             # code drifts
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(out)])
+    assert ex.value.code == 1
+    assert "drift" in capsys.readouterr().out.lower()
+    assert json.load(open(out / "system-context.json"))["entries"][0]["system"] == "PostgreSQL"  # not overwritten
+
+
+def test_cli_check_clean_passes(tmp_path, capsys):
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    out = tmp_path / "reports"
+    cli.main(["context", str(tmp_path), "--out", str(out)])
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(out)])
+    assert ex.value.code == 0
+    assert "0 system-context changes" in capsys.readouterr().out
+
+
+def test_cli_check_without_baseline_is_a_no_op(tmp_path, capsys):
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(tmp_path / "empty")])
+    assert ex.value.code == 0
+    assert "no baseline" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("bad", ["{ broken json", "", "[]", "not json at all"])
+def test_cli_check_degrades_on_a_corrupt_baseline(tmp_path, capsys, bad):
+    """A malformed/empty/non-dict baseline must degrade to a re-store hint (exit 0), never a traceback that
+    a CI reads as failure."""
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    out = tmp_path / "reports"
+    out.mkdir()
+    (out / "system-context.json").write_text(bad)
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(out)])
+    assert ex.value.code == 0
+    assert "unreadable baseline" in capsys.readouterr().out
+
+
+# --- overview freshness stamp (edge 2: fingerprint -> overview) ---
+
+def test_fingerprint_digest_ignores_evidence_movement(tmp_path):
+    a = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    b = _scan(tmp_path, {"db.py": "\n\nimport psycopg2\nx = 1\n"})   # same system, moved line
+    assert syscontext.fingerprint_digest(a) == syscontext.fingerprint_digest(b)
+
+
+def test_overview_stale_detects_a_changed_system_set(tmp_path):
+    base = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    md = f"## System context\n| ... |\n\n{syscontext.stamp_comment(base)}\n"
+    assert syscontext.overview_stale(md, base) is False                 # matches
+    changed = _scan(tmp_path, {"db.py": "import psycopg2\nimport redis\n"})
+    assert syscontext.overview_stale(md, changed) is True               # Redis added, overview not regenerated
+
+
+def test_overview_without_a_stamp_is_never_stale(tmp_path):
+    scan = _scan(tmp_path, {"db.py": "import psycopg2\n"})
+    assert syscontext.overview_stale("## System context\n| ... |\n", scan) is False
+
+
+def test_generate_stamps_the_repo_overview(tmp_path, monkeypatch):
+    from spec_eval import providers
+    monkeypatch.setattr(providers, "gen", lambda m, s, u, max_tokens=1200: "## System context\n\n| x |\n")
+    (tmp_path / "store.py").write_text("import boto3\nboto3.client('s3')\n")
+    (tmp_path / "more.py").write_text("import psycopg2\n")
+    from spec_eval import authoring
+    authoring.generate_repo(str(tmp_path), {"authoring": {"overview": "repo"}}, "fake:model")
+    overview = (tmp_path / "OVERVIEW.md").read_text()
+    assert syscontext.read_stamp(overview) is not None
+    scan = syscontext.scan(str(tmp_path), {})
+    assert syscontext.overview_stale(overview, scan) is False           # stamp matches the code it came from
+
+
+def test_cli_check_warns_on_stale_overview(tmp_path, capsys):
+    (tmp_path / "db.py").write_text("import psycopg2\n")
+    out = tmp_path / "reports"
+    cli.main(["context", str(tmp_path), "--out", str(out)])             # baseline for psycopg2 only
+    base = syscontext.scan(str(tmp_path), {})
+    (tmp_path / "OVERVIEW.md").write_text(f"## System context\n\n{syscontext.stamp_comment(base)}\n")
+    (tmp_path / "cache.py").write_text("import redis\n")                # add a system -> overview now stale + drift
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["context", str(tmp_path), "--check", "--out", str(out)])
+    o = capsys.readouterr().out
+    assert ex.value.code == 1                                           # drift gate still fires
+    assert "OVERVIEW.md system context is stale" in o
 
 
 # --- regressions pinned by the adversarial review ---

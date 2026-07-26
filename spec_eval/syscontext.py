@@ -16,7 +16,11 @@ partner-repo knowledge are invisible to this scan: the report says so instead of
 """
 import os
 import re
+import hashlib
 from . import coverage as coverage_mod
+
+SCHEMA = 2            # fingerprint layout version — bump when the JSON shape changes; a differing schema
+                      # (like a differing scanner digest) makes a diff a re-baseline, never code drift
 
 EVIDENCE_CAP = 8      # evidence sites kept per entry PER DIRECTORY (so per-dir scoping can never lose a
                       # system whose evidence sits in a busy sibling dir); the total count is always reported
@@ -172,6 +176,19 @@ _AWS_ECOSYSTEMS = (
     re.compile(r"software\.amazon\.awssdk\.services\.([a-z0-9]+)"),   # Java v2
     re.compile(r"^\s*(?:global\s+)?using\s+Amazon\.([A-Za-z0-9]+)"),  # .NET (AWSSDK.*)
 )
+_AWS_PLUMBING = ("runtime", "extensions", "util", "core", "config", "auth")   # SDK namespaces, not services
+_AWS_JAVA_MARKERS = ("software.amazon.awssdk", "com.amazonaws")               # SDK present but no service named
+# Detectors that live off the module-level tables — hoisted so they are named, compiled once, and hashable by
+# `_tables_digest` (any change to detection knowledge MUST move the digest — that is what keeps a scanner
+# upgrade a re-baseline instead of false drift).
+_GOOGLE_CLOUD_RE = re.compile(r"google\.cloud[\./]([a-z_]+)|from\s+google\.cloud\s+import\s+([a-z_]+)"
+                              r"|@google-cloud/([a-z-]+)")
+_GOOGLE_GENAI_RE = re.compile(r"from\s+google\s+import\s+genai\b")
+_DJANGO_BACKENDS_RE = re.compile(r"django\.db\.backends\.(postgresql(?:_psycopg2)?|mysql|oracle)")
+_DJANGO_ENGINE_MAP = {"mysql": "MySQL", "oracle": "Oracle"}                    # else PostgreSQL
+_AZURE_SDK = {"azure.storage.blob": "Azure Blob Storage", "@azure/storage-blob": "Azure Blob Storage",
+              "azure.servicebus": "Azure Service Bus", "@azure/service-bus": "Azure Service Bus",
+              "azure.cosmos": "Azure Cosmos DB", "@azure/cosmos": "Azure Cosmos DB"}
 
 
 def _token_hit(line, key):
@@ -274,29 +291,26 @@ def _scan_file(repo, rel, add):
                 if _token_hit(vis, key):
                     add(f"HTTP surface exposed ({fw})", "inbound-surface", "inbound", "framework",
                         rel, lineno, line)
-            m = re.search(r"google\.cloud[\./]([a-z_]+)|from\s+google\.cloud\s+import\s+([a-z_]+)"
-                          r"|@google-cloud/([a-z-]+)", vis)
+            m = _GOOGLE_CLOUD_RE.search(vis)
             if m:
                 svc = (m.group(1) or m.group(2) or m.group(3)).replace("_", " ").replace("-", " ").title()
                 add(f"Google Cloud {svc}", "infra", "outbound", "sdk", rel, lineno, line)
-            if re.search(r"from\s+google\s+import\s+genai\b", vis):
+            if _GOOGLE_GENAI_RE.search(vis):
                 add("Google Gemini API", "application", "outbound", "sdk", rel, lineno, line)
             aws_hit = False
             for rx in _AWS_ECOSYSTEMS:
                 m = rx.search(vis)
                 if m:
                     sid = m.group(1).replace("_", "-").lower()
-                    if sid in ("runtime", "extensions", "util", "core", "config", "auth"):
+                    if sid in _AWS_PLUMBING:
                         continue                     # SDK plumbing namespaces, not services
                     name = AWS_SERVICES.get(sid) or (sid.upper() if len(sid) <= 4
                                                      else sid.replace("-", " ").title())
                     add(f"AWS {name}", "infra", "outbound", "sdk", rel, lineno, line)
                     aws_hit = True
-            if not aws_hit and ("software.amazon.awssdk" in vis or "com.amazonaws" in vis):
+            if not aws_hit and any(marker in vis for marker in _AWS_JAVA_MARKERS):
                 add("AWS (service not resolved)", "infra", "outbound", "sdk", rel, lineno, line)
-            for key, system in {"azure.storage.blob": "Azure Blob Storage", "@azure/storage-blob": "Azure Blob Storage",
-                                "azure.servicebus": "Azure Service Bus", "@azure/service-bus": "Azure Service Bus",
-                                "azure.cosmos": "Azure Cosmos DB", "@azure/cosmos": "Azure Cosmos DB"}.items():
+            for key, system in _AZURE_SDK.items():
                 if key in vis:
                     add(system, "infra", "outbound", "sdk", rel, lineno, line)
         m = _AWS_CLIENT.search(vis)
@@ -309,9 +323,9 @@ def _scan_file(repo, rel, add):
                 boto3_resolved = True
                 name = sid.upper() if len(sid) <= 4 else sid.replace("-", " ").title()
                 add(f"AWS {name}", "infra", "outbound", "sdk", rel, lineno, line)
-        m = re.search(r"django\.db\.backends\.(postgresql(?:_psycopg2)?|mysql|oracle)", vis)
+        m = _DJANGO_BACKENDS_RE.search(vis)
         if m:                           # the engine literal resolves what the django.db import hedges
-            add({"mysql": "MySQL", "oracle": "Oracle"}.get(m.group(1), "PostgreSQL"),
+            add(_DJANGO_ENGINE_MAP.get(m.group(1), "PostgreSQL"),
                 "infra", "outbound", "sdk", rel, lineno, line)
         for m in _URL.finditer(vis):
             host = m.group(1).lower()
@@ -381,8 +395,35 @@ def scan(repo, config):
         rec["evidence"].sort(key=lambda e: (e["file"], e["line"]))
         out.append(rec)
     out.sort(key=lambda r: (KIND_ORDER.get(r["kind"], 9), r["system"], r["direction"]))
-    return {"schema": 1, "repo": os.path.basename(repo), "files_scanned": files_scanned,
+    return {"schema": SCHEMA, "scanner": scanner_provenance(),
+            "repo": os.path.basename(repo), "files_scanned": files_scanned,
             "unscanned": dict(sorted(unscanned.items())), "entries": out}
+
+
+def _tables_digest():
+    """A stable 16-char hash of ALL detection knowledge — every table AND every hoisted regex/literal that can
+    change the observed `(system, direction)` key set. A change to any of them (a new SDK key, a new scheme, a
+    new AWS ecosystem regex, an Azure entry) moves the digest, so a fingerprint diff across differing digests
+    is a re-baseline ('the scanner learned to see more'), never code drift. This is what keeps table growth
+    from firing false drift in every consuming repo once baselines are stored. `sorted()` on every set/dict
+    makes the hash order-independent, hence deterministic across Python runs."""
+    payload = repr([
+        sorted(SDK_IMPORTS.items()), sorted(INBOUND_FRAMEWORKS.items()), sorted(SCHEME_SYSTEMS.items()),
+        sorted(AWS_SERVICES.items()), sorted(SKIP_HOST_SUFFIXES), sorted(KEEP_HOSTS),
+        sorted(ILLUSTRATIVE_DIRS), sorted(OTHER_SOURCE_EXT), _ENV_SUFFIX,
+        [r.pattern for r in _AWS_ECOSYSTEMS], sorted(_AWS_PLUMBING), sorted(_AWS_JAVA_MARKERS),
+        sorted(_AZURE_SDK.items()), sorted(_DJANGO_ENGINE_MAP.items()),
+        _GOOGLE_CLOUD_RE.pattern, _GOOGLE_GENAI_RE.pattern, _DJANGO_BACKENDS_RE.pattern,
+    ])
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+def scanner_provenance():
+    """Identity of the scanner that produced a fingerprint: package version + detection-table digest.
+    The drift check compares this FIRST — a differing provenance means the two fingerprints are not
+    comparable as code drift."""
+    from spec_eval import __version__
+    return {"version": __version__, "tables_digest": _tables_digest()}
 
 
 def _scoped(result, scope_dir):
@@ -457,3 +498,91 @@ def format_report(result, repo):
         lines.append("")
         lines.append(f"> ⚠ {note}")
     return "\n".join(lines)
+
+
+# --- drift check: compare a fresh scan against a stored fingerprint -----------------------------------------
+
+def _delta_entry(e):
+    """The change-relevant slice of an entry for a receipt: identity + how + one verifiable evidence site."""
+    site = (e.get("evidence") or [{}])[0]
+    ref = f"{site.get('file')}:{site.get('line')}" if site.get("file") else None
+    return {"system": e["system"], "direction": e["direction"], "kind": e.get("kind"),
+            "via": e.get("via", []), "evidence": ref}
+
+
+def diff(baseline, current):
+    """Compare two scan results by their (system, direction) KEY SET — the identity that matters — never by
+    JSON bytes (evidence line-churn, a second call site, or a file rename are not drift). Returns
+    `{outcome, scanner_changed, added[], removed[]}`:
+      - 'clean'      — the same systems; only verification payload moved.
+      - 'drift'      — a system was added or removed (the only outcome a gate fails on).
+      - 'rebaseline' — the scanner (version / tables digest) or schema differs, so the two fingerprints are
+                       NOT comparable as code drift; re-store the baseline. Never counts as drift."""
+    def prov(r):
+        s = r.get("scanner") or {}
+        return (r.get("schema"), s.get("version"), s.get("tables_digest"))   # version is the catch-all: ANY
+    scanner_changed = prov(baseline) != prov(current)                        # released scanner change -> rebaseline
+
+    bi = {(e["system"], e["direction"]): e for e in baseline.get("entries", [])}
+    ci = {(e["system"], e["direction"]): e for e in current.get("entries", [])}
+    added = [_delta_entry(ci[k]) for k in sorted(set(ci) - set(bi))]
+    removed = [_delta_entry(bi[k]) for k in sorted(set(bi) - set(ci))]
+
+    outcome = "rebaseline" if scanner_changed else ("drift" if (added or removed) else "clean")
+    return {"outcome": outcome, "scanner_changed": scanner_changed, "added": added, "removed": removed}
+
+
+def _delta_lines(d):
+    lines = []
+    for e in d["added"]:
+        ev = f" — {e['evidence']}" if e["evidence"] else ""
+        lines.append(f"  + {e['system']} ({e['direction']}, via {', '.join(e['via'])}){ev}")
+    for e in d["removed"]:
+        lines.append(f"  - {e['system']} ({e['direction']})")
+    return "\n".join(lines)
+
+
+def diff_receipt(d, sha=None):
+    """A named-delta receipt in SPEC-HEALTH's click-to-verify style — one line per changed system, each with
+    an evidence site — never a full-table reprint or an evidence-churn row."""
+    at = f" @ {sha}" if sha else ""
+    if d["outcome"] == "clean":
+        return f"0 system-context changes{at}"
+    if d["outcome"] == "rebaseline":
+        head = (f"scanner changed — re-baseline{at}: the stored fingerprint came from a different scanner "
+                f"version/tables, so its diff is scanner coverage, not code drift. Re-run `spec-eval "
+                f"context` to re-store.")
+        body = _delta_lines(d)
+        return head + ("\n" + body if body else "")
+    return f"System-context drift{at}:\n" + _delta_lines(d)
+
+
+# --- overview freshness stamp: does a generated overview still match the scan it was rendered from? ---------
+
+STAMP_RE = re.compile(r"<!--\s*system-context-fingerprint:\s*([0-9a-f]+)\s*-->")
+
+
+def fingerprint_digest(result):
+    """A 12-char hash of the observed `(system, direction)` key set — the same identity `diff` uses. Two
+    scans with the same systems share a digest even if evidence sites moved."""
+    keys = sorted((e["system"], e["direction"]) for e in result.get("entries", []))
+    return hashlib.sha256(repr(keys).encode()).hexdigest()[:12]
+
+
+def stamp_comment(result):
+    """The HTML-comment receipt appended to a generated overview: the fingerprint the System context section
+    was rendered from. Invisible in rendered markdown; read back by `overview_stale`."""
+    return f"<!-- system-context-fingerprint: {fingerprint_digest(result)} -->"
+
+
+def read_stamp(markdown):
+    m = STAMP_RE.search(markdown)
+    return m.group(1) if m else None
+
+
+def overview_stale(markdown, current):
+    """True when the overview carries a stamp whose digest no longer matches the current scan — the code's
+    external systems changed but the overview was not regenerated. Absent stamp -> not stale (nothing to
+    verify)."""
+    stamp = read_stamp(markdown)
+    return stamp is not None and stamp != fingerprint_digest(current)

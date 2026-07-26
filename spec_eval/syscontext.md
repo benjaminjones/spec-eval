@@ -17,7 +17,9 @@ Scope by design: systems and direction only. Installed-package lists, endpoint s
 | evidence site | `{file, line, match}` — repo-relative path, 1-based line number, and the matched source line (stripped, capped at `LINE_CAP` chars). At most `EVIDENCE_CAP` sites are kept per entry **per directory** (so per-dir scoping always finds a dir's own sites); `evidence_total` always counts all of them repo-wide. |
 | scanned file | A code file (per `code_ext`, default `coverage.DEFAULT_CODE_EXT`) outside `PRUNE_DIRS` whose exclusion tier is not `test`, `generated`, or `user`, and that does not sit under an illustrative directory (`examples`, `samples`, `demo`, …) — example code demonstrates integrations, it doesn't have them. Glue/tooling files ARE scanned — real integrations live in entrypoints and scripts. |
 | scope_dir | Optional directory filter for a per-dir overview: only evidence sitting DIRECTLY in that directory counts. |
-| result | `{schema, repo, files_scanned, unscanned, entries[]}` — `schema` is the fingerprint format version (currently 1). |
+| result | `{schema, scanner, repo, files_scanned, unscanned, entries[]}` — `schema` is the fingerprint format version (currently 2). |
+| scanner (provenance) | `{version, tables_digest}` — the package version plus a stable 16-char hash of ALL detection tables. Identifies the scanner that produced a fingerprint; the drift check compares it FIRST. |
+| diff outcome | `clean` (same systems), `drift` (a system added or removed — the only gate-failing outcome), or `rebaseline` (scanner provenance or schema differs, so the two fingerprints are not comparable as code drift). |
 | unscanned | `{ext: count}` of recognized source files in languages outside the scan's support (`.cpp`, `.clj`, `.scala`, …) that were NOT walked. Reported wherever the inventory is shown — a repo the scanner can't read must never read as "talks to nothing". |
 
 ## 3. Behavior
@@ -40,13 +42,18 @@ Scope by design: systems and direction only. Installed-package lists, endpoint s
 
 **The gap is stated, never silent.** Files with recognized source extensions outside `code_ext` are counted into `unscanned`, and every surface that shows the inventory carries the fixed `Not scanned: …` line — the CLI summary, the report, and the repo-level evidence block (the rubric reproduces it verbatim beneath the overview's table). **Why:** the scan's worst failure shape is a confidently near-empty report on a repo it couldn't read.
 
+**Drift check (`diff` + `spec-eval context --check`).** `diff(baseline, current)` compares two scan results by their `(system, direction)` **key set** — the identity that matters — never by JSON bytes, so an evidence line moving, a second call site, or a file rename is `clean`, not drift. It compares scanner provenance FIRST — `(schema, version, tables_digest)`: any difference yields `rebaseline` (the scanner learned to see more — re-store the baseline; never counts as drift), which is what stops table growth from firing false drift in every consuming repo once baselines are committed. `version` is the catch-all (any released scanner change bumps it); `tables_digest` additionally catches a local table edit made without a version bump. Otherwise an added or removed system is `drift`. `diff_receipt` renders the outcome as named `+`/`-` delta lines in the SPEC-HEALTH click-to-verify style — one line per changed system with an evidence site, never a full-table reprint or an evidence-churn row. The `context --check` command loads the stored `system-context.json` baseline, diffs the fresh scan, prints the receipt, and **exits 1 only on `drift`** (a re-baseline or a clean run exit 0); it never overwrites the baseline — a plain `context` run does that.
+
+**Overview freshness stamp (the second edge).** The drift check verifies two edges. Edge 1 (above) is code → stored fingerprint. Edge 2 is stored fingerprint → the generated `OVERVIEW.md`: when `generate --overview` renders a System context section, it appends an invisible HTML-comment stamp (`fingerprint_digest` — a hash of the observed `(system, direction)` key set) recording the fingerprint the section came from. `context --check` reads that stamp back (`overview_stale`) and prints a ⚠ warning when it no longer matches the current scan — the code's external systems changed but the overview was not regenerated. **Overview staleness warns; it does not fail the gate** (regenerating a doc is a different action from investigating code drift). An overview with no stamp is never flagged.
+
 ## 4. Contracts
 
 *Reference — consult when implementing or reviewing a change; skip on a first read for intent.*
 
 Semantic shapes:
-- **scan result**: `{schema: int, repo: str, files_scanned: int ≥ 0, entries: [entry]}`.
+- **scan result**: `{schema: int, scanner: {version, tables_digest}, repo: str, files_scanned: int ≥ 0, unscanned: {ext: count}, entries: [entry]}`.
 - **entry**: `{system: str, kind: infra|application|configured|referenced|inbound-surface, direction: outbound|inbound, via: [str] sorted, evidence: [{file, line ≥ 1, match ≤ LINE_CAP chars}], evidence_total ≥ len(evidence)}`.
+- **diff**: `{outcome: clean|drift|rebaseline, scanner_changed: bool, added: [Δentry], removed: [Δentry]}` where a Δentry is `{system, direction, kind, via, evidence: "file:line"|null}`.
 
 ### Invariants (*rules that must always hold*)
 
@@ -59,6 +66,11 @@ Semantic shapes:
 | INV-5 | At most `EVIDENCE_CAP` evidence sites are stored per entry per directory, and `evidence_total` still counts every observed site — capping is visible, never silent. |
 | INV-6 | `evidence_block` returns an empty string when no entry (in scope) exists — an empty scan can never produce a System context section. |
 | INV-7 | Recognized source files outside `code_ext` are counted into `unscanned` and surfaced with the fixed `Not scanned:` line in the CLI output, the report, and the repo-level evidence block — a language gap is stated, never silent. |
+| INV-8 | Every fingerprint carries `scanner` provenance (version + tables digest); `tables_digest` hashes ALL detection knowledge — every table and every hoisted regex/literal that can change the key set — so a change to any of them moves the digest. |
+| INV-9 | `diff` decides identity by the `(system, direction)` key set only; two results differing solely in evidence sites, `via`, counts, or repo name are `clean`. |
+| INV-10 | When provenance (`schema`, scanner `version`, or `tables_digest`) differs, `diff` returns `rebaseline` and never `drift`, regardless of how the entry sets differ — so ANY scanner change (a release bumps `version`; a local table edit moves `tables_digest`) is absorbed as a re-baseline, never false drift. |
+| INV-11 | `fingerprint_digest` depends only on the observed `(system, direction)` key set; two scans with the same systems produce the same stamp even if evidence sites moved. |
+| INV-12 | `overview_stale` returns False when the markdown carries no stamp — an unstamped overview is never flagged stale. |
 
 ### Acceptance criteria (*Given / When / Then*)
 
@@ -83,3 +95,9 @@ Semantic shapes:
 | AC-17 | `@aws-sdk/client-s3` (JS), `aws-sdk-go-v2/service/sqs` (Go), `aws_sdk_dynamodb` (Rust), `com.amazonaws.services.sns` (Java), `using Amazon.S3;` (C#) | `scan` runs | each resolves to its named AWS service entry. |
 | AC-18 | a multi-line ESM import ending `} from "kafkajs";`, an `export … from`, and a dynamic `import("amqplib")` | `scan` runs | all three count as import evidence; `import type` lines never do. |
 | AC-19 | a repo containing `main.cpp` and `core.clj` beside supported code | `scan` runs | `unscanned` counts both, and the report/CLI/evidence block carry the `Not scanned:` line naming the extensions. |
+| AC-20 | a baseline, then the same code with an import moved to a different line | `diff` runs | outcome `clean` — the evidence site moved but the system set did not. |
+| AC-21 | a baseline with PostgreSQL, then code that drops it and adds Redis | `diff` runs | outcome `drift`; `added` = Redis (with a `file:line`), `removed` = PostgreSQL. |
+| AC-22 | a baseline whose `tables_digest` differs from the current scanner | `diff` runs | outcome `rebaseline`, `scanner_changed` true — never `drift`. |
+| AC-23 | a stored baseline, then drifted code | `spec-eval context --check` runs | prints the named-delta receipt and exits 1; the baseline file is not overwritten. |
+| AC-24 | an overview stamped from a scan, then code that adds a system | `overview_stale(md, fresh_scan)` | returns True — the stamped digest no longer matches the current systems. |
+| AC-25 | `generate --overview` on code with observed systems | authoring runs | the written `OVERVIEW.md` ends with a `<!-- system-context-fingerprint: … -->` stamp. |

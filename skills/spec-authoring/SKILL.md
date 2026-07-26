@@ -102,8 +102,14 @@ callers. Three rules keep it trustworthy:
 These rules take precedence over the right-sizing rule: render the full table even if it carries a single row —
 an evidence-backed row is a real row, and `unknown from this repo` is a filled cell, not an N/A.
 
+- **Containment contract.** An authored System context table must be a **superset** of what the deterministic
+  scanner observes: it may add a row the scanner missed *only* with cited, verifiable `file:line` evidence, and
+  must **never lack a system the scanner reports**. So the scanner is the floor, your reading is the ceiling —
+  when the two disagree, reconcile toward the union, never drop a scanner-observed system.
+
 *(CLI equivalent: `spec-eval context` — a free, deterministic scan writing `spec-reports/system-context.md` +
-`.json`; `generate --overview` feeds the same observed evidence into `OVERVIEW.md`.)*
+`.json`; `generate --overview` feeds the same observed evidence into `OVERVIEW.md` and stamps it with the
+fingerprint it was rendered from, so `spec-eval context --check` can later flag a stale overview.)*
 
 ## Reconstructed intent (reverse-engineering code you didn't write)
 When specifying code with no stated rationale, you may *infer* the "why" — but **label it**:
