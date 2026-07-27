@@ -1,6 +1,6 @@
 {
   "pct": 100.0,
-  "spec_worthy": 9,
+  "spec_worthy": 10,
   "covered": [
     "spec_eval/audit.py",
     "spec_eval/authoring.py",
@@ -10,7 +10,8 @@
     "spec_eval/report.py",
     "spec_eval/rubric.py",
     "spec_eval/runlog.py",
-    "spec_eval/sufficiency.py"
+    "spec_eval/sufficiency.py",
+    "spec_eval/syscontext.py"
   ],
   "uncovered": [],
   "orphans": [],
@@ -25,6 +26,7 @@
       "tests/contract/test_authoring_output.py",
       "tests/contract/test_caps_sync.py",
       "tests/contract/test_coverage.py",
+      "tests/contract/test_overview_context.py",
       "tests/contract/test_prompt_snippets_sync.py",
       "tests/contract/test_providers.py",
       "tests/contract/test_report.py",
@@ -32,6 +34,7 @@
       "tests/contract/test_runlog.py",
       "tests/contract/test_sufficiency_refs.py",
       "tests/contract/test_synthesis_recursion.py",
+      "tests/contract/test_syscontext.py",
       "tests/contract/test_truncation.py",
       "tests/doubles/fake_provider.py",
       "tests/manual/run_trigger_eval.py",

@@ -3,15 +3,7 @@
     "label": "audit",
     "code_files": 1,
     "doc_files": 1,
-    "findings": [
-      {
-        "severity": "low",
-        "summary": "The Contracts section lists `suggestion` as a non-optional field of a Finding (only `code_ref?`/`doc_ref?` carry the optional marker), but fallback-path findings are emitted with only `severity` and `summary`, omitting `suggestion` entirely.",
-        "code_ref": "spec_eval/audit.py:L75",
-        "doc_ref": null,
-        "suggestion": "Either mark `suggestion` optional in the contract (`suggestion?`) noting fallback findings carry only severity+summary, or have the fallback emit `suggestion: \"\"` (and `code_ref`/`doc_ref`: null) to satisfy the stated shape."
-      }
-    ]
+    "findings": []
   },
   {
     "label": "authoring",
@@ -60,5 +52,19 @@
     "code_files": 1,
     "doc_files": 1,
     "findings": []
+  },
+  {
+    "label": "syscontext",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "The Purpose says the scan collects 'four evidence classes', but the code emits five distinct evidence vias, matching the doc's own five-row via table and five detection bullets.",
+        "code_ref": "spec_eval/syscontext.py:add() via emitters (sdk/framework/scheme/url/env)",
+        "doc_ref": "spec_eval/syscontext.md:\u00a71 Purpose",
+        "suggestion": "Change \"four evidence classes\" to \"five evidence classes\" in the Purpose to match the via table, the \u00a73 detection list, and the five code vias."
+      }
+    ]
   }
 ]
