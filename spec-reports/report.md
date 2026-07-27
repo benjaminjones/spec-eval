@@ -1,13 +1,15 @@
 # Drift report — `spec-eval`
 detector: `claude-code` · 10/10 pairs audited · 10 model call(s)
 
-**1 high/medium drift finding(s) across 10 audited pair(s).**
+**0 high/medium drift finding(s) across 10 audited pair(s).**
 
 ## audit — ✓ clean
 
 ## authoring — ✓ clean
 
 ## cli — ✓ clean
+- **[low]** The doc's blanket claim that every command writes both a JSON and a Markdown artifact is false for `context --check`, which writes neither. (`spec_eval/cli.py (context --check branch: raises SystemExit before json.dump/system-context.md write)` vs `spec_eval/cli.md (§3 Artifacts & logging)`)
+    - *fix:* Qualify the summary, e.g. "every command (except `context --check`, which only reads the baseline) writes both a JSON and a Markdown artifact".
 
 ## coverage — ✓ clean
 
@@ -21,9 +23,7 @@ detector: `claude-code` · 10/10 pairs audited · 10 model call(s)
 
 ## sufficiency — ✓ clean
 
-## syscontext — ⚠ 1 drift
-- **[medium]** The Purpose says the scan collects 'four evidence classes', but the code emits five distinct evidence vias, matching the doc's own five-row via table and five detection bullets. (`spec_eval/syscontext.py:add() via emitters (sdk/framework/scheme/url/env)` vs `spec_eval/syscontext.md:§1 Purpose`)
-    - *fix:* Change "four evidence classes" to "five evidence classes" in the Purpose to match the via table, the §3 detection list, and the five code vias.
+## syscontext — ✓ clean
 
 ### Drift fingerprint
 
@@ -38,4 +38,4 @@ detector: `claude-code` · 10/10 pairs audited · 10 model call(s)
 | `rubric` | ✓ clean |
 | `runlog` | ✓ clean |
 | `sufficiency` | ✓ clean |
-| `syscontext` | ⚠ 1 |
+| `syscontext` | ✓ clean |

@@ -15,7 +15,15 @@
     "label": "cli",
     "code_files": 1,
     "doc_files": 1,
-    "findings": []
+    "findings": [
+      {
+        "severity": "low",
+        "summary": "The doc's blanket claim that every command writes both a JSON and a Markdown artifact is false for `context --check`, which writes neither.",
+        "code_ref": "spec_eval/cli.py (context --check branch: raises SystemExit before json.dump/system-context.md write)",
+        "doc_ref": "spec_eval/cli.md (\u00a73 Artifacts & logging)",
+        "suggestion": "Qualify the summary, e.g. \"every command (except `context --check`, which only reads the baseline) writes both a JSON and a Markdown artifact\"."
+      }
+    ]
   },
   {
     "label": "coverage",
@@ -57,14 +65,6 @@
     "label": "syscontext",
     "code_files": 1,
     "doc_files": 1,
-    "findings": [
-      {
-        "severity": "medium",
-        "summary": "The Purpose says the scan collects 'four evidence classes', but the code emits five distinct evidence vias, matching the doc's own five-row via table and five detection bullets.",
-        "code_ref": "spec_eval/syscontext.py:add() via emitters (sdk/framework/scheme/url/env)",
-        "doc_ref": "spec_eval/syscontext.md:\u00a71 Purpose",
-        "suggestion": "Change \"four evidence classes\" to \"five evidence classes\" in the Purpose to match the via table, the \u00a73 detection list, and the five code vias."
-      }
-    ]
+    "findings": []
   }
 ]
