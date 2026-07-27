@@ -64,6 +64,12 @@ whole scan; a per-dir overview receives only the evidence sitting directly in it
 observes nothing (or nothing in that directory), no block is passed and the section is omitted entirely** — an
 overview can never carry an invented system-context row.
 
+**Freshness stamp.** When the repo `OVERVIEW.md` renders a System context section (an evidence block was
+present), an invisible `<!-- system-context-fingerprint: <digest> -->` comment (`syscontext.stamp_comment`) is
+appended to the file, recording the scan the section came from. A later `spec-eval context --check` reads it
+back to flag an overview whose systems have drifted from the code. The per-dir `README.md` overviews are not
+stamped.
+
 **Custom template.** When `authoring.template` is set, its text replaces the built-in `AUTHORING_STRUCTURE`; `AUTHORING_DISCIPLINE` (the quality rules the drift/sufficiency checkers rely on) is always appended. **Why:** users own the structure, but the output stays gradeable.
 
 **Write policy** (uniform for specs and overviews):
