@@ -18,7 +18,6 @@
   "excluded": {
     "test": [
       "tests/acceptance/test_ac_commands.py",
-      "tests/acceptance/test_ac_diagram.py",
       "tests/acceptance/test_ac_file_scope.py",
       "tests/acceptance/test_ac_layouts.py",
       "tests/acceptance/test_ac_orphans.py",
@@ -27,9 +26,7 @@
       "tests/contract/test_authoring_output.py",
       "tests/contract/test_caps_sync.py",
       "tests/contract/test_coverage.py",
-      "tests/contract/test_diagram.py",
       "tests/contract/test_overview_context.py",
-      "tests/contract/test_overview_sections_sync.py",
       "tests/contract/test_prompt_snippets_sync.py",
       "tests/contract/test_providers.py",
       "tests/contract/test_report.py",
