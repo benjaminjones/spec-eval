@@ -179,3 +179,54 @@ def test_per_dir_readme_is_not_architecture_stamped(tmp_path, monkeypatch):
     authoring.generate_repo(str(tmp_path), {"authoring": {"overview": "per-dir"}}, "fake:model")
     readme = (tmp_path / "pkg" / "README.md").read_text()
     assert syscontext.read_arch_stamp(readme) is None          # the diagram + its stamp are repo-level only
+
+
+# --- regressions from the implementation review -----------------------------------------------------------
+
+def test_manifest_scripts_decode_as_utf8_not_the_host_locale(tmp_path):
+    """A non-ASCII console-script target must decode as UTF-8 regardless of the host locale, or the same tree
+    fingerprints differently across machines (a determinism break). Pins the UTF-8 read."""
+    (tmp_path / "pyproject.toml").write_bytes('[project.scripts]\nt = "pkg.café:main"\n'.encode("utf-8"))
+    (tmp_path / "pkg" / "café.py").parent.mkdir(exist_ok=True)
+    scripts = {e["name"]: e["target"] for e in syscontext.scan_entrypoints(str(tmp_path), {})["entrypoints"]}
+    assert scripts.get("t") == "pkg.café:main"
+
+
+def test_toml_scripts_header_with_a_trailing_comment_is_recognized(tmp_path):
+    _write(tmp_path, {"pyproject.toml": '[project.scripts]  # console entry points\nfoo = "pkg.cli:main"\n'})
+    names = {e["name"] for e in syscontext.scan_entrypoints(str(tmp_path), {})["entrypoints"]}
+    assert "foo" in names                                      # the trailing comment must not hide the section
+
+
+def test_a_non_script_toml_table_does_not_leak_scripts(tmp_path):
+    """A key in an unrelated table (e.g. [tool.foo]) after [project.scripts] must NOT be fabricated as a
+    console script — a false entry point would ride the diagram as scanner-verified."""
+    _write(tmp_path, {"pyproject.toml": '[project.scripts]\nreal = "pkg.cli:main"\n[tool.foo]\nname = "not-a-script"\n'})
+    names = {e["name"] for e in syscontext.scan_entrypoints(str(tmp_path), {})["entrypoints"]}
+    assert "real" in names and "name" not in names
+
+
+def test_a_main_guard_inside_a_string_literal_is_not_an_entry_point(tmp_path):
+    """`_visible_lines` preserves string-literal contents (the system-context scan needs literal URLs), so the
+    guard match must be anchored to a statement position — a guard-shaped substring in a string is not a root."""
+    _write(tmp_path, {"help.py": "HELP = \"run with: if __name__ == '__main__'\"\ndef go():\n    return HELP\n"})
+    assert syscontext.scan_entrypoints(str(tmp_path), {})["entrypoints"] == []
+
+
+def test_set_architecture_section_ignores_a_heading_inside_a_code_fence(tmp_path):
+    md = ("## What it is\nExample of the format:\n```md\n## Architecture (data flow)\nEXAMPLE\n```\n\n"
+          "## Architecture (data flow)\nREAL old diagram\n\n## System context\n| x |\n")
+    out = authoring.set_architecture_section(md, "```mermaid\nflowchart TD\n  a --> b\n```\n> caveat")
+    assert "EXAMPLE" in out                                    # the fenced example is not the section — untouched
+    assert "REAL old diagram" not in out and "flowchart TD" in out   # the real section body was replaced
+
+
+def test_set_architecture_section_preserves_a_trailing_system_context_stamp(tmp_path):
+    """When Architecture is the LAST heading, its body must stop at the trailing fingerprint receipts, not run
+    to EOF — otherwise a diagram update swallows the system-context stamp and re-blesses a stale table."""
+    md = ("# P\n\n## System context\n| x |\n\n## Architecture (data flow)\nold\n\n"
+          "<!-- system-context-fingerprint: aaaa1111bbbb -->\n"
+          "<!-- architecture-fingerprint: cccc2222dddd -->\n")
+    out = authoring.set_architecture_section(md, "```mermaid\nflowchart TD\n  a --> b\n```\n> caveat")
+    assert "old" not in out and "flowchart TD" in out
+    assert syscontext.read_stamp(out) == "aaaa1111bbbb"        # system-context stamp NOT swallowed

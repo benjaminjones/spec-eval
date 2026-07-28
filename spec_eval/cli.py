@@ -245,16 +245,17 @@ def main(argv=None):
                 raise SystemExit(0)
             d = syscontext.diff(baseline, ctx)
             print(syscontext.diff_receipt(d, sha=runlog.git_sha(args.repo)))
-            overview_path = os.path.join(args.repo, "OVERVIEW.md")           # second edge: fingerprint -> overview
-            overview_md = open(overview_path, errors="ignore").read() if os.path.exists(overview_path) else ""
-            overview_stale = bool(overview_md) and syscontext.overview_stale(overview_md, ctx)
+            overview_path = _diagram_target(args.repo)                       # OVERVIEW.md, else README.md — the doc
+            overview_md = open(overview_path, errors="ignore").read() if overview_path else ""   # diagram --write stamps
+            doc = os.path.basename(overview_path) if overview_path else "OVERVIEW.md"
+            overview_stale = bool(overview_md) and syscontext.overview_stale(overview_md, ctx)   # second edge
             if overview_stale:
-                print("⚠ OVERVIEW.md system context is stale — regenerate its overview (`generate --overview`)")
+                print(f"⚠ {doc} system context is stale — regenerate its overview (`generate --overview`)")
             ep = syscontext.scan_entrypoints(args.repo, cfg)                 # third edge: fingerprint -> diagram
             modules = authoring.module_set(args.repo, cfg)
             diagram_stale = bool(overview_md) and syscontext.diagram_stale(overview_md, ctx, ep, modules)
             if diagram_stale:
-                print("⚠ OVERVIEW.md architecture diagram is stale — regenerate it "
+                print(f"⚠ {doc} architecture diagram is stale — regenerate it "
                       "(`spec-eval diagram . --write`, or `generate --overview`)")
             runlog.append_run(args.out, args.repo, "context-check", None,
                               {"outcome": d["outcome"], "added": len(d["added"]), "removed": len(d["removed"]),
@@ -286,6 +287,8 @@ def main(argv=None):
         block, ctx, ep, modules = authoring.diagram_block(
             args.repo, cfg, args.model,
             on_progress=lambda m: print(f"  … {m}", file=sys.stderr, flush=True))
+        if not modules:
+            raise SystemExit(f"no spec-worthy code files under {args.repo} — nothing to diagram.")
         if not args.write:
             print(block)                                          # STDOUT only — touches nothing, creates nothing
         else:

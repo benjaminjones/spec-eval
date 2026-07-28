@@ -197,7 +197,8 @@ EP_SCHEMA = 1                 # entry-point result layout version (separate arti
 EP_KIND_ORDER = {"script": 0, "package-main": 1, "web-app": 2, "cli-main": 3, "module-main": 4}
 EP_MODULE_MAIN_CAP = 6        # bare `if __name__ == '__main__'` guards kept in the cluster — capped so a repo
                               # full of demo/self-test guards can't drown the declared roots
-_MAIN_GUARD = re.compile(r"""if\s+__name__\s*==\s*["']__main__["']""")
+_MAIN_GUARD = re.compile(r"""^\s*if\s+__name__\s*==\s*["']__main__["']""")   # anchored: a guard is a statement,
+                                                                             # never a substring of a string literal
 _ARGPARSE = re.compile(r"\bArgumentParser\s*\(|\badd_subparsers\s*\(")
 _CLICK = re.compile(r"@click\.(?:group|command)\b")
 # Framework app-object construction — an OBSERVED CAPABILITY ("constructs a Flask app"), NOT a confirmed served
@@ -208,6 +209,7 @@ _APP_FACTORY = re.compile(r"\b([A-Za-z_]\w*)\s*=\s*(" + "|".join(FRAMEWORK_APP_F
 # setup.py is NOT parsed (it is executable — entry_points can be built conditionally, so a static read would
 # fabricate or miss rows); pyproject.toml / setup.cfg are static and safe.
 _MANIFEST_SCRIPT_SECTIONS = ("[project.scripts]", "[project.gui-scripts]", "[tool.poetry.scripts]")
+_TOML_HEADER = re.compile(r"^\s*(\[\[?[^\]\[]+\]\]?)")   # a TOML table header, tolerating a trailing comment
 _MANIFEST_SCRIPT_ROW = re.compile(r"""^\s*["']?([\w.-]+)["']?\s*=\s*["']([^"']+)["']""")
 _SETUPCFG_SCRIPT_GROUP = re.compile(r"^\s*(?:console_scripts|gui_scripts)\s*=")
 _SETUPCFG_SCRIPT_ROW = re.compile(r"^\s*([\w.-]+)\s*=\s*([\w.:]+)")
@@ -483,7 +485,7 @@ def _scan_entrypoints_file(repo, rel, found, module_mains):
     guard = None                   # (lineno, matched line) of the __main__ guard
     has_cli = False                # argparse / click seen in this file
     for lineno, line, vis in _visible_lines(rel, text):
-        if guard is None and _MAIN_GUARD.search(vis):
+        if guard is None and _MAIN_GUARD.match(vis):
             guard = (lineno, line.strip()[:LINE_CAP])
         if _ARGPARSE.search(vis) or _CLICK.search(vis):
             has_cli = True
@@ -502,28 +504,34 @@ def _scan_entrypoints_file(repo, rel, found, module_mains):
             module_mains.append(("module-main", _module_dotted(rel), "run as a script", rel, ln, ltext))
 
 
+def _read_text(path):
+    """Read a file as UTF-8, locale-independent — matches the code scanners (`_scan_file`), so the manifest
+    parse is byte-deterministic across hosts (a locale-default decode would vary the entry-point targets)."""
+    return open(path, "rb").read().decode("utf-8", errors="ignore")
+
+
 def _parse_manifest_scripts(repo):
-    """DECLARED console entry points from packaging manifests, read statically (no tomllib, never importing
-    setup.py). Returns [(name, target, file, lineno, line)] sorted by name. Scoped to console/gui script
-    groups only — plugin entry-point groups (pytest11, ...) are not entry points."""
+    """DECLARED console entry points from packaging manifests, read statically (UTF-8, no tomllib, never
+    importing setup.py). Returns [(name, target, file, lineno, line)] sorted by name. Scoped to console/gui
+    script groups only — plugin entry-point groups (pytest11, ...) are not entry points."""
     out = []
     pp = os.path.join(repo, "pyproject.toml")
     if os.path.exists(pp):
         section = None
-        for lineno, line in enumerate(open(pp, errors="ignore").read().splitlines(), 1):
-            s = line.strip()
-            if s.startswith("[") and s.endswith("]"):
-                section = s if s in _MANIFEST_SCRIPT_SECTIONS else None
-                continue
+        for lineno, line in enumerate(_read_text(pp).splitlines(), 1):
+            h = _TOML_HEADER.match(line)
+            if h:                                    # ANY table header resets section (no state leak past a
+                section = h.group(1) if h.group(1) in _MANIFEST_SCRIPT_SECTIONS else None  # non-script table)
+                continue                             # and matches even with a trailing inline comment
             if section:
                 m = _MANIFEST_SCRIPT_ROW.match(line)
                 if m:
-                    out.append((m.group(1), m.group(2), "pyproject.toml", lineno, s[:LINE_CAP]))
+                    out.append((m.group(1), m.group(2), "pyproject.toml", lineno, line.strip()[:LINE_CAP]))
     sc = os.path.join(repo, "setup.cfg")
     if os.path.exists(sc):
         in_group = False
-        for lineno, line in enumerate(open(sc, errors="ignore").read().splitlines(), 1):
-            if line.strip().startswith("[") and line.strip().endswith("]"):
+        for lineno, line in enumerate(_read_text(sc).splitlines(), 1):
+            if line.strip().startswith("["):                       # a new [section] ends the console_scripts block
                 in_group = False
                 continue
             if _SETUPCFG_SCRIPT_GROUP.match(line):
@@ -581,7 +589,7 @@ def _ep_tables_digest():
     payload = repr([
         sorted(EP_KIND_ORDER.items()), sorted(FRAMEWORK_APP_FACTORIES), EP_MODULE_MAIN_CAP,
         _MAIN_GUARD.pattern, _ARGPARSE.pattern, _CLICK.pattern, _APP_FACTORY.pattern,
-        sorted(_MANIFEST_SCRIPT_SECTIONS), _MANIFEST_SCRIPT_ROW.pattern,
+        sorted(_MANIFEST_SCRIPT_SECTIONS), _TOML_HEADER.pattern, _MANIFEST_SCRIPT_ROW.pattern,
         _SETUPCFG_SCRIPT_GROUP.pattern, _SETUPCFG_SCRIPT_ROW.pattern,
     ])
     return hashlib.sha256(payload.encode()).hexdigest()[:16]

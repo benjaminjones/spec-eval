@@ -247,6 +247,8 @@ def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce
     cap = REDUCE_CAP if reduce_cap is None else reduce_cap
     finish = _unfence if unfence else (lambda s: s.strip())     # a mermaid diagram keeps its ```mermaid fence
     tail = f"\n\n{extra}" if extra else ""
+    if not items:                                               # nothing to synthesise — no model call, no div-by-zero
+        return "", _level, False
     groups = _pack(items, cap)
     if len(groups) == 1:
         user = f"# {header}\n\n" + "\n".join(block for _, block in groups[0]) + tail
@@ -483,18 +485,38 @@ def diagram_block(repo, config, model, on_progress=None):
     return md.strip(), ctx, ep, modules
 
 
-_ARCH_HEADING_RE = re.compile(r"^##\s+Architecture \(data flow\).*$", re.M)
+_ARCH_HEADING_RE = re.compile(r"^##\s+Architecture \(data flow\)")
+_MD_HEADING_RE = re.compile(r"^#{1,3}\s")
+_MD_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_STAMP_COMMENT_RE = re.compile(r"^\s*<!--\s*(?:system-context|architecture)-fingerprint:")
 
 
 def set_architecture_section(markdown, body):
     """Replace the BODY of the existing '## Architecture (data flow)' section with `body` (the fenced mermaid
     block + caveat), keeping the heading line intact. REPLACE-ONLY: raises ValueError if the document has no
-    such section — the caller errors to `generate` rather than inventing a section in an arbitrary doc."""
-    m = _ARCH_HEADING_RE.search(markdown)
-    if not m:
+    such section — the caller errors to `generate` rather than inventing a section in an arbitrary doc.
+    FENCE-AWARE: a heading that sits inside a ``` code block is not the section. STAMP-AWARE: the section body
+    ends at the next heading OR the first trailing fingerprint receipt, so a diagram update never swallows the
+    trailing system-context stamp (which would silently re-bless a stale System context table)."""
+    lines = markdown.splitlines(keepends=True)
+    in_fence = False
+    start = None
+    for i, ln in enumerate(lines):
+        if _MD_FENCE_RE.match(ln):
+            in_fence = not in_fence
+        elif not in_fence and _ARCH_HEADING_RE.match(ln):
+            start = i
+            break
+    if start is None:
         raise ValueError("no '## Architecture (data flow)' section")
-    rest = markdown[m.end():]
-    nxt = re.search(r"^#{1,3}\s", rest, re.M)                     # the section ends at the next heading (or EOF)
-    end = m.end() + (nxt.start() if nxt else len(rest))
-    new_section = markdown[m.start():m.end()] + "\n" + body.strip() + "\n\n"
-    return markdown[:m.start()] + new_section + markdown[end:]
+    end = len(lines)
+    in_fence = False
+    for j in range(start + 1, len(lines)):
+        ln = lines[j]
+        if _MD_FENCE_RE.match(ln):
+            in_fence = not in_fence
+        elif not in_fence and (_MD_HEADING_RE.match(ln) or _STAMP_COMMENT_RE.match(ln)):
+            end = j
+            break
+    new_section = lines[start].rstrip("\n") + "\n" + body.strip() + "\n\n"
+    return "".join(lines[:start]) + new_section + "".join(lines[end:])
