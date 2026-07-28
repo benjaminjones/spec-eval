@@ -116,8 +116,11 @@ def main(argv=None):
     d.add_argument("--env", default=None, help="path to a .env file with API keys")
     d.add_argument("--write", action="store_true",
                    help="update the '## Architecture (data flow)' section of an EXISTING OVERVIEW.md/README.md at "
-                        "PROJECT_DIR and re-stamp the architecture fingerprint; errors if no such section exists "
-                        "(pipe the stdout diagram in, or run `generate --overview repo` to author one)")
+                        "PROJECT_DIR and re-stamp the architecture fingerprint; REPLACE-ONLY — errors if no such "
+                        "section exists (see --add-section)")
+    d.add_argument("--add-section", action="store_true",
+                   help="write, and if the target doc has no '## Architecture (data flow)' section, APPEND one "
+                        "instead of erroring — an explicit opt-in; the doc must already exist (never creates a file)")
 
     args = ap.parse_args(argv)
 
@@ -289,24 +292,26 @@ def main(argv=None):
             on_progress=lambda m: print(f"  … {m}", file=sys.stderr, flush=True))
         if not modules:
             raise SystemExit(f"no spec-worthy code files under {args.repo} — nothing to diagram.")
-        if not args.write:
+        if not (args.write or args.add_section):
             print(block)                                          # STDOUT only — touches nothing, creates nothing
         else:
             target = _diagram_target(args.repo)
-            if target is None:
+            if target is None:                                    # both flags update an EXISTING doc — never create one
                 raise SystemExit(
                     f"diagram --write updates an EXISTING overview — none found at {args.repo} (looked for "
                     f"OVERVIEW.md, README.md). Run `spec-eval generate {args.repo} --overview repo` to author "
                     f"one, or pipe in `spec-eval diagram {args.repo}`.")
+            original = open(target, errors="ignore").read()
             try:
-                md = authoring.set_architecture_section(open(target, errors="ignore").read(), block)
-            except ValueError:
+                md = authoring.set_architecture_section(original, block, create=args.add_section)
+            except ValueError:                                    # replace-only (--write) and no section present
                 raise SystemExit(
-                    f"{os.path.relpath(target)} has no '## Architecture (data flow)' section to update — pipe in "
-                    f"`spec-eval diagram {args.repo}`, or run `spec-eval generate {args.repo} --overview repo`.")
+                    f"{os.path.relpath(target)} has no '## Architecture (data flow)' section — pass --add-section to "
+                    f"append one, pipe in `spec-eval diagram {args.repo}`, or run "
+                    f"`spec-eval generate {args.repo} --overview repo`.")
             md = syscontext.restamp_architecture(md, ctx, ep, modules)   # refresh ONLY the architecture stamp
             open(target, "w").write(md.rstrip() + "\n")
-            print(f"updated the Architecture (data flow) section + re-stamped → {os.path.abspath(target)}",
+            print(f"wrote the Architecture (data flow) section + re-stamped → {os.path.abspath(target)}",
                   file=sys.stderr)
         print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + "
               f"{providers.USAGE['out']:,} out tokens", file=sys.stderr)

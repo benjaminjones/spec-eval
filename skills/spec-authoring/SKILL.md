@@ -126,9 +126,11 @@ System context:
 
 **Asking an agent to add or update the diagram in an existing README** (the chat mirror of
 `spec-eval diagram <path> --write`): update the `## Architecture (data flow)` section of an **existing**
-`OVERVIEW.md`/`README.md` **only** — if the doc has no such section, author the overview first, never inject a
-lone diagram into an arbitrary doc. Touch only that section's body. Re-stamp deterministically by running
-`spec-eval diagram <path> --write` (or `spec-eval context`); never hand-write the fingerprint digest. A ready prompt:
+`OVERVIEW.md`/`README.md`, touching only that section's body. If the doc has **no** such section, adding one is a
+**deliberate** act, never a silent graffiti of a doc that wasn't meant to carry a diagram (e.g. a project's
+marketing README) — the CLI gates it behind `--add-section`, and a doc that does not exist is authored by
+`generate` first. Re-stamp deterministically by running `spec-eval diagram <path> --write` (or
+`spec-eval context`); never hand-write the fingerprint digest. A ready prompt:
 
 > Regenerate the `## Architecture (data flow)` mermaid diagram for `<path>` from the current entry points and
 > module intents, and update only that section of its existing `OVERVIEW.md` — keep the scanner-derived Entry
@@ -136,8 +138,8 @@ lone diagram into an arbitrary doc. Touch only that section's body. Re-stamp det
 > then re-stamp with `spec-eval diagram <path> --write`.
 
 *(CLI equivalent: `spec-eval diagram <path>` prints the fenced ```mermaid block to stdout and touches nothing;
-`--write` replaces the Architecture section of an existing doc and re-stamps only the architecture fingerprint —
-it errors rather than create a doc if none exists.)*
+`--write` replaces the Architecture section of an existing doc and re-stamps only the architecture fingerprint;
+`--add-section` explicitly appends the section when the doc lacks one. Neither ever creates a doc.)*
 
 ## Reconstructed intent (reverse-engineering code you didn't write)
 When specifying code with no stated rationale, you may *infer* the "why" — but **label it**:

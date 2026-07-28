@@ -40,14 +40,37 @@ def test_acd002_write_updates_the_architecture_section_and_restamps_only_the_dia
 
 
 def test_acd003_write_errors_when_the_doc_has_no_architecture_section(tmp_path, fake_model):
-    """ACD-003. Given a README with no Architecture section, When `diagram --write` runs, Then it errors and
-    points at `generate` — it never injects a section into an arbitrary doc."""
+    """ACD-003. Given a README with no Architecture section, When `diagram --write` runs (replace-only), Then
+    it errors and points at --add-section/generate — it never injects a section into an arbitrary doc."""
     (tmp_path / "a.py").write_text("x = 1\n")
     (tmp_path / "README.md").write_text("# Proj\n\n## Install\nrun it\n")
     with pytest.raises(SystemExit) as ex:
         cli.main(["diagram", str(tmp_path), "--write", "-m", fake_model])
-    assert "generate" in str(ex.value)
+    assert "--add-section" in str(ex.value)
     assert (tmp_path / "README.md").read_text() == "# Proj\n\n## Install\nrun it\n"   # left intact
+
+
+def test_acd009_add_section_appends_a_diagram_to_an_existing_doc_that_lacks_one(tmp_path, fake_model):
+    """ACD-009. Given an existing README with no Architecture section, When `diagram --write --add-section`
+    runs, Then the section is APPENDED and architecture-stamped — the explicit opt-in for a first-time add
+    (e.g. a lean per-directory README)."""
+    (tmp_path / "a.py").write_text("x = 1\n")
+    (tmp_path / "README.md").write_text("# Proj\n\n## Install\nrun it\n")
+    cli.main(["diagram", str(tmp_path), "--write", "--add-section", "-m", fake_model])
+    md = (tmp_path / "README.md").read_text()
+    assert "## Install\nrun it" in md                          # original content preserved
+    assert "## Architecture (data flow)" in md and "```mermaid" in md    # section appended
+    assert syscontext.read_arch_stamp(md) is not None
+
+
+def test_acd010_add_section_still_never_creates_a_doc(tmp_path, fake_model):
+    """ACD-010. Given no OVERVIEW.md/README.md, When `diagram --write --add-section` runs, Then it still errors
+    to `generate` — the opt-in relaxes 'section must exist', never 'doc must exist'."""
+    (tmp_path / "a.py").write_text("x = 1\n")
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["diagram", str(tmp_path), "--write", "--add-section", "-m", fake_model])
+    assert "generate" in str(ex.value)
+    assert not (tmp_path / "README.md").exists() and not (tmp_path / "OVERVIEW.md").exists()
 
 
 def test_acd004_write_errors_when_no_overview_markdown_exists(tmp_path, fake_model):

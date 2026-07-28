@@ -491,10 +491,11 @@ _MD_FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _STAMP_COMMENT_RE = re.compile(r"^\s*<!--\s*(?:system-context|architecture)-fingerprint:")
 
 
-def set_architecture_section(markdown, body):
+def set_architecture_section(markdown, body, create=False):
     """Replace the BODY of the existing '## Architecture (data flow)' section with `body` (the fenced mermaid
-    block + caveat), keeping the heading line intact. REPLACE-ONLY: raises ValueError if the document has no
-    such section — the caller errors to `generate` rather than inventing a section in an arbitrary doc.
+    block + caveat), keeping the heading line intact. REPLACE-ONLY by default: raises ValueError if the
+    document has no such section. When `create` is set (an explicit caller opt-in), APPEND a new section to the
+    end of the document instead of raising — the document must already exist; this never invents one.
     FENCE-AWARE: a heading that sits inside a ``` code block is not the section. STAMP-AWARE: the section body
     ends at the next heading OR the first trailing fingerprint receipt, so a diagram update never swallows the
     trailing system-context stamp (which would silently re-bless a stale System context table)."""
@@ -508,7 +509,10 @@ def set_architecture_section(markdown, body):
             start = i
             break
     if start is None:
-        raise ValueError("no '## Architecture (data flow)' section")
+        if not create:
+            raise ValueError("no '## Architecture (data flow)' section")
+        prefix = markdown.rstrip() + "\n\n" if markdown.strip() else ""      # append; deterministic, at the end
+        return prefix + "## Architecture (data flow)\n" + body.strip() + "\n"
     end = len(lines)
     in_fence = False
     for j in range(start + 1, len(lines)):
