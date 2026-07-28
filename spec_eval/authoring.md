@@ -23,7 +23,7 @@ Two governing rules a reviewer can check:
 | overview_min_files | A per-dir overview is written only for a directory with **at least** this many spec-worthy files (default 2). |
 | template | Optional path to a custom per-module authoring template; replaces the built-in STRUCTURE. |
 | authoring rubric | The per-module system prompt: `AUTHORING_STRUCTURE` + `AUTHORING_DISCIPLINE` by default; a custom template replaces the structure but the discipline is always appended. |
-| synthesis rubric | `FOLDER_SPEC_RUBRIC` (self-contained folder spec) or `OVERVIEW_RUBRIC` (an index that defers to linked specs). |
+| synthesis rubric | `FOLDER_SPEC_RUBRIC` (self-contained folder spec), `REPO_OVERVIEW_RUBRIC` (the repo-root `OVERVIEW.md` — the full project overview, its section set pinned to `templates/OVERVIEW-template.md`), or `DIR_OVERVIEW_RUBRIC` (a per-directory `README.md` — a lean index that defers to linked specs, carrying no Architecture diagram). |
 | system-context evidence | The `OBSERVED SYSTEM EVIDENCE` block from the deterministic `syscontext` scan (free, no model call), appended to an overview call's final user message. It is the ONLY source the overview's `## System context` section may draw rows from. |
 | module intent | The per-module spec markdown — read from an existing co-located `<stem>.md` if present, else authored (map). Reused across synthesis passes. |
 | CODE_CAP | Max code characters fed to a per-module authoring call (`caps.code` in a config, default `audit.CODE_CAP`). |
@@ -48,11 +48,11 @@ Two governing rules a reviewer can check:
 
 **Consolidation (map → reduce).** For a multi-file target (a `per-dir` directory, or a `per-pair` glob matching several files), each module's **intent** is obtained first — reused from an existing co-located spec, or authored on the fly — and those intents (not the raw code) are concatenated and synthesised into one document with `FOLDER_SPEC_RUBRIC`. The concatenation is capped at `REDUCE_CAP`; when the intents exceed it, they are packed into sub-groups, each sub-group is synthesised into an intermediate intent, and the intermediates are reduced in turn (recursively) — **modules are never dropped**. The recursion is bounded to `_MAX_LEVELS` passes. Past that (or once a pass stops shrinking the item count), the remaining intents are force-fit into one final call — each sliced to an equal share of the cap and marked `...[truncated]` — so a deep fan-out truncates content rather than dropping a module. A multi-pass synthesis is reported in the target's `note` ("synthesised in N passes … nothing dropped"), and a reply cut off at the token cap is flagged the same way. A lone intent larger than the whole cap is sliced with a visible marker so packing always terminates.
 
-**Overview layer.** After every spec has been produced (so it can read them), an optional index is authored with `OVERVIEW_RUBRIC`, which links down to the specs and does not restate their detail. Its Map reuses each spec's canonical `**In one line:**` sentence verbatim (a copy-pointer, not a paraphrase that could drift):
-- `repo` / `both` → a repo-root `OVERVIEW.md` indexing all targets.
-- `per-dir` / `both` → a `README.md` in each directory with **at least** `overview_min_files` spec-worthy files.
-  A directory below the threshold is recorded as `skipped` with a note naming the shortfall — small directories
-  are never silently omitted.
+**Overview layer.** After every spec has been produced (so it can read them), an optional index is authored. The two overview surfaces carry **different section sets on purpose**:
+- `repo` / `both` → a repo-root `OVERVIEW.md`, authored with `REPO_OVERVIEW_RUBRIC` — the full project overview whose section set (What it is, Governing principles, Architecture data flow, System context, Module map, Glossary, Health receipt, Reading order) is the **same as `templates/OVERVIEW-template.md`**, pinned by `test_overview_sections_sync.py`.
+- `per-dir` / `both` → a `README.md` in each directory with **at least** `overview_min_files` spec-worthy files, authored with `DIR_OVERVIEW_RUBRIC` — a **lean four-section index** (Map, How it fits together, Shared contract, System context) that carries **no Architecture diagram**. A directory below the threshold is recorded as `skipped` with a note naming the shortfall — small directories are never silently omitted.
+
+Both link down to the specs without restating their detail; the repo Module map and the per-dir Map reuse each spec's canonical `**In one line:**` sentence verbatim (a copy-pointer, not a paraphrase that could drift). The System-context section instruction is single-sourced (`_OV_SYSTEM_CONTEXT`) so both rubrics carry the same honesty rules.
 
 **System context (evidence-fed, never invented).** When any overview is authored, the deterministic
 `syscontext` scan runs once (free — no model call) and its `OBSERVED SYSTEM EVIDENCE` block is appended to the

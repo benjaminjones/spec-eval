@@ -4,8 +4,8 @@
 > This page describes the *shape* of `<project>`; the specs describe the *contract*.
 > If this page and a spec disagree, **the spec wins**. This page never restates a value — it points.
 
-## What `<project>` is
-<2–4 sentences: what the project does, its core job, and what it optimizes for (clarity? speed? fidelity?).
+## What it is
+<2–4 sentences: what `<project>` does, its core job, and what it optimizes for (clarity? speed? fidelity?).
 Written so a newcomer understands the point before opening any spec.>
 
 ## Governing principles  *(the intent root — the "why" the whole set serves)*

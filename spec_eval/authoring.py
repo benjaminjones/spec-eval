@@ -29,7 +29,9 @@ from . import providers, audit, coverage as coverage_mod, syscontext
 # templates (`skills/spec-authoring/templates/spec-template.md`, `configs/spec-template.example.md`) carry its
 # skeleton markers — `tests/contract/test_rubric_sync.py` pins the shared load-bearing phrases so a change to
 # one copy without the others fails loudly. (`templates/OVERVIEW-template.md` is the skill's richer
-# project-overview and intentionally NOT a copy of OVERVIEW_RUBRIC below.)
+# project-overview; it is the SOURCE OF TRUTH for which sections the repo-level OVERVIEW carries —
+# `tests/contract/test_overview_sections_sync.py` pins REPO_OVERVIEW_RUBRIC below to the template's exact
+# section set and order — though the two are not otherwise verbatim copies.)
 AUTHORING_STRUCTURE = (
     "You author an INTENT-LED specification (markdown) for ONE code module. A reviewer must be able to grasp the "
     "full intent and contract from the spec ALONE. Follow this structure and these rules exactly:\n"
@@ -83,16 +85,11 @@ FOLDER_SPEC_RUBRIC = (
     "every per-module detail).\n"
     + AUTHORING_DISCIPLINE
 )
-OVERVIEW_RUBRIC = (
-    "You author a navigation OVERVIEW for a set of modules, given each module's intent spec and its spec path. "
-    "This is an INDEX a reader orients from before opening any module — not a restatement:\n"
-    "- '## Map' — a table linking each module's spec (by its given path) to its one-line purpose. REUSE that "
-    "spec's '**In one line:**' sentence VERBATIM as the purpose — it is the canonical one-liner; copy it, do "
-    "not paraphrase (a paraphrase is a second version that drifts). If a spec has no such line, write one short "
-    "line.\n"
-    "- '## How it fits together' — the flow across these modules, in prose.\n"
-    "- '## Shared contract' — only invariants / definitions that span modules; DEFER all module detail to the "
-    "linked specs, never restate them.\n"
+# The System-context section instruction — SINGLE-SOURCED so the repo and per-dir overview rubrics carry the
+# SAME honesty rules (rows only from observed evidence, unknowable cells say so, never invent a row). Pinned by
+# tests/contract/test_rubric_sync.py against the skill + template + scanner; splitting it into one constant keeps
+# the two rubrics below from drifting the honesty phrases apart.
+_OV_SYSTEM_CONTEXT = (
     "- '## System context' — ONLY when the input carries an 'OBSERVED SYSTEM EVIDENCE' block: a table "
     "'| External system | Direction | What flows | Evidence |' with one row per listed system, keeping the "
     "block's order. NEVER invent a row or add a system the block does not list. 'What flows' is the "
@@ -107,6 +104,57 @@ OVERVIEW_RUBRIC = (
     "RULES below: while an evidence block is present, render the full table even if it carries a single row — "
     "an evidence-backed row is a real row, and 'unknown from this repo' is a filled cell, not an N/A; never "
     "right-size this section away.\n"
+)
+
+# The module-map imperative — the canonical one-liner is COPIED verbatim, never paraphrased. Shared by the
+# per-dir '## Map' and the repo '## Module map' so the anti-drift rule can't be lost in the rename.
+_OV_MODULE_MAP_IMPERATIVE = (
+    "a table linking each module's spec (by its given path) to its one-line purpose. REUSE that "
+    "spec's '**In one line:**' sentence VERBATIM as the purpose — it is the canonical one-liner; copy it, do "
+    "not paraphrase (a paraphrase is a second version that drifts). If a spec has no such line, write one short "
+    "line.\n"
+)
+
+# KEEP IN SYNC: DIR_OVERVIEW_RUBRIC (per-directory README) is the LEAN index — the legacy 4-section set, and it
+# NEVER carries the Architecture diagram. REPO_OVERVIEW_RUBRIC (the repo-root OVERVIEW.md) is the FULL project
+# overview whose section set is pinned to templates/OVERVIEW-template.md. Both include _OV_SYSTEM_CONTEXT.
+DIR_OVERVIEW_RUBRIC = (
+    "You author a navigation OVERVIEW for a set of modules, given each module's intent spec and its spec path. "
+    "This is an INDEX a reader orients from before opening any module — not a restatement:\n"
+    "- '## Map' — " + _OV_MODULE_MAP_IMPERATIVE +
+    "- '## How it fits together' — the flow across these modules, in prose.\n"
+    "- '## Shared contract' — only invariants / definitions that span modules; DEFER all module detail to the "
+    "linked specs, never restate them.\n"
+    + _OV_SYSTEM_CONTEXT
+    + AUTHORING_DISCIPLINE
+)
+
+# The Architecture (data flow) section instruction. Step 2 enriches this into the scanner-fed Mermaid diagram
+# rubric; only the repo overview embeds it, so a per-dir README can never emit a diagram (repo-only by
+# construction). The heading token is the load-bearing part the section-parity test pins.
+ARCH_DIAGRAM_RUBRIC = (
+    "- '## Architecture (data flow)' — the end-to-end data flow: input through the components to output, naming "
+    "the one seam or abstraction that threads through everything.\n"
+)
+REPO_OVERVIEW_RUBRIC = (
+    "You author the repository-level project OVERVIEW — the page a newcomer reads to understand the whole "
+    "project before opening any spec, given each module's intent spec and its spec path. It is an INDEX that "
+    "points, never a restatement. Emit these sections in THIS ORDER, using these EXACT headings:\n"
+    "- '## What it is' — in 2-4 sentences, what the project does, its core job, and what it optimizes for "
+    "(clarity, speed, fidelity), so a newcomer grasps the point before opening any spec.\n"
+    "- '## Governing principles' — the intent root: the few 'why' principles the whole spec-set serves, each a "
+    "bolded one-liner. Fold in only cross-module invariants that govern the whole set; DEFER per-module detail "
+    "to the linked specs.\n"
+    + ARCH_DIAGRAM_RUBRIC
+    + _OV_SYSTEM_CONTEXT
+    + "- '## Module map' — " + _OV_MODULE_MAP_IMPERATIVE +
+    "- '## Glossary' — plain-English one-liners for the project's domain terms, each pointing to its defining "
+    "spec section. Omit the section if the project carries no cross-module vocabulary worth a newcomer's "
+    "glance.\n"
+    "- '## Health receipt' — a fixed pointer, no scores on this page: the spec-set trust signal (coverage / "
+    "drift / sufficiency, dated and SHA-pinned) lives in SPEC-HEALTH.md.\n"
+    "- '## Reading order' — the path through the set: this overview, then the module specs, then SPEC-HEALTH.md "
+    "to confirm the specs still match the code.\n"
     + AUTHORING_DISCIPLINE
 )
 
@@ -333,7 +381,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
         def _repo_overview():
             block = syscontext.evidence_block(ctx) or None
             items = [(sp, target_md(sp, cf)) for sp, cf in sorted(targets.items())]
-            md, levels, reply_capped = _synthesize(model, OVERVIEW_RUBRIC, items, "Repository overview",
+            md, levels, reply_capped = _synthesize(model, REPO_OVERVIEW_RUBRIC, items, "Repository overview",
                                                    on_progress, reduce_cap=reduce_cap, extra=block)
             if block:            # stamp the fingerprint this System context section was rendered from, so a
                 md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # later `--check` can flag staleness
@@ -356,7 +404,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
 
             def _dir_overview(dtargets=dtargets, d=d):
                 items = [(tp, target_md(tp, cf)) for tp, cf in sorted(dtargets.items())]
-                md, levels, reply_capped = _synthesize(model, OVERVIEW_RUBRIC, items,
+                md, levels, reply_capped = _synthesize(model, DIR_OVERVIEW_RUBRIC, items,
                                                        f"Directory overview — `{d or '.'}`", on_progress,
                                                        reduce_cap=reduce_cap,
                                                        extra=syscontext.evidence_block(ctx, scope_dir=d) or None)

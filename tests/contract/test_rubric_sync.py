@@ -4,11 +4,12 @@ loudly instead of drifting silently. Two mirror pairs are guarded:
   drift     — `spec_eval/rubric.py` (DRIFT_RUBRIC)       <-> `skills/spec-check/SKILL.md`
   authoring — `spec_eval/authoring.py` (AUTHORING_RUBRIC) <-> `skills/spec-authoring/SKILL.md` + shipped templates
 (SUFFICIENCY_RUBRIC has no agent-side mirror; its description lives in `spec_eval/sufficiency.md`, which the
-self-dogfood audit guards. `OVERVIEW-template.md` is intentionally NOT a copy of OVERVIEW_RUBRIC — but its
-System context section shares OVERVIEW_RUBRIC's honesty phrases, pinned below.)"""
+self-dogfood audit guards. `OVERVIEW-template.md` is not a verbatim copy of the overview rubrics, but it is the
+SOURCE OF TRUTH for the repo overview's section set — `test_overview_sections_sync.py` pins REPO_OVERVIEW_RUBRIC
+to it — and both overview rubrics share the System-context honesty phrases pinned below.)"""
 import os
 
-from spec_eval.authoring import AUTHORING_RUBRIC, OVERVIEW_RUBRIC
+from spec_eval.authoring import AUTHORING_RUBRIC, DIR_OVERVIEW_RUBRIC, REPO_OVERVIEW_RUBRIC
 from spec_eval.rubric import DRIFT_RUBRIC
 
 _ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -78,7 +79,7 @@ def test_authoring_copies_carry_the_sync_pointer():
     assert "KEEP IN SYNC" in open(AUTHORING_SKILL_PATH).read()
 
 
-# --- system context: OVERVIEW_RUBRIC <-> spec-authoring SKILL.md + OVERVIEW-template.md + the scanner ---
+# --- system context: REPO/DIR_OVERVIEW_RUBRIC <-> spec-authoring SKILL.md + OVERVIEW-template.md + the scanner ---
 
 OVERVIEW_TEMPLATE_PATH = os.path.join(_ROOT, "skills", "spec-authoring", "templates", "OVERVIEW-template.md")
 
@@ -97,7 +98,8 @@ def test_system_context_copies_share_the_honesty_phrases():
     skill = open(AUTHORING_SKILL_PATH).read()
     template = open(OVERVIEW_TEMPLATE_PATH).read()
     for phrase in SYSTEM_CONTEXT_LOAD_BEARING:
-        assert phrase in OVERVIEW_RUBRIC, f"authoring.py OVERVIEW_RUBRIC lost the principle: {phrase!r}"
+        assert phrase in REPO_OVERVIEW_RUBRIC and phrase in DIR_OVERVIEW_RUBRIC, (
+            f"an overview rubric lost the System-context principle: {phrase!r}")
         assert phrase in skill, f"skills/spec-authoring/SKILL.md lost the principle: {phrase!r}"
         assert phrase in template, f"OVERVIEW-template.md lost the principle: {phrase!r}"
 
@@ -107,7 +109,8 @@ def test_system_context_wins_over_right_sizing_in_both_copies():
     System context bullet — without an explicit precedence, a 1-system repo loses its table. Both copies must
     carry the exemption."""
     phrase = "even if it carries a single row"
-    assert phrase in OVERVIEW_RUBRIC, "OVERVIEW_RUBRIC lost the right-sizing exemption"
+    assert phrase in REPO_OVERVIEW_RUBRIC and phrase in DIR_OVERVIEW_RUBRIC, (
+        "an overview rubric lost the right-sizing exemption")
     assert phrase in open(AUTHORING_SKILL_PATH).read(), "spec-authoring SKILL.md lost the right-sizing exemption"
 
 
@@ -120,7 +123,7 @@ def test_rubric_triggers_on_the_exact_block_marker_the_scanner_emits():
                            "evidence_total": 1}]}
     block = syscontext.evidence_block(result)
     assert "OBSERVED SYSTEM EVIDENCE" in block
-    assert "OBSERVED SYSTEM EVIDENCE" in OVERVIEW_RUBRIC
+    assert "OBSERVED SYSTEM EVIDENCE" in REPO_OVERVIEW_RUBRIC and "OBSERVED SYSTEM EVIDENCE" in DIR_OVERVIEW_RUBRIC
     # the language-gap line's marker must also agree between scanner and rubric
     assert syscontext.unscanned_note({"unscanned": {".cpp": 1}}).startswith("Not scanned:")
-    assert "'Not scanned:'" in OVERVIEW_RUBRIC
+    assert "'Not scanned:'" in REPO_OVERVIEW_RUBRIC and "'Not scanned:'" in DIR_OVERVIEW_RUBRIC
