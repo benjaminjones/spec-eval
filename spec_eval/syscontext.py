@@ -401,12 +401,13 @@ def scan(repo, config):
 
 
 def _tables_digest():
-    """A stable 16-char hash of ALL detection knowledge — every table AND every hoisted regex/literal that can
-    change the observed `(system, direction)` key set. A change to any of them (a new SDK key, a new scheme, a
-    new AWS ecosystem regex, an Azure entry) moves the digest, so a fingerprint diff across differing digests
-    is a re-baseline ('the scanner learned to see more'), never code drift. This is what keeps table growth
-    from firing false drift in every consuming repo once baselines are stored. `sorted()` on every set/dict
-    makes the hash order-independent, hence deterministic across Python runs."""
+    """A stable 16-char hash of the detection TABLES and detection REGEXES — the knowledge that shapes the
+    observed `(system, direction)` key set. A change to any of them (a new SDK key, a new scheme, a widened
+    matcher, a changed gate) moves the digest, so a fingerprint diff across differing digests is a re-baseline
+    ('the scanner learned to see more'), never code drift. It is not a proof over every character of
+    `_scan_file` — the scanner `version` in the provenance compare is the catch-all for any detection change
+    the digest doesn't reach. `sorted()` on every set/dict makes the hash order-independent, hence
+    deterministic across Python runs."""
     payload = repr([
         sorted(SDK_IMPORTS.items()), sorted(INBOUND_FRAMEWORKS.items()), sorted(SCHEME_SYSTEMS.items()),
         sorted(AWS_SERVICES.items()), sorted(SKIP_HOST_SUFFIXES), sorted(KEEP_HOSTS),
@@ -414,6 +415,12 @@ def _tables_digest():
         [r.pattern for r in _AWS_ECOSYSTEMS], sorted(_AWS_PLUMBING), sorted(_AWS_JAVA_MARKERS),
         sorted(_AZURE_SDK.items()), sorted(_DJANGO_ENGINE_MAP.items()),
         _GOOGLE_CLOUD_RE.pattern, _GOOGLE_GENAI_RE.pattern, _DJANGO_BACKENDS_RE.pattern,
+        # the matching regexes shape the key set — widen one and new systems match
+        _URL.pattern, _SCHEME.pattern, _AWS_CLIENT.pattern,
+        _ENV_QUOTED.pattern, _ENV_BARE.pattern, _ENV_DESTRUCTURE.pattern, _ENV_NAME.pattern,
+        # and the gates that decide which lines are even inspected
+        _IMPORTISH.pattern, _USING.pattern, _IMPORT_TYPE.pattern, _HAS_ENV.pattern, _COMMENT.pattern,
+        _GO_IMPORT_OPEN.pattern, _GO_IMPORT_CLOSE.pattern, sorted(C_FAMILY), sorted(HASH_FAMILY),
     ])
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 

@@ -3,15 +3,7 @@
     "label": "audit",
     "code_files": 1,
     "doc_files": 1,
-    "findings": [
-      {
-        "severity": "low",
-        "summary": "The Contracts section lists `suggestion` as a non-optional field of a Finding (only `code_ref?`/`doc_ref?` carry the optional marker), but fallback-path findings are emitted with only `severity` and `summary`, omitting `suggestion` entirely.",
-        "code_ref": "spec_eval/audit.py:L75",
-        "doc_ref": null,
-        "suggestion": "Either mark `suggestion` optional in the contract (`suggestion?`) noting fallback findings carry only severity+summary, or have the fallback emit `suggestion: \"\"` (and `code_ref`/`doc_ref`: null) to satisfy the stated shape."
-      }
-    ]
+    "findings": []
   },
   {
     "label": "authoring",
@@ -23,7 +15,15 @@
     "label": "cli",
     "code_files": 1,
     "doc_files": 1,
-    "findings": []
+    "findings": [
+      {
+        "severity": "low",
+        "summary": "The doc's blanket claim that every command writes both a JSON and a Markdown artifact is false for `context --check`, which writes neither.",
+        "code_ref": "spec_eval/cli.py (context --check branch: raises SystemExit before json.dump/system-context.md write)",
+        "doc_ref": "spec_eval/cli.md (\u00a73 Artifacts & logging)",
+        "suggestion": "Qualify the summary, e.g. \"every command (except `context --check`, which only reads the baseline) writes both a JSON and a Markdown artifact\"."
+      }
+    ]
   },
   {
     "label": "coverage",
@@ -57,6 +57,12 @@
   },
   {
     "label": "sufficiency",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": []
+  },
+  {
+    "label": "syscontext",
     "code_files": 1,
     "doc_files": 1,
     "findings": []

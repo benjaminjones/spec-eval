@@ -1,75 +1,91 @@
 # Spec sufficiency — `spec-eval`
-detector: `claude-code` · 9/9 pairs scored · 9 model call(s)
+detector: `claude-code` · 10/10 pairs scored · 10 model call(s)
 
-**Average sufficiency 0.91** — how completely does the spec capture the code's behavior? (1.0 = no gaps found; gaps = behavior in the code but not the spec. An indicator, not a guarantee.)
+**Average sufficiency 0.88** — how completely does the spec capture the code's behavior? (1.0 = no gaps found; gaps = behavior in the code but not the spec. An indicator, not a guarantee.)
 
 ## Sufficiency fingerprint  *(at a glance — worst first)*
 
 | Pair | Spec completeness | Score |
 |---|---|---|
-| `authoring` | `█████████████████░░░` | 0.87 |
-| `audit` | `██████████████████░░` | 0.88 |
-| `cli` | `██████████████████░░` | 0.90 |
+| `authoring` | `████████████████░░░░` | 0.80 |
+| `audit` | `█████████████████░░░` | 0.83 |
+| `syscontext` | `█████████████████░░░` | 0.85 |
+| `cli` | `█████████████████░░░` | 0.86 |
+| `report` | `██████████████████░░` | 0.88 |
 | `coverage` | `██████████████████░░` | 0.90 |
-| `report` | `██████████████████░░` | 0.90 |
+| `providers` | `██████████████████░░` | 0.90 |
+| `rubric` | `██████████████████░░` | 0.90 |
 | `sufficiency` | `██████████████████░░` | 0.90 |
-| `providers` | `██████████████████░░` | 0.92 |
-| `rubric` | `███████████████████░` | 0.95 |
-| `runlog` | `███████████████████░` | 0.95 |
+| `runlog` | `███████████████████░` | 0.93 |
 
 ## Per-module gaps  *(worst first)*
 
-### authoring — sufficiency 0.87
-- **[minor]** The numeric defaults are never given — REDUCE_CAP=48000 chars, _MAX_LEVELS=4 synthesis passes, AUTHOR_MAX_TOKENS=5000 output tokens — so a rebuild would have to guess all three budgets. · `spec_eval/authoring.py (REDUCE_CAP / _MAX_LEVELS / AUTHOR_MAX_TOKENS)`
-- **[minor]** An unknown `authoring.layout` value raises a ValueError naming the three valid layouts; the spec never states the error semantics for a bad layout. · `spec_eval/authoring.py (_layout_targets)`
-- **[minor]** Several load-bearing per-module rubric rules are absent from the spec: an INV may be asserted only if the code enforces it, acceptance criteria use Given/When/Then IDs with concrete numbers, shapes must be semantic not language types, the one-liner is capped at ~20 words, headings organize by capability never by symbol tree, and output must carry no preamble or title-line meta-note. · `spec_eval/authoring.py (AUTHORING_STRUCTURE)`
-- **[minor]** The section structures of the two synthesis rubrics are unspecified — folder spec: Purpose / Modules table / How it fits together / Shared contract (self-contained, reader has only this file); overview: Map / How it fits together / Shared contract. · `spec_eval/authoring.py (FOLDER_SPEC_RUBRIC)`
-- **[minor]** Progress events also fire once per sub-group during a multi-pass synthesis ('synthesis pass L: group i/N'), not only per module map call and per target as the spec states. · `spec_eval/authoring.py (_synthesize)`
-- **[minor]** The force-fit slice gives each item max(200, cap // n_items - 40) chars — the per-item floor and header allowance behind 'an equal share of the cap' are unstated. · `spec_eval/authoring.py (_synthesize)`
-- **[minor]** The rubric text is a synchronized contract — SKILL.md and the shipped templates carry copies whose shared phrases are pinned by a contract test, so editing one copy alone must fail loudly; the spec never mentions this cross-artifact sync obligation. · `spec_eval/authoring.py`
+### authoring — sufficiency 0.80
+- **[major]** The built-in authored-spec skeleton the map rubric enforces — §1 Purpose with a bold '**In one line:** <=20-word' headline and a directly-checkable governing constraint, §2 Definitions table, §3 Behavior (explanation-only, no per-method walkthrough), §4 Contracts opening with the italic reference cue, semantic (not language) shapes, an Invariants table (INV-* asserted only when the code enforces it) and a Given/When/Then Acceptance-criteria table (AC-*) — is only gestured at, not specified enough to reproduce. · `spec_eval/authoring.py (AUTHORING_STRUCTURE)`
+- **[minor]** Default numeric constants are named but never valued: REDUCE_CAP defaults to 48000 chars, _MAX_LEVELS to 4 recursion passes, and AUTHOR_MAX_TOKENS to 5000 output tokens (the single budget for all four call sites). · `spec_eval/authoring.py (module constants)`
+- **[minor]** The folder synthesis rubric's produced section structure is undescribed: ## 1 Purpose, ## 2 Modules (module→one-line-responsibility table), ## 3 How it fits together (prose data/control flow), ## 4 Shared contract (cross-module invariants only). · `spec_eval/authoring.py (FOLDER_SPEC_RUBRIC)`
+- **[minor]** When the evidence block ends with a 'Not scanned:' line, the overview must reproduce that line verbatim beneath the System-context table so a language-coverage gap stays visible. · `spec_eval/authoring.py (OVERVIEW_RUBRIC)`
+- **[minor]** The System-context section must render the full table even for a single evidence row (an evidence-backed row and an 'unknown from this repo' cell count as real, not N/A) — an explicit override of the general right-sizing rule. · `spec_eval/authoring.py (OVERVIEW_RUBRIC)`
+- **[minor]** An unrecognized layout value raises ValueError('unknown layout ... use per-file | per-dir | per-pair'). · `spec_eval/authoring.py (_layout_targets)`
+- **[minor]** per-pair edge behavior: a pair with no docs entry is skipped, its first docs entry is the target, code globs are matched with recursive=True keeping only files (relpath'd, deduped, sorted), and a pair whose globs match nothing produces no target. · `spec_eval/authoring.py (_layout_targets)`
+- **[minor]** Force-fit sizing detail: past the recursion bound each remaining intent is sliced to max(200, cap//len(items) - 40) chars, and _pack emits blocks as '### <label>\n<intent>' with a lone oversized block sliced to cap and marked '...[truncated]'. · `spec_eval/authoring.py (_synthesize / _pack)`
 
-### audit — sufficiency 0.88
-- **[minor]** The model-reply output-token budget default (REVIEW_MAX_TOKENS = 3000) is never stated — the spec says a token cap exists but a rebuilder would have to guess the value, and would not know it is a shared constant the sufficiency check also reads to keep both review budgets coupled. · `spec_eval/audit.py (REVIEW_MAX_TOKENS)`
-- **[minor]** Files are opened with errors="ignore", so binary or badly-encoded files are included lossily (bad bytes dropped) rather than skipped — the spec only says unreadable files are skipped silently, which a rebuilder could implement as skip-on-decode-error instead. · `spec_eval/audit.py (_read_globs)`
-- **[minor]** Reported file counts and the skip decision are based on contributing files (readable, non-empty), not glob matches — a side whose globs match only empty files yields count 0 and the pair is skipped as "no files matched", a distinction the spec's contracts leave ambiguous. · `spec_eval/audit.py (_read_globs)`
-- **[minor]** first_json_object and truncation_notes are generic, exported helpers with contracts beyond this module's use (arbitrary key sets; pair-level notes explicitly shared with the sufficiency check) — a rebuild from the spec would inline them and break the cross-module reuse. · `spec_eval/audit.py (first_json_object)`
-- **[minor]** The reply-truncation note is derived from provider-global state of the most recent call (providers.LAST["truncated"]), meaning truncation_notes must be invoked immediately after the generation call — an ordering constraint the spec does not convey. · `spec_eval/audit.py (truncation_notes)`
+### audit — sufficiency 0.83
+- **[minor]** The output-token budget passed to the provider (REVIEW_MAX_TOKENS = 3000) is never given a value; a rebuild would know a token cap exists (via the 'reply hit the token cap' note) but must guess 3000. · `audit.py (REVIEW_MAX_TOKENS / audit_pair)`
+- **[minor]** The provider interface contract is unspecified: audit calls providers.gen(model, DRIFT_RUBRIC, user, max_tokens) returning raw text, and reads the module-global providers.LAST['truncated'] after each call to decide the reply-cut-off note. · `audit.py (truncation_notes / audit_pair)`
+- **[minor]** The exact user-message template is not given — label header '# Drift review: {label}', code wrapped in triple-backtick fences under '## Code', docs left unfenced under '## Docs / spec'. · `audit.py (audit_pair)`
+- **[minor]** Field-level normalization defaults in the primary parse are unstated: code_ref/doc_ref default to None, suggestion defaults to "", and severity/summary are coerced via str(). · `audit.py (parse_findings)`
+- **[minor]** Truncation-note number formatting uses comma-grouped digits (e.g. '~64,000 chars'), not the bare integer. · `audit.py (truncation_notes)`
+- **[minor]** caps_from coerces each override via int() and falls back per-key to the default when caps or an individual key is absent/null. · `audit.py (caps_from)`
 
-### cli — sufficiency 0.90
-- **[minor]** The terminal list cap for uncovered files and orphaned specs is 25 entries (UNCOVERED_LIST_CAP); the spec says only 'capped' so a rebuild would have to guess the threshold. · `spec_eval/cli.py (UNCOVERED_LIST_CAP)`
-- **[minor]** Single-file scoping falls back to the per-dir folder spec only when the co-located <stem>.md does not exist on disk; the spec's 'or' phrasing leaves this precedence rule (existing <stem>.md wins even under per-dir layout) ambiguous. · `spec_eval/cli.py (_file_scope)`
-- **[minor]** The synthesized pair's label is the code file's stem (which surfaces in report labels and the run log's per_module keys), and the folder-spec name is read from the config key authoring.dir_spec_name with default '<dir>' — neither is specified. · `spec_eval/cli.py (_file_scope)`
-- **[minor]** The orphaned-spec list truncates silently with no '… and N more' overflow note, unlike the uncovered list; the spec's 'also capped' implies symmetric treatment. · `spec_eval/cli.py (main)`
+### syscontext — sufficiency 0.85
+- **[minor]** The exact numeric caps are not given: EVIDENCE_CAP=8 sites per entry per directory, LINE_CAP=160 chars per evidence match, FILE_CAP=2,000,000 bytes read per file. · `syscontext.py (module constants)`
+- **[minor]** The SDK_IMPORTS table is only partially enumerated; several recognized systems are unspecified (Celery broker, Yahoo Finance/yfinance, ccxt crypto exchanges, Alpaca, Interactive Brokers, LDAP directory, Oracle via cx_Oracle/oracledb, Elasticsearch/OpenSearch, Cassandra, Memcached, SMTP/smtplib). · `syscontext.py (SDK_IMPORTS)`
+- **[minor]** The full SCHEME_SYSTEMS scheme→system map is not enumerated; nats→NATS, mqtt→MQTT broker, ftp/sftp→FTP/SFTP server, gs→Google Cloud Storage, smtp→SMTP are missing. · `syscontext.py (SCHEME_SYSTEMS)`
+- **[minor]** AWS SDK plumbing namespaces (runtime, extensions, util, core, config, auth) are explicitly skipped and never reported as services. · `syscontext.py (_scan_file)`
+- **[minor]** The display-name fallback formatting rules are unspecified: an unknown AWS service id ≤4 chars is upper-cased else title-cased, and hyphens/underscores become spaces before title-casing (also applied to Google Cloud service names). · `syscontext.py (_scan_file)`
+- **[minor]** Which file extensions receive C-style (/*…*/, //) vs hash-style (#) comment stripping (C_FAMILY vs HASH_FAMILY), and that extensions in neither family get no comment stripping at all, is not specified. · `syscontext.py (C_FAMILY / HASH_FAMILY)`
+- **[minor]** The exact OTHER_SOURCE_EXT set that determines which unsupported-language files are counted into `unscanned` (vs ignored entirely) is not enumerated. · `syscontext.py (OTHER_SOURCE_EXT)`
+- **[minor]** The full SKIP_HOST_SUFFIXES documentation-domain list is only partially enumerated (missing pypi.org, npmjs.com, shields.io, readthedocs.io, stackoverflow.com, opensource.org, creativecommons.org, schema.org, json-schema.org). · `syscontext.py (SKIP_HOST_SUFFIXES)`
+
+### cli — sufficiency 0.86
+- **[minor]** The per-line terminal list of uncovered files (and orphans) is capped at exactly 25 entries (UNCOVERED_LIST_CAP); the spec says 'capped' but never states the numeric threshold. · `spec_eval/cli.py (UNCOVERED_LIST_CAP)`
+- **[minor]** Orphaned specs are sliced to the cap but printed with NO '… and N more' overflow note (unlike uncovered files), so overflow orphans are silently dropped from the terminal output. · `spec_eval/cli.py (main, coverage branch)`
+- **[minor]** When a single-file scope has no co-located <stem>.md under a per-dir layout, the doc name is derived via coverage_mod.dir_spec_path using the authoring 'dir_spec_name' default of '<dir>' — the folder-spec filename derivation and its default are not specified. · `spec_eval/cli.py (_file_scope)`
+- **[minor]** generate defaults its config to {"pairs": []} (not {}) when no --config is given, and _file_scope for generate additionally forces layout to 'per-pair' — the exact config default and layout override value are unstated. · `spec_eval/cli.py (main, generate branch)`
+- **[minor]** The context (non-check) per-system console line uses only the first evidence entry (rec['evidence'][0]) in the exact format '{system} ({kind}, {direction}; {file}:{line})' — the evidence-shape fields (kind, direction, file, line) are not enumerated in the spec. · `spec_eval/cli.py (main, context branch)`
+
+### report — sufficiency 0.88
+- **[minor]** The drift report lists a bullet for EVERY finding regardless of severity (not just high/medium), so a pair headed `✓ clean` (drift load 0) can still render low-severity finding bullets — the spec ties bullets to "per finding" but never makes the clean-header-yet-nonempty interaction explicit. · `report.py (write_markdown)`
+- **[minor]** `_bar` computes filled cells as `int(round(v*width))` (nearest-integer rounding); the spec specifies clamping and the 1.0→20 boundary but not the rounding rule, so a rebuild could use floor and produce different bars for non-boundary values. · `report.py (_bar)`
+- **[minor]** The drift report's per-pair sections are emitted in input order (the loop iterates `results` directly, not sorted by drift load); the spec specifies ordering for the fingerprints and sufficiency detail but is silent on drift-body order. · `report.py (write_markdown)`
+- **[minor]** The sufficiency detail sort key `(sufficiency is None, sufficiency or 0)` also sinks skipped pairs (whose sufficiency is absent/None) into the last bucket alongside unscored pairs; the spec doesn't state where skipped pairs land in the sufficiency detail ordering. · `report.py (write_sufficiency_markdown)`
+- **[minor]** The sufficiency fingerprint's concrete table layout — three columns `Pair | Spec completeness | Score`, a `_bar` in the middle column, and score to 2 decimals — is not fully pinned down by the spec's loose Fingerprint definition. · `report.py (sufficiency_fingerprint)`
 
 ### coverage — sufficiency 0.90
-- **[minor]** The exact membership of CONVENTIONAL_DOC_STEMS (20 stems including testing, faq, security, todo, authors, maintainers, install, upgrading, contributing, notice, changes, getting-started/getting_started, code_of_conduct) and the fact that the stem match is case-insensitive (stem.lower()) are only exemplified with an ellipsis, so a rebuild would guess which doc names are exempt from orphan flagging. · `spec_eval/coverage.py (CONVENTIONAL_DOC_STEMS)`
-- **[minor]** The full PRUNE_DIRS set is elided ('caches, IDE dirs, …') — a rebuild would miss entries like venv, env, .tox, htmlcov, .eggs, .idea, .vscode, thirdparty, jspm_packages, changing which trees are walked. · `spec_eval/coverage.py (PRUNE_DIRS)`
-- **[minor]** dir_spec_path's edge rules are unspecified: a repo-root code file's folder spec resolves to <repo_name>.md, and a literal dir_spec_name (e.g. 'README') maps to <dir>/README.md rather than <dir>/<dir>.md, with '<dir>' as the sentinel default. · `spec_eval/coverage.py (dir_spec_path)`
-- **[minor]** format_report renders the headline percentage with zero decimals (:.0f) even though the returned dict stores pct rounded to one decimal, and prefixes the report with the repo basename as a title. · `spec_eval/coverage.py (format_report)`
+- **[minor]** The full PRUNE_DIRS membership is not enumerated (spec gives only a representative subset with '…'), so a rebuild would guess which directory names like `env`, `target`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `.tox`, `htmlcov`, `.eggs`, `thirdparty`, `jspm_packages` are pruned. · `coverage.py (PRUNE_DIRS)`
+- **[minor]** The conventional-doc-stem match is case-insensitive (`stem.lower() in CONVENTIONAL_DOC_STEMS`) and the full stem set (changes, contributing, notice, testing, faq, getting-started, security, code_of_conduct, skill, todo, authors, maintainers, install, upgrading, …) is not enumerated in the spec. · `coverage.py (coverage / CONVENTIONAL_DOC_STEMS)`
+- **[minor]** dir_spec_path's exact rules — a repo-root code file (empty dirname) uses repo_name as the folder name, and a literal (non-`<dir>`) dir_spec_name produces `<dir>/<literal>.md` — are only partially implied. · `coverage.py (dir_spec_path)`
+- **[minor]** format_report renders the headline percentage with `:.0f` (integer rounding), not the one-decimal float that `pct` stores, so the displayed number can differ from the contract value. · `coverage.py (format_report)`
+- **[minor]** infer_pairs iterates files in sorted order within the walk before the final label sort, and its pair label is the basename stem — the precise emitted pair shape/label derivation is only loosely described. · `coverage.py (infer_pairs)`
 
-### report — sufficiency 0.90
-- **[minor]** The bar fill count uses round-to-nearest (`int(round(v * width))`), so a rebuild could plausibly floor/ceil and render visibly different bars for the same score. · `spec_eval/report.py (_bar)`
-- **[minor]** Drift-report per-pair sections render in input order (results iterated as given, skipped inline), whereas the sufficiency report sorts worst-first — the spec never states the drift detail ordering, so a rebuilder might sort it by analogy. · `spec_eval/report.py (write_markdown)`
-- **[minor]** In the sufficiency detail sort, skipped pairs (which lack a `sufficiency` value) fall into the same trailing 'None' group as unscored pairs and interleave with them in stable input order; the spec only places unscored pairs last and leaves skipped-pair position unstated. · `spec_eval/report.py (write_sufficiency_markdown)`
-- **[minor]** Per-pair sufficiency scores are rendered to exactly two decimal places (`:.2f`) in both the fingerprint table and section headers; the spec pins two decimals only for the headline average via AC-5. · `spec_eval/report.py (write_sufficiency_markdown)`
-- **[minor]** The drift fingerprint is an h3 heading (`### Drift fingerprint`) while the sufficiency fingerprint is an h2 with an italic tagline, and fingerprint rows wrap labels/bars in inline-code backticks — heading levels and exact column titles ('Spec completeness', 'High+med findings') are unstated. · `spec_eval/report.py (sufficiency_fingerprint)`
+### providers — sufficiency 0.90
+- **[minor]** The exact default model value `anthropic:claude-opus-4-8` is not given; the spec only says DEFAULT_MODEL holds a default provider:model string and its examples even use a different name (`claude-opus-4`), so a rebuild would guess the wrong constant. · `providers.py (DEFAULT_MODEL)`
+- **[minor]** The claude-code bridge subprocess uses a fixed 600-second timeout; the spec never states any timeout for the CLI call. · `providers.py (_gen_claude_code)`
+- **[minor]** OpenAI truncation detection guards against an empty `choices` list (defaults truncated to False when no choices), an edge case not captured in the spec. · `providers.py (gen)`
+- **[minor]** RuntimeError messages from the bridge truncate the CLI's stderr/stdout to 400 characters, an error-shape detail the spec omits. · `providers.py (_gen_claude_code)`
+- **[minor]** Google's finish-reason check normalizes an enum via `fr.name` or `str(fr)` before matching 'MAX_TOKENS'; the spec states the marker but not this reason-object handling. · `providers.py (gen)`
+
+### rubric — sufficiency 0.90
+- **[minor]** The docstring states this module's own spec (rubric.md) is itself checked by "spec-eval's self-audit"; the spec describes the sync test but not that the module↔spec relationship is guarded by a self-audit mechanism. · `rubric.py (module docstring)`
+- **[minor]** The rubric opens by casting the reviewer as "a careful technical reviewer auditing a codebase" shown "ONE pair" and told to "Find real mismatches" — the exact persona/instruction framing that shapes the emitted string is only partially reflected. · `rubric.py (DRIFT_RUBRIC)`
 
 ### sufficiency — sufficiency 0.90
-- **[minor]** Pair inference is triggered by any falsy `config["pairs"]` (the code uses `or`), so an explicitly present but empty pairs list also falls back to `infer_pairs` — the spec's AC-6 only covers the key being absent. · `spec_eval/sufficiency.py (sufficiency_repo)`
-- **[minor]** The fallback record is produced on ANY exception during result normalization (e.g., a non-numeric `sufficiency` value failing float coercion, or `gaps` entries that aren't dicts), not only when no JSON span is found — the spec's 'JSON parsing raises' phrasing would let a rebuilder skip wrapping the normalization loop in try/except. · `spec_eval/sufficiency.py (sufficiency_pair)`
-- **[minor]** `code_ref` dropping is a truthiness-plus-case-insensitive check: empty-string refs and any casing of "null" (e.g., "NULL", "Null") are dropped, beyond the spec's stated null/"null"/missing cases. · `spec_eval/sufficiency.py (sufficiency_pair)`
-- **[minor]** The skipped record's explanation string has a specific shape embedding both match counts — `no files matched (code=N, docs=N)` — which the spec types only as `skipped: str`. · `spec_eval/sufficiency.py (sufficiency_pair)`
-- **[minor]** A pair missing its `code` or `docs` key entirely is tolerated (`pair.get(..., [])` defaults to an empty glob list, yielding a skip) rather than raising KeyError. · `spec_eval/sufficiency.py (sufficiency_pair)`
+- **[minor]** When a pair omits the "code" or "docs" key entirely, the globs default to an empty list (via pair.get(key, [])), which yields nc/nd of 0 and a skip rather than an error — the spec never states the missing-key default. · `sufficiency.py (sufficiency_pair)`
+- **[minor]** The exact user-prompt template is unspecified: the code fences the concatenated code in a triple-backtick block but leaves the spec/doc text unfenced, under literal headings `# Sufficiency review: {label}`, `## Code`, `## Spec`. · `sufficiency.py (sufficiency_pair)`
+- **[minor]** At repo level, caps are derived once via audit.caps_from(config) and threaded into every pair call; the spec names caps.code/caps.docs defaults but not the caps_from extraction mechanism. · `sufficiency.py (sufficiency_repo)`
+- **[minor]** A non-numeric `sufficiency` value that fails float() coercion falls through the try/except into the parse-failure fallback (None score, "?" gap) rather than defaulting to 0.0. · `sufficiency.py (sufficiency_pair)`
 
-### providers — sufficiency 0.92
-- **[minor]** The concrete value of DEFAULT_MODEL ("anthropic:claude-opus-4-8") is not stated — the spec describes the constant's role but a rebuild would have to guess which model string is the default. · `spec_eval/providers.py (DEFAULT_MODEL)`
-- **[minor]** The claude-code bridge runs the CLI subprocess with a 600-second timeout, which the spec never mentions — a rebuild would either hang indefinitely or guess a bound. · `spec_eval/providers.py (_gen_claude_code)`
-- **[minor]** Bridge error messages embed a snippet of the child's stderr (falling back to stdout) truncated to 400 characters — the spec only says the call 'fails loudly', leaving the diagnostic-payload shape unspecified. · `spec_eval/providers.py (_gen_claude_code)`
-
-### rubric — sufficiency 0.95
-- **[minor]** The docstring's maintenance note that rubric.md itself is the module's own spec and is guarded by spec-eval's self-audit is not captured in the spec's sync contract (which only covers the SKILL.md mirror and test_rubric_sync.py). · `spec_eval/rubric.py (module docstring)`
-
-### runlog — sufficiency 0.95
-- **[minor]** git_sha is a standalone public helper (callable independently of append_run) with its own contract (short SHA string or None); the spec folds SHA resolution into append_run's behavior, so a rebuild would likely inline it rather than expose it. · `spec_eval/runlog.py (git_sha)`
-- **[minor]** A git invocation that succeeds but prints empty/whitespace-only output is coerced to null (`out.stdout.strip() or None`) — the spec only maps failures and timeouts to null, leaving the empty-success case to be guessed. · `spec_eval/runlog.py (git_sha)`
-- **[minor]** git's stdout/stderr are captured and suppressed (capture_output=True), so failed or missing-repo invocations emit no console noise as an observable side effect. · `spec_eval/runlog.py (git_sha)`
+### runlog — sufficiency 0.93
+- **[minor]** The exact JSON serialization is unspecified: records are written with `json.dumps` defaults (ensure_ascii=True, so non-ASCII in labels/stats is \uXXXX-escaped; default separators), which fixes the on-disk byte form. · `runlog.py (append_run)`
+- **[minor]** git_sha never checks the subprocess return code; it derives the result purely from `stdout.strip() or None`, so a non-zero git exit that still emitted stray stdout would be recorded as the SHA rather than null. · `runlog.py (git_sha)`
