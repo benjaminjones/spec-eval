@@ -13,12 +13,21 @@ Written so a newcomer understands the point before opening any spec.>
 - **<Principle 2>** — <one line>.
 <!-- If reverse-engineered: > Reconstructed intent (confidence: …) — inferred from the code, not stated by the author. -->
 
-## Architecture (data flow)
+## Architecture (data flow)  *(repo overview only — per-directory READMEs omit this)*
+```mermaid
+flowchart TD
+    subgraph entry["Entry points"]
+        e1["cli main / __main__  ·  src/app.py:NN"]
+        e2["project.scripts / web-framework app object  ·  pyproject.toml:NN"]
+    end
+    e1 --> wire["wiring root — the one seam that threads through everything"]
+    e2 --> wire
+    wire --> c1["component (shape)"]
+    c1 --> c2["component"]
+    c2 --> sink["external system (see System context)"]
 ```
-<input> --[<component>]--> <intermediate (shape)> --[<component>]--> <output>
-                                                          |
-                            <the one seam / abstraction that threads through everything>
-```
+> The **Entry points** cluster and external systems are **scanner-derived** (`file:line`-observed); the internal edges are **inferred from the module intents, not verified against a call graph** — read them as intended data flow, not proof of runtime wiring. Regenerate with `spec-eval diagram . --write`; the page carries an `<!-- architecture-fingerprint: … -->` stamp so `spec-eval context --check` can flag a stale diagram.
+
 *(For internal component diagrams and stateful flows, see the relevant module spec's §3 Behavior.)*
 
 ## System context  *(the observed external seams — what `<project>` talks to)*

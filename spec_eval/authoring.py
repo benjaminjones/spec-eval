@@ -129,12 +129,22 @@ DIR_OVERVIEW_RUBRIC = (
     + AUTHORING_DISCIPLINE
 )
 
-# The Architecture (data flow) section instruction. Step 2 enriches this into the scanner-fed Mermaid diagram
-# rubric; only the repo overview embeds it, so a per-dir README can never emit a diagram (repo-only by
-# construction). The heading token is the load-bearing part the section-parity test pins.
+# The Architecture (data flow) section instruction — the scanner-fed Mermaid diagram. ONLY the repo overview
+# embeds it, so a per-dir README can never emit a diagram (repo-only by construction). Shared verbatim with the
+# `diagram` subcommand's diagram-only rubric; its load-bearing phrases are pinned across the skill + template by
+# tests/contract/test_rubric_sync.py (DIAGRAM_LOAD_BEARING). KEEP the caveat and the 'Entry points' label in sync.
 ARCH_DIAGRAM_RUBRIC = (
-    "- '## Architecture (data flow)' — the end-to-end data flow: input through the components to output, naming "
-    "the one seam or abstraction that threads through everything.\n"
+    "- '## Architecture (data flow)' — render the data flow as a fenced ```mermaid flowchart (flowchart TD), "
+    "not ascii. Three layers, top to bottom: (1) an 'Entry points' cluster — a `subgraph` of how the app is "
+    "invoked; (2) the wiring root and the pipeline of components the data threads through; (3) the external "
+    "systems it talks to. The 'Entry points' cluster is SCANNER-DERIVED: put ONE node per entry in the OBSERVED "
+    "ENTRY POINTS block, label each node with its name and its `file:line`, and NEVER add an entry point that "
+    "block does not list; when there is no such block, omit the cluster. Draw the external-system sinks from the "
+    "OBSERVED SYSTEM EVIDENCE block the same way. The internal edges between components are INFERRED from the "
+    "module intents and are not verified against a call graph — draw them as intended data flow, not proof of "
+    "runtime wiring. Close the section with the caveat line: '> The Entry points cluster and external systems "
+    "are scanner-derived (file:line-observed); the internal edges are inferred from the module intents, not "
+    "verified against a call graph.'\n"
 )
 REPO_OVERVIEW_RUBRIC = (
     "You author the repository-level project OVERVIEW — the page a newcomer reads to understand the whole "
@@ -380,11 +390,15 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
     if overview in ("repo", "both"):
         def _repo_overview():
             block = syscontext.evidence_block(ctx) or None
+            ep = syscontext.scan_entrypoints(repo, config)               # how the repo is invoked (deterministic)
+            ep_block = syscontext.entrypoints_block(ep) or None
+            extra = "\n\n".join(b for b in (ep_block, block) if b) or None   # both reach the final synthesis pass
             items = [(sp, target_md(sp, cf)) for sp, cf in sorted(targets.items())]
             md, levels, reply_capped = _synthesize(model, REPO_OVERVIEW_RUBRIC, items, "Repository overview",
-                                                   on_progress, reduce_cap=reduce_cap, extra=block)
+                                                   on_progress, reduce_cap=reduce_cap, extra=extra)
             if block:            # stamp the fingerprint this System context section was rendered from, so a
                 md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # later `--check` can flag staleness
+            md = md.rstrip() + "\n\n" + syscontext.architecture_stamp_comment(ctx, ep, sorted(targets))
             return md, _cap_notes(
                 f"index synthesised in {levels} passes over all {len(items)} specs (nothing dropped)" if levels > 1 else None,
                 "reply hit the token cap — the index may end mid-section" if reply_capped else None)
