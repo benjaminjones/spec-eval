@@ -154,6 +154,7 @@ Which files have no spec yet?              # coverage
 Write a spec for src/parser.py             # generate
 How completely do my specs cover my code?  # sufficiency
 Check my specs against my code             # audit (drift)
+Show me the architecture diagram           # diagram
 ```
 
 ### Run in the terminal, no key (Claude subscription)
@@ -168,6 +169,7 @@ spec-eval context     ./your-project                      # free — no AI, no k
 spec-eval generate    ./your-project --model claude-code
 spec-eval sufficiency ./your-project --model claude-code
 spec-eval audit       ./your-project --model claude-code
+spec-eval diagram     ./your-project --model claude-code  # Mermaid architecture diagram → stdout (--write to save)
 ```
 Every terminal run writes its reports to `spec-reports/` (plus a `runs.jsonl` history line).
 

@@ -111,6 +111,34 @@ an evidence-backed row is a real row, and `unknown from this repo` is a filled c
 `.json`; `generate --overview` feeds the same observed evidence into `OVERVIEW.md` and stamps it with the
 fingerprint it was rendered from, so `spec-eval context --check` can later flag a stale overview.)*
 
+## Architecture diagram (the repo overview's data-flow picture)
+The repo `OVERVIEW.md`'s `## Architecture (data flow)` section is a `mermaid` flowchart — top to bottom: an
+**Entry points** cluster → the wiring root → the pipeline of components → the external systems. It is a
+**repo-overview-only** section: per-directory READMEs stay lean and carry no diagram. Two honesty rules mirror
+System context:
+- **Entry points are scanner-derived.** Each node in the **Entry points** cluster is one *observed* way the code
+  is invoked — a declared console script, a `__main__.py`, a framework app object, a CLI main — labeled with its
+  `file:line`. Never add an entry point you cannot point at, and never write entry points into a per-module spec;
+  they live only in this cluster.
+- **Internal edges are inferred, not verified.** The wiring between components is read from the module intents,
+  **not verified against a call graph** — draw it as intended data flow, not proof of runtime wiring, and say so
+  in the closing caveat line.
+
+**Asking an agent to add or update the diagram in an existing README** (the chat mirror of
+`spec-eval diagram <path> --write`): update the `## Architecture (data flow)` section of an **existing**
+`OVERVIEW.md`/`README.md` **only** — if the doc has no such section, author the overview first, never inject a
+lone diagram into an arbitrary doc. Touch only that section's body. Re-stamp deterministically by running
+`spec-eval diagram <path> --write` (or `spec-eval context`); never hand-write the fingerprint digest. A ready prompt:
+
+> Regenerate the `## Architecture (data flow)` mermaid diagram for `<path>` from the current entry points and
+> module intents, and update only that section of its existing `OVERVIEW.md` — keep the scanner-derived Entry
+> points cluster (`file:line`-labeled), mark the internal edges as inferred (not verified against a call graph),
+> then re-stamp with `spec-eval diagram <path> --write`.
+
+*(CLI equivalent: `spec-eval diagram <path>` prints the fenced ```mermaid block to stdout and touches nothing;
+`--write` replaces the Architecture section of an existing doc and re-stamps only the architecture fingerprint —
+it errors rather than create a doc if none exists.)*
+
 ## Reconstructed intent (reverse-engineering code you didn't write)
 When specifying code with no stated rationale, you may *infer* the "why" — but **label it**:
 `> Reconstructed intent (confidence: low/med/high) — inferred from the code, not the author's stated law.`
