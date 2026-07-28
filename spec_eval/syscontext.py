@@ -812,3 +812,13 @@ def diagram_stale(markdown, ctx_result, ep_result, modules):
     stale. Diagram staleness WARNS; it never gates."""
     stamp = read_arch_stamp(markdown)
     return stamp is not None and stamp != architecture_digest(ctx_result, ep_result, modules)
+
+
+def restamp_architecture(markdown, ctx_result, ep_result, modules):
+    """Refresh (replace-or-append) ONLY the architecture-fingerprint stamp — used by `diagram --write`, which
+    regenerates the diagram alone. Any existing system-context stamp is left BYTE-IDENTICAL: a diagram update
+    must never re-bless a stale System context table, and it never adds a system-context stamp of its own."""
+    stamp = architecture_stamp_comment(ctx_result, ep_result, modules)
+    if ARCH_STAMP_RE.search(markdown):
+        return ARCH_STAMP_RE.sub(lambda _m: stamp, markdown, count=1)
+    return markdown.rstrip() + "\n\n" + stamp + "\n"

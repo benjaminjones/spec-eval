@@ -20,6 +20,7 @@ Authored specs are ordinary new files in the working tree — review them like c
 don't want (`git checkout --`). See skills/spec-authoring/SKILL.md.
 """
 import os
+import re
 import glob
 from . import providers, audit, coverage as coverage_mod, syscontext
 
@@ -233,7 +234,7 @@ def _pack(items, cap):
     return groups
 
 
-def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce_cap=None, extra=None):
+def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce_cap=None, extra=None, unfence=True):
     """Reduce: synthesise (label, intent-markdown) modules into one document. Returns
     (markdown, levels, reply_capped). When the concatenated intents exceed the reduce cap, the items are packed
     into sub-groups, each sub-group is synthesised into an intermediate intent, and the intermediates are
@@ -244,27 +245,29 @@ def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce
     Termination is guaranteed: past _MAX_LEVELS, or when a pass stops reducing the item count, the remaining
     items are force-fitted into one final call (each sliced to an equal share of the cap, visibly marked)."""
     cap = REDUCE_CAP if reduce_cap is None else reduce_cap
+    finish = _unfence if unfence else (lambda s: s.strip())     # a mermaid diagram keeps its ```mermaid fence
     tail = f"\n\n{extra}" if extra else ""
     groups = _pack(items, cap)
     if len(groups) == 1:
         user = f"# {header}\n\n" + "\n".join(block for _, block in groups[0]) + tail
-        md = _unfence(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
+        md = finish(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
         return md, _level, providers.LAST["truncated"]
     if _level >= _MAX_LEVELS or (_level > 1 and len(groups) >= len(items)):
         share = max(200, cap // len(items) - 40)
         blocks = [f"### {label}\n{(md or '').strip()[:share]}\n...[truncated]\n" for label, md in items]
         user = f"# {header}\n\n" + "\n".join(blocks) + tail
-        md = _unfence(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
+        md = finish(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
         return md, _level, providers.LAST["truncated"]
     intermediates, capped = [], False
     for i, group in enumerate(groups, 1):
         if on_progress:
             on_progress(f"· synthesis pass {_level}: group {i}/{len(groups)} ({len(group)} modules)")
         user = f"# {header} (part {i}/{len(groups)})\n\n" + "\n".join(block for _, block in group)
-        gmd = _unfence(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
+        gmd = finish(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
         capped = capped or providers.LAST["truncated"]
         intermediates.append((f"{group[0][0]} … {group[-1][0]}", gmd))
-    md, levels, sub_capped = _synthesize(model, rubric, intermediates, header, on_progress, _level + 1, cap, extra)
+    md, levels, sub_capped = _synthesize(model, rubric, intermediates, header, on_progress, _level + 1, cap, extra,
+                                         unfence=unfence)
     return md, levels, capped or sub_capped
 
 
@@ -319,15 +322,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
     _intent = {}                                               # code_path -> per-module intent (reused across reduces)
 
     def module_intent(code_path):
-        if code_path not in _intent:
-            colo = os.path.join(repo, spec_path_for(code_path))
-            if os.path.exists(colo):
-                _intent[code_path] = open(colo, errors="ignore").read()   # reuse the existing per-file spec
-            else:
-                if on_progress:
-                    on_progress(f"· module {code_path}")                  # each map call is a model round-trip
-                _intent[code_path] = author_file(repo, code_path, model, rubric, code_cap)[0]   # intermediate — not written to disk
-        return _intent[code_path]
+        return _module_intent(repo, code_path, model, rubric, code_cap, _intent, on_progress)
 
     def target_md(spec_path, code_files):
         dest = os.path.join(repo, spec_path)
@@ -398,7 +393,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
                                                    on_progress, reduce_cap=reduce_cap, extra=extra)
             if block:            # stamp the fingerprint this System context section was rendered from, so a
                 md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # later `--check` can flag staleness
-            md = md.rstrip() + "\n\n" + syscontext.architecture_stamp_comment(ctx, ep, sorted(targets))
+            md = md.rstrip() + "\n\n" + syscontext.architecture_stamp_comment(ctx, ep, files)
             return md, _cap_notes(
                 f"index synthesised in {levels} passes over all {len(items)} specs (nothing dropped)" if levels > 1 else None,
                 "reply hit the token cap — the index may end mid-section" if reply_capped else None)
@@ -428,3 +423,78 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
             emit(readme, d or ".", _dir_overview, f"authoring {readme} (index)")
 
     return results
+
+
+# --- on-demand architecture diagram (the `diagram` subcommand) -----------------------------------------------
+# The diagram-only rubric reuses ARCH_DIAGRAM_RUBRIC verbatim, then narrows the output to just the mermaid block
+# + its caveat (no heading, no other prose) so the block is pasteable / redirectable and slots into an existing
+# '## Architecture (data flow)' section.
+ARCH_DIAGRAM_ONLY_RUBRIC = (
+    ARCH_DIAGRAM_RUBRIC +
+    "OUTPUT ONLY the fenced ```mermaid block and the single '>' caveat line beneath it — no '##' heading and no "
+    "other prose, before or after. The ```mermaid fence first, then the caveat line.\n"
+)
+
+
+def _module_intent(repo, code_path, model, rubric, code_cap, cache=None, on_progress=None):
+    """The per-module intent — reuse an existing co-located `<stem>.md` if present, else author it IN MEMORY via
+    `author_file` WITHOUT writing (an intermediate for a folder spec, an overview, or a diagram). `cache` is an
+    optional `code_path -> intent` dict reused across a run so a module is authored at most once."""
+    if cache is not None and code_path in cache:
+        return cache[code_path]
+    colo = os.path.join(repo, spec_path_for(code_path))
+    if os.path.exists(colo):
+        intent = open(colo, errors="ignore").read()              # reuse the existing per-file spec
+    else:
+        if on_progress:
+            on_progress(f"· module {code_path}")                 # each map call is a model round-trip
+        intent = author_file(repo, code_path, model, rubric, code_cap)[0]   # intermediate — not written to disk
+    if cache is not None:
+        cache[code_path] = intent
+    return intent
+
+
+def module_set(repo, config):
+    """The sorted code-file identifiers the architecture diagram is drawn over — the SAME set `generate`,
+    `diagram`, and `context --check` stamp/compare with, so the architecture fingerprint is consistent across
+    all three. Coverage's spec-worthy files (covered + uncovered)."""
+    cov = coverage_mod.coverage(os.path.abspath(repo), config)
+    return sorted(cov["covered"] + cov["uncovered"])
+
+
+def diagram_block(repo, config, model, on_progress=None):
+    """Build the repo's Mermaid architecture diagram (entry-points cluster -> wiring -> pipeline -> external
+    systems) for the `diagram` subcommand. Reads existing specs; derives any MISSING module intent in memory
+    and writes nothing. Returns `(mermaid_markdown, ctx, ep, modules)` — the fenced block plus the two scans and
+    the module set it is stamped from."""
+    repo = os.path.abspath(repo)
+    rubric = _rubric(config.get("authoring", {}).get("template"))
+    code_cap, _ = audit.caps_from(config)
+    reduce_cap = int((config.get("caps") or {}).get("reduce", REDUCE_CAP))
+    modules = module_set(repo, config)
+    cache = {}
+    items = [(f, _module_intent(repo, f, model, rubric, code_cap, cache, on_progress)) for f in modules]
+    ctx = syscontext.scan(repo, config)
+    ep = syscontext.scan_entrypoints(repo, config)
+    extra = "\n\n".join(b for b in (syscontext.entrypoints_block(ep) or None,
+                                    syscontext.evidence_block(ctx) or None) if b) or None
+    md, _, _ = _synthesize(model, ARCH_DIAGRAM_ONLY_RUBRIC, items, "Architecture diagram",
+                           on_progress, reduce_cap=reduce_cap, extra=extra, unfence=False)  # keep the ```mermaid fence
+    return md.strip(), ctx, ep, modules
+
+
+_ARCH_HEADING_RE = re.compile(r"^##\s+Architecture \(data flow\).*$", re.M)
+
+
+def set_architecture_section(markdown, body):
+    """Replace the BODY of the existing '## Architecture (data flow)' section with `body` (the fenced mermaid
+    block + caveat), keeping the heading line intact. REPLACE-ONLY: raises ValueError if the document has no
+    such section — the caller errors to `generate` rather than inventing a section in an arbitrary doc."""
+    m = _ARCH_HEADING_RE.search(markdown)
+    if not m:
+        raise ValueError("no '## Architecture (data flow)' section")
+    rest = markdown[m.end():]
+    nxt = re.search(r"^#{1,3}\s", rest, re.M)                     # the section ends at the next heading (or EOF)
+    end = m.end() + (nxt.start() if nxt else len(rest))
+    new_section = markdown[m.start():m.end()] + "\n" + body.strip() + "\n\n"
+    return markdown[:m.start()] + new_section + markdown[end:]

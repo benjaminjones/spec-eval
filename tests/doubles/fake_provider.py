@@ -12,6 +12,10 @@ def fake_gen(model, system, user, max_tokens=1200):
                 '"code_ref": "widget.py (add)"}]}')
     if "drift" in s or "contradict" in s:
         return '{"findings": []}'
+    if "output only the fenced" in s:                    # the diagram-only rubric → a mermaid block + caveat
+        return ("```mermaid\nflowchart TD\n    e1[\"cli main\"] --> wire[\"wiring root\"]\n"
+                "    wire --> out[\"output\"]\n```\n"
+                "> scanner-derived; internal edges not verified against a call graph.\n")
     # authoring rubric → an intent-led spec
     return ("## 1. Purpose\n\nA fixture module.\n\n## 4. Contracts\n"
             "### Invariants (*rules that must always hold*)\n\n| ID | Invariant |\n|---|---|\n| INV-1 | It holds. |\n")

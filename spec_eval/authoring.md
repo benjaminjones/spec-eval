@@ -70,6 +70,8 @@ appended to the file, recording the scan the section came from. A later `spec-ev
 back to flag an overview whose systems have drifted from the code. The per-dir `README.md` overviews are not
 stamped.
 
+**On-demand architecture diagram.** `diagram_block` builds just the repo's Mermaid architecture diagram (entry-points cluster → wiring → pipeline → external systems) for the `diagram` subcommand, reusing the same synthesis engine with a diagram-only rubric. It reads existing specs and derives any **missing** module intent in memory via the shared `_module_intent` (never writing a spec), so a diagram touches nothing. Its output keeps the ```mermaid fence (`_synthesize` skips the outer-fence strip when `unfence=False`). `set_architecture_section` replaces the body of an existing `## Architecture (data flow)` section (replace-only — it raises rather than invent a section in an arbitrary doc), and `module_set` is the sorted code-file identifier set the architecture fingerprint binds to, shared by `generate`, `diagram`, and `context --check`.
+
 **Custom template.** When `authoring.template` is set, its text replaces the built-in `AUTHORING_STRUCTURE`; `AUTHORING_DISCIPLINE` (the quality rules the drift/sufficiency checkers rely on) is always appended. **Why:** users own the structure, but the output stays gradeable.
 
 **Write policy** (uniform for specs and overviews):

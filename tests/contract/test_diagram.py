@@ -164,12 +164,12 @@ def test_diagram_stale_flips_when_an_entry_point_changes():
 def test_generate_stamps_the_repo_overview_with_an_architecture_fingerprint(tmp_path, monkeypatch):
     monkeypatch.setattr(providers, "gen", lambda m, s, u, max_tokens=1200: "## Architecture (data flow)\n\n| x |\n")
     _write(tmp_path, {"a.py": "x = 1\n", "run.py": "if __name__ == '__main__':\n    go()\n"})
-    res = authoring.generate_repo(str(tmp_path), {"authoring": {"overview": "repo"}}, "fake:model")
+    authoring.generate_repo(str(tmp_path), {"authoring": {"overview": "repo"}}, "fake:model")
     overview = (tmp_path / "OVERVIEW.md").read_text()
     assert syscontext.read_arch_stamp(overview) is not None
     ctx = syscontext.scan(str(tmp_path), {})
     ep = syscontext.scan_entrypoints(str(tmp_path), {})
-    modules = sorted(r["spec"] for r in res if r["spec"] != "OVERVIEW.md")   # the module set the digest binds to
+    modules = authoring.module_set(str(tmp_path), {})           # the same code-file set the stamp binds to
     assert syscontext.diagram_stale(overview, ctx, ep, modules) is False
 
 
