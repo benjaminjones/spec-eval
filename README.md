@@ -112,7 +112,7 @@ Settings — defaults below. Before writing anything, echo TARGET and these thre
 message — each setting with its full option list from the comments, so I can pick in my reply — and
 wait for my OK:
   - layout:   per-file    # per-file (a spec beside each file: src/x.py -> src/x.md) | per-dir (one spec per folder) | per-pair (folders you map in a config)
-  - overview: none        # none | repo | per-dir | both — none = no overview files; any other value adds them (both = top-level OVERVIEW.md + a README.md per folder). An overview includes a System context section (the external systems the code talks to) when any are observed.
+  - overview: none        # none | repo | per-dir | both — none = no overview files; any other value adds them (both = top-level OVERVIEW.md + a README.md per folder). A repo-level OVERVIEW.md carries an Architecture (data flow) Mermaid diagram + a System context section (the external systems the code talks to, when any are observed); per-folder READMEs are a lean index.
   - reports:  chat only   # chat only (results land in the chat) | save (also save the results to spec-reports/)
 Do one scoped job at a time (one file, or one folder) so a small-context agent doesn't run out of tokens.
 ```
