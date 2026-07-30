@@ -5,7 +5,7 @@
   spec-eval generate    <repo> [--config pairs.yml] --model … --env .env      # author specs beside the code
   spec-eval audit       <repo> --config pairs.yml --model … --env .env        # drift
   spec-eval sufficiency <repo> --config pairs.yml --model … --env .env        # sufficiency
-  spec-eval diagram     <path> [--model … --env .env] [--write]               # architecture (data flow) diagram
+  spec-eval diagram     <path> [--model … --env .env] [--write]               # architecture (data flow) diagrams
 
 Keys come from the environment (ANTHROPIC_API_KEY / OPENAI_API_KEY / GOOGLE_API_KEY); --env loads a .env file.
 """
@@ -105,8 +105,8 @@ def main(argv=None):
                         "exit 1 if any external system was added or removed (a scanner change is a re-baseline, "
                         "not drift); does not overwrite the baseline")
 
-    d = sub.add_parser("diagram", help="DIAGRAM: print the repo's Mermaid architecture data-flow diagram "
-                                       "(entry points → wiring → pipeline) to stdout; --write updates the "
+    d = sub.add_parser("diagram", help="DIAGRAM: print the repo's Mermaid architecture diagrams (an invocation "
+                                       "sequence + the data-flow pipeline) to stdout; --write updates the "
                                        "Architecture section of an EXISTING OVERVIEW/README")
     d.add_argument("repo", metavar="PROJECT_DIR",
                    help="path to the project — a repo root, a subdirectory, or a file (its directory is diagrammed)")

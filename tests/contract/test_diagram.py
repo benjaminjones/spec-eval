@@ -106,7 +106,7 @@ def test_entrypoints_block_marker_agrees_with_the_rubric(tmp_path):
     block = syscontext.entrypoints_block(ep)
     assert "OBSERVED ENTRY POINTS" in block
     assert "OBSERVED ENTRY POINTS" in ARCH_DIAGRAM_RUBRIC       # rubric renders the block the scanner emits
-    assert "Entry points" in ARCH_DIAGRAM_RUBRIC
+    assert "scanner-verified entry point" in ARCH_DIAGRAM_RUBRIC   # ...as provenance-noted sequence entries
 
 
 # --- provenance is separate from the system-context scanner -----------------------------------------------

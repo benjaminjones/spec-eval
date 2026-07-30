@@ -467,7 +467,7 @@ def scanner_provenance():
 
 
 # --- entry-point scan: how is this codebase INVOKED? A deterministic sibling of `scan()` with its OWN
-# provenance, feeding the repo overview's Architecture (data flow) Entry-points cluster. -----------------------
+# provenance, feeding the repo overview's Architecture (data flow) invocation diagram. ------------------------
 
 def _module_dotted(rel):
     """`spec_eval/cli.py` -> `spec_eval.cli` — the dotted module name for an entry-point label."""
@@ -650,7 +650,7 @@ def evidence_block(result, scope_dir=None):
 
 def entrypoints_block(ep_result, scope_dir=None):
     """The OBSERVED ENTRY POINTS block handed to the repo overview synthesis call — one line per detected
-    entry point with a verifiable evidence site, for the Architecture diagram's 'Entry points' cluster. Empty
+    entry point with a verifiable evidence site, for the Architecture section's invocation diagram. Empty
     string when none detected (the diagram then shows no entry cluster — never an invented one)."""
     entries = ep_result.get("entrypoints", [])
     if scope_dir is not None:
@@ -659,8 +659,8 @@ def entrypoints_block(ep_result, scope_dir=None):
         return ""
     lines = ["## OBSERVED ENTRY POINTS (architecture)",
              "Deterministic code + manifest scan — every entry point below was observed. NEVER add one not "
-             "listed. Each node in the diagram's 'Entry points' cluster MUST be one of these, labeled with its "
-             "file:line."]
+             "listed. Each of these MUST appear in the invocation diagram as a scanner-verified entry point, "
+             "noted with its file:line."]
     for e in entries:
         tgt = f" -> {e['target']}" if e.get("target") else ""
         ev = e["evidence"]

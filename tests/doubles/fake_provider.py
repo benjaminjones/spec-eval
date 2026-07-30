@@ -12,9 +12,11 @@ def fake_gen(model, system, user, max_tokens=1200):
                 '"code_ref": "widget.py (add)"}]}')
     if "drift" in s or "contradict" in s:
         return '{"findings": []}'
-    if "output only the fenced" in s:                    # the diagram-only rubric → a mermaid block + caveat
-        return ("```mermaid\nflowchart TD\n    e1[\"cli main\"] --> wire[\"wiring root\"]\n"
-                "    wire --> out[\"output\"]\n```\n"
+    if "output only the architecture section body" in s:   # the diagram-only rubric → the two-diagram body
+        return ("### How it is invoked\n\n```mermaid\nsequenceDiagram\n    actor U as User\n"
+                "    participant R as run.py\n    U->>R: python run.py\n"
+                "    Note over R: scanner-verified entry point (run.py:1)\n```\n\n"
+                "### Data flow\n\n```mermaid\nflowchart LR\n    A[\"a.py\"] ==> OUT[/\"stdout\"/]\n```\n"
                 "> scanner-derived; internal edges not verified against a call graph.\n")
     # authoring rubric → an intent-led spec
     return ("## 1. Purpose\n\nA fixture module.\n\n## 4. Contracts\n"

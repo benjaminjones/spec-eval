@@ -111,33 +111,42 @@ an evidence-backed row is a real row, and `unknown from this repo` is a filled c
 `.json`; `generate --overview` feeds the same observed evidence into `OVERVIEW.md` and stamps it with the
 fingerprint it was rendered from, so `spec-eval context --check` can later flag a stale overview.)*
 
-## Architecture diagram (the repo overview's data-flow picture)
-The repo `OVERVIEW.md`'s `## Architecture (data flow)` section is a `mermaid` flowchart — top to bottom: an
-**Entry points** cluster → the wiring root → the pipeline of components → the external systems. It is a
-**repo-overview-only** section: per-directory READMEs stay lean and carry no diagram. Two honesty rules mirror
-System context:
-- **Entry points are scanner-derived.** Each node in the **Entry points** cluster is one *observed* way the code
-  is invoked — a declared console script, a `__main__.py`, a framework app object, a CLI main — labeled with its
-  `file:line`. Never add an entry point you cannot point at, and never write entry points into a per-module spec;
-  they live only in this cluster.
+## Architecture diagrams (the repo overview's two pictures)
+The repo `OVERVIEW.md`'s `## Architecture (data flow)` section carries TWO `mermaid` diagrams — the arc42/C4
+split of "how it's run" from "how data moves", so each diagram answers one question. It is a
+**repo-overview-only** section: per-directory READMEs stay lean and carry no diagram.
+- **`### How it is invoked`** — a small sequenceDiagram: the User, the entry points, and what each run
+  produces. Its layout is deterministic (participants render in declaration order), so only the content can be
+  wrong — and the content is provenance-labeled: a scanner-observed entry carries
+  `Note over X: scanner-verified entry point (file:line)`; an invocation read from the module intents or docs
+  carries `Note over X: conventional invocation (per the module intents, not scanner-detected)`. Never present
+  an unscanned invocation as verified; never add an entry you cannot point at; never write entry points into a
+  per-module spec — they live only here.
+- **`### Data flow`** — a `flowchart LR` producer→consumer pipeline, sources left → outputs right, with NO
+  entry-points cluster and NO CLI/config nodes (invocation lives in the first diagram). Budget ~12 nodes /
+  18 edges — collapse same-role siblings ("Role`<br/>`glob-path"), fold an artifact into its sole producer,
+  and move dropped detail to a one-line note under the diagram. Stage subgraphs, semantic shapes (stadium =
+  invocation surface, cylinder = artifact, parallelogram = external/terminal), and dark-mode-safe classDefs
+  that always set fill+stroke+color together. External systems come only from the observed scan, on the
+  boundary with dashed edges.
 - **Internal edges are inferred, not verified.** The wiring between components is read from the module intents,
-  **not verified against a call graph** — draw it as intended data flow, not proof of runtime wiring, and say so
-  in the closing caveat line.
+  **not verified against a call graph** — the closing caveat line says so; external systems and noted entries
+  are **scanner-derived** (`file:line`-observed).
 
-**Asking an agent to add or update the diagram in an existing README** (the chat mirror of
+**Asking an agent to add or update the diagrams in an existing README** (the chat mirror of
 `spec-eval diagram <path> --write`): update the `## Architecture (data flow)` section of an **existing**
-`OVERVIEW.md`/`README.md`, touching only that section's body. If the doc has **no** such section, adding one is a
-**deliberate** act, never a silent graffiti of a doc that wasn't meant to carry a diagram (e.g. a project's
-marketing README) — the CLI gates it behind `--add-section`, and a doc that does not exist is authored by
+`OVERVIEW.md`/`README.md`, touching only that section's body. If the doc has **no** such section, adding one is
+a **deliberate** act — the CLI gates it behind `--add-section`, and a doc that does not exist is authored by
 `generate` first. Re-stamp deterministically by running `spec-eval diagram <path> --write` (or
 `spec-eval context`); never hand-write the fingerprint digest. A ready prompt:
 
-> Regenerate the `## Architecture (data flow)` mermaid diagram for `<path>` from the current entry points and
-> module intents, and update only that section of its existing `OVERVIEW.md` — keep the scanner-derived Entry
-> points cluster (`file:line`-labeled), mark the internal edges as inferred (not verified against a call graph),
-> then re-stamp with `spec-eval diagram <path> --write`.
+> Regenerate the `## Architecture (data flow)` mermaid diagrams for `<path>` from the current entry points and
+> module intents, and update only that section of its existing `OVERVIEW.md` — an invocation sequenceDiagram
+> (scanner-verified entries noted with their `file:line`; conventional invocations noted as not
+> scanner-detected) and a pure data-flow `flowchart LR`, internal edges marked inferred (not verified against
+> a call graph) — then re-stamp with `spec-eval diagram <path> --write`.
 
-*(CLI equivalent: `spec-eval diagram <path>` prints the fenced ```mermaid block to stdout and touches nothing;
+*(CLI equivalent: `spec-eval diagram <path>` prints the fenced ```mermaid blocks to stdout and touches nothing;
 `--write` replaces the Architecture section of an existing doc and re-stamps only the architecture fingerprint;
 `--add-section` explicitly appends the section when the doc lacks one. Neither ever creates a doc.)*
 

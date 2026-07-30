@@ -132,12 +132,16 @@ def test_rubric_triggers_on_the_exact_block_marker_the_scanner_emits():
 # --- architecture diagram: ARCH_DIAGRAM_RUBRIC <-> spec-authoring SKILL.md + OVERVIEW-template.md ---
 
 # The load-bearing phrases every Architecture (data flow) copy must carry: the section heading, the mermaid
-# fence marker, the scanner-derived 'Entry points' cluster label, and the inferred-edge honesty (the diagram's
-# analogue of System context's 'capability in the code, not proof of runtime traffic').
+# marker, the two subsection names (the invocation/data-flow split), the two provenance labels a sequence
+# entry must wear, and the inferred-edge honesty (the diagrams' analogue of System context's 'capability in
+# the code, not proof of runtime traffic').
 DIAGRAM_LOAD_BEARING = [
     "## Architecture (data flow)",
     "mermaid",
-    "Entry points",
+    "How it is invoked",
+    "Data flow",
+    "scanner-verified entry point",
+    "not scanner-detected",
     "scanner-derived",
     "not verified against a call graph",
 ]

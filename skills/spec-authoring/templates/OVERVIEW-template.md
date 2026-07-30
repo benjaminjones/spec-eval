@@ -14,19 +14,47 @@ Written so a newcomer understands the point before opening any spec.>
 <!-- If reverse-engineered: > Reconstructed intent (confidence: …) — inferred from the code, not stated by the author. -->
 
 ## Architecture (data flow)  *(repo overview only — per-directory READMEs omit this)*
+
+### How it is invoked
 ```mermaid
-flowchart TD
-    subgraph entry["Entry points"]
-        e1["cli main / __main__  ·  src/app.py:NN"]
-        e2["project.scripts / web-framework app object  ·  pyproject.toml:NN"]
-    end
-    e1 --> wire["wiring root — the one seam that threads through everything"]
-    e2 --> wire
-    wire --> c1["component (shape)"]
-    c1 --> c2["component"]
-    c2 --> sink["external system (see System context)"]
+sequenceDiagram
+    actor U as User
+    participant E as src/app.py
+    participant R as src/run.py
+    U->>E: python src/app.py --mode live
+    Note over E: scanner-verified entry point (src/app.py:NN)
+    U->>R: python src/run.py config/preset.py
+    Note over R: conventional invocation (per the module intents, not scanner-detected)
+    R-->>U: artifact written
 ```
-> The **Entry points** cluster and external systems are **scanner-derived** (`file:line`-observed); the internal edges are **inferred from the module intents, not verified against a call graph** — read them as intended data flow, not proof of runtime wiring. Regenerate with `spec-eval diagram . --write`; the page carries an `<!-- architecture-fingerprint: … -->` stamp so `spec-eval context --check` can flag a stale diagram.
+
+### Data flow
+```mermaid
+flowchart LR
+    SRC[/"external source (see System context)"/]:::external
+    subgraph prep["Preparation"]
+        P["preparation step<br/>src/prep.py"]:::process
+    end
+    ART[("produced artifact")]:::artifact
+    subgraph core["Core pipeline"]
+        RUN["main pipeline<br/>src/run.py"]:::process
+        LIB[["library module<br/>src/lib.py"]]:::process
+    end
+    OUT[/"output"/]:::external
+
+    SRC -.->|downloads| P
+    P --> ART
+    ART ==> RUN
+    RUN ==> LIB
+    RUN --> OUT
+
+    classDef process fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
+    classDef artifact fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef external fill:#fae8ff,stroke:#9333ea,color:#581c87
+    style prep fill:none,stroke:#94a3b8,stroke-dasharray:4 4
+    style core fill:none,stroke:#94a3b8,stroke-dasharray:4 4
+```
+> The invocation entries and external systems are **scanner-derived** (`file:line`-observed) where noted; the internal edges are **inferred from the module intents, not verified against a call graph** — read them as intended data flow, not proof of runtime wiring. Regenerate with `spec-eval diagram . --write`; the page carries an `<!-- architecture-fingerprint: … -->` stamp so `spec-eval context --check` can flag a stale diagram.
 
 *(For internal component diagrams and stateful flows, see the relevant module spec's §3 Behavior.)*
 

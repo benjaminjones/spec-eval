@@ -130,22 +130,44 @@ DIR_OVERVIEW_RUBRIC = (
     + AUTHORING_DISCIPLINE
 )
 
-# The Architecture (data flow) section instruction — the scanner-fed Mermaid diagram. ONLY the repo overview
-# embeds it, so a per-dir README can never emit a diagram (repo-only by construction). Shared verbatim with the
-# `diagram` subcommand's diagram-only rubric; its load-bearing phrases are pinned across the skill + template by
-# tests/contract/test_rubric_sync.py (DIAGRAM_LOAD_BEARING). KEEP the caveat and the 'Entry points' label in sync.
+# The Architecture (data flow) section instruction — TWO scanner-fed Mermaid diagrams (an invocation sequence
+# and a pure data-flow pipeline: the arc42/C4 static-vs-runtime split, so each diagram answers ONE question).
+# ONLY the repo overview embeds it, so a per-dir README can never emit a diagram (repo-only by construction).
+# Shared verbatim with the `diagram` subcommand's diagram-only rubric; its load-bearing phrases are pinned
+# across the skill + template by tests/contract/test_rubric_sync.py (DIAGRAM_LOAD_BEARING).
 ARCH_DIAGRAM_RUBRIC = (
-    "- '## Architecture (data flow)' — render the data flow as a fenced ```mermaid flowchart (flowchart TD), "
-    "not ascii. Three layers, top to bottom: (1) an 'Entry points' cluster — a `subgraph` of how the app is "
-    "invoked; (2) the wiring root and the pipeline of components the data threads through; (3) the external "
-    "systems it talks to. The 'Entry points' cluster is SCANNER-DERIVED: put ONE node per entry in the OBSERVED "
-    "ENTRY POINTS block, label each node with its name and its `file:line`, and NEVER add an entry point that "
-    "block does not list; when there is no such block, omit the cluster. Draw the external-system sinks from the "
-    "OBSERVED SYSTEM EVIDENCE block the same way. The internal edges between components are INFERRED from the "
-    "module intents and are not verified against a call graph — draw them as intended data flow, not proof of "
-    "runtime wiring. Close the section with the caveat line: '> The Entry points cluster and external systems "
-    "are scanner-derived (file:line-observed); the internal edges are inferred from the module intents, not "
-    "verified against a call graph.'\n"
+    "- '## Architecture (data flow)' — TWO mermaid diagrams, each answering one question, in this order:\n"
+    "  (a) '### How it is invoked' — a fenced sequenceDiagram: `actor U as User` plus at most 5 participants — "
+    "every entry in the OBSERVED ENTRY POINTS block, plus (only when the module intents name them) the "
+    "conventional entry scripts and the config loader. At most 10 messages; each workflow starts with its "
+    "literal shell command as the message text; a dashed reply (-->>) only for an artifact returned to the "
+    "user. Every scanner entry MUST carry 'Note over X: scanner-verified entry point (file:line)'; an "
+    "invocation the block does NOT list may appear ONLY with 'Note over X: conventional invocation (per the "
+    "module intents, not scanner-detected)' — NEVER present an unscanned invocation as verified, and never "
+    "invent a call order the intents do not state. No block and no documented invocation -> omit (a).\n"
+    "  (b) '### Data flow' — a fenced `flowchart LR` of the producer->consumer pipeline ONLY: sources left, "
+    "outputs right. NO entry-points cluster and NO CLI/config/loader nodes — invocation lives in (a). External "
+    "systems come ONLY from the OBSERVED SYSTEM EVIDENCE block, at the boundary, joined by dashed -.-> edges "
+    "labeled with the transfer; NEVER invent one. BUDGET: at most 12 nodes and 18 edges (subgraph containers "
+    "don't count); if over, collapse in this order — merge same-role siblings into one node labeled "
+    "'Role<br/>glob-path', then merge an artifact into its sole producer, then drop nodes on no "
+    "source-to-output path — stating each folded fact in a one-line note under the diagram; never meet the "
+    "budget by shrinking labels. Group into 2-5 lifecycle-stage subgraphs (subgraph id[\"Label\"] ... end), "
+    "each styled stroke-only (style id fill:none,stroke:#94a3b8,stroke-dasharray:4 4); never a `direction` "
+    "statement inside a subgraph. SHAPES: stadium ([\"...\"]) = invocation surface, rect = runnable script, "
+    "[[\"...\"]] = imported library, [(\"...\")] = data artifact, [/\"...\"/] = external system or terminal "
+    "output. COLOR: exactly these classDefs, applied with ::: to every node — each sets fill+stroke+color "
+    "together so GitHub's dark mode cannot break contrast; no theme, no %%{init}%%, no linkStyle: "
+    "classDef process fill:#dbeafe,stroke:#2563eb,color:#1e3a5f; "
+    "classDef artifact fill:#fef9c3,stroke:#ca8a04,color:#713f12; "
+    "classDef external fill:#fae8ff,stroke:#9333ea,color:#581c87. "
+    "EDGES: solid --> = produces/consumes, -.-> = network or optional, exactly one ==> chain marking the "
+    "primary pipeline; label at most a third of edges with a 1-2 word verb; never draw an edge implied by "
+    "transitivity. Node labels: a role noun phrase, then the bare file path after <br/> — never line numbers "
+    "or mechanics in a label.\n"
+    "  Close the section with the caveat line: '> The invocation entries and external systems are "
+    "scanner-derived (file:line-observed) where noted; the internal edges are inferred from the module "
+    "intents, not verified against a call graph.'\n"
 )
 REPO_OVERVIEW_RUBRIC = (
     "You author the repository-level project OVERVIEW — the page a newcomer reads to understand the whole "
@@ -433,8 +455,9 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
 # '## Architecture (data flow)' section.
 ARCH_DIAGRAM_ONLY_RUBRIC = (
     ARCH_DIAGRAM_RUBRIC +
-    "OUTPUT ONLY the fenced ```mermaid block and the single '>' caveat line beneath it — no '##' heading and no "
-    "other prose, before or after. The ```mermaid fence first, then the caveat line.\n"
+    "OUTPUT ONLY the Architecture section body: the two '###' subsections with their fenced ```mermaid blocks "
+    "and the closing '>' caveat line — do not emit the section heading itself, and no other prose before or "
+    "after.\n"
 )
 
 
@@ -465,10 +488,10 @@ def module_set(repo, config):
 
 
 def diagram_block(repo, config, model, on_progress=None):
-    """Build the repo's Mermaid architecture diagram (entry-points cluster -> wiring -> pipeline -> external
-    systems) for the `diagram` subcommand. Reads existing specs; derives any MISSING module intent in memory
-    and writes nothing. Returns `(mermaid_markdown, ctx, ep, modules)` — the fenced block plus the two scans and
-    the module set it is stamped from."""
+    """Build the repo's Architecture section body — the invocation sequenceDiagram + the data-flow pipeline —
+    for the `diagram` subcommand. Reads existing specs; derives any MISSING module intent in memory and writes
+    nothing. Returns `(section_body_markdown, ctx, ep, modules)` — the two fenced diagrams plus the two scans
+    and the module set it is stamped from."""
     repo = os.path.abspath(repo)
     rubric = _rubric(config.get("authoring", {}).get("template"))
     code_cap, _ = audit.caps_from(config)
