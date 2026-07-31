@@ -287,28 +287,29 @@ def main(argv=None):
         cfg = audit.load_config(args.config) if args.config else {}
         if os.path.isfile(args.repo):
             args.repo = os.path.dirname(os.path.abspath(args.repo)) or "."   # a file -> its directory's diagram
-        block, ctx, ep, modules = authoring.diagram_block(
-            args.repo, cfg, args.model,
-            on_progress=lambda m: print(f"  … {m}", file=sys.stderr, flush=True))
-        if not modules:
-            raise SystemExit(f"no spec-worthy code files under {args.repo} — nothing to diagram.")
-        if not (args.write or args.add_section):
-            print(block)                                          # STDOUT only — touches nothing, creates nothing
-        else:
-            target = _diagram_target(args.repo)
+        target, original = None, None
+        if args.write or args.add_section:                        # validate the write target BEFORE synthesising,
+            target = _diagram_target(args.repo)                   # so a doc we'll refuse fails fast (no model calls)
             if target is None:                                    # both flags update an EXISTING doc — never create one
                 raise SystemExit(
                     f"diagram --write updates an EXISTING overview — none found at {args.repo} (looked for "
                     f"OVERVIEW.md, README.md). Run `spec-eval generate {args.repo} --overview repo` to author "
                     f"one, or pipe in `spec-eval diagram {args.repo}`.")
             original = open(target, errors="ignore").read()
-            try:
-                md = authoring.set_architecture_section(original, block, create=args.add_section)
-            except ValueError:                                    # replace-only (--write) and no section present
+            if not args.add_section and not authoring.has_architecture_section(original):   # replace-only, no section
                 raise SystemExit(
                     f"{os.path.relpath(target)} has no '## Architecture (data flow)' section — pass --add-section to "
                     f"append one, pipe in `spec-eval diagram {args.repo}`, or run "
                     f"`spec-eval generate {args.repo} --overview repo`.")
+        block, ctx, ep, modules = authoring.diagram_block(
+            args.repo, cfg, args.model,
+            on_progress=lambda m: print(f"  … {m}", file=sys.stderr, flush=True))
+        if not modules:
+            raise SystemExit(f"no spec-worthy code files under {args.repo} — nothing to diagram.")
+        if target is None:
+            print(block)                                          # STDOUT only — touches nothing, creates nothing
+        else:
+            md = authoring.set_architecture_section(original, block, create=args.add_section)
             md = syscontext.restamp_architecture(md, ctx, ep, modules)   # refresh ONLY the architecture stamp
             open(target, "w").write(md.rstrip() + "\n")
             print(f"wrote the Architecture (data flow) section + re-stamped → {os.path.abspath(target)}",

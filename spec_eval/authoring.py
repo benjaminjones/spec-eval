@@ -139,19 +139,28 @@ ARCH_DIAGRAM_RUBRIC = (
     "- '## Architecture (data flow)' — TWO mermaid diagrams, each answering one question, in this order:\n"
     "  (a) '### How it is invoked' — a fenced sequenceDiagram: `actor U as User` plus at most 5 participants — "
     "every entry in the OBSERVED ENTRY POINTS block, plus (only when the module intents name them) the "
-    "conventional entry scripts and the config loader. At most 10 messages; each workflow starts with its "
+    "conventional entry scripts and the config loader. Depict the PRIMARY end-to-end workflow a user runs — "
+    "not just the first step: for a multi-stage pipeline draw the whole run path (e.g. prepare -> train -> "
+    "sample/serve), one message per stage's main entry script, and INCLUDE the primary run/serve entry even "
+    "when it is a conventional (not scanner-detected) invocation — the scanner floor is a minimum, not the "
+    "whole story. At most 10 messages; each workflow starts with its "
     "literal shell command as the message text; a dashed reply (-->>) only for an artifact returned to the "
     "user. Every scanner entry MUST carry 'Note over X: scanner-verified entry point (file:line)'; an "
     "invocation the block does NOT list may appear ONLY with 'Note over X: conventional invocation (per the "
     "module intents, not scanner-detected)' — NEVER present an unscanned invocation as verified, and never "
     "invent a call order the intents do not state. No block and no documented invocation -> omit (a).\n"
     "  (b) '### Data flow' — a fenced `flowchart LR` of the producer->consumer pipeline ONLY: sources left, "
-    "outputs right. NO entry-points cluster and NO CLI/config/loader nodes — invocation lives in (a). External "
+    "outputs right. It MUST span the FULL pipeline end to end — from the source nodes to the terminal OUTPUT "
+    "node(s) (the generated result, served response, or written report); NEVER truncate before the outputs, "
+    "and the final output node is mandatory. NO entry-points cluster and NO CLI/config/loader nodes — "
+    "invocation lives in (a). External "
     "systems come ONLY from the OBSERVED SYSTEM EVIDENCE block, at the boundary, joined by dashed -.-> edges "
     "labeled with the transfer; NEVER invent one. BUDGET: at most 12 nodes and 18 edges (subgraph containers "
-    "don't count); if over, collapse in this order — merge same-role siblings into one node labeled "
-    "'Role<br/>glob-path', then merge an artifact into its sole producer, then drop nodes on no "
-    "source-to-output path — stating each folded fact in a one-line note under the diagram; never meet the "
+    "don't count); if over, collapse WITHIN a stage in this order — merge same-role siblings into one node "
+    "labeled 'Role<br/>glob-path', then merge an artifact into its sole producer, then drop only nodes NOT on "
+    "any source-to-output path (e.g. a profiler/benchmark) — stating each folded fact in a one-line note under "
+    "the diagram; NEVER drop a whole downstream stage on the primary path (training, checkpointing, and "
+    "generation/output all stay), and never meet the "
     "budget by shrinking labels. Group into 2-5 lifecycle-stage subgraphs (subgraph id[\"Label\"] ... end), "
     "each styled stroke-only (style id fill:none,stroke:#94a3b8,stroke-dasharray:4 4); never a `direction` "
     "statement inside a subgraph. SHAPES: stadium ([\"...\"]) = invocation surface, rect = runnable script, "
@@ -516,6 +525,25 @@ _MD_FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _STAMP_COMMENT_RE = re.compile(r"^\s*<!--\s*(?:system-context|architecture)-fingerprint:")
 
 
+def _arch_heading_line(lines):
+    """Index of the first '## Architecture (data flow)' heading at fence depth 0, or None — FENCE-AWARE, so a
+    heading that sits inside a ``` code block (an example) is not the section."""
+    in_fence = False
+    for i, ln in enumerate(lines):
+        if _MD_FENCE_RE.match(ln):
+            in_fence = not in_fence
+        elif not in_fence and _ARCH_HEADING_RE.match(ln):
+            return i
+    return None
+
+
+def has_architecture_section(markdown):
+    """True when the document already carries an (unfenced) '## Architecture (data flow)' section. The cheap
+    precondition the `diagram --write` path checks BEFORE synthesising, so a replace-only update on a doc that
+    has no such section fails fast instead of burning model calls on a diagram it will refuse to write."""
+    return _arch_heading_line(markdown.splitlines(keepends=True)) is not None
+
+
 def set_architecture_section(markdown, body, create=False):
     """Replace the BODY of the existing '## Architecture (data flow)' section with `body` (the fenced mermaid
     block + caveat), keeping the heading line intact. REPLACE-ONLY by default: raises ValueError if the
@@ -525,14 +553,7 @@ def set_architecture_section(markdown, body, create=False):
     ends at the next heading OR the first trailing fingerprint receipt, so a diagram update never swallows the
     trailing system-context stamp (which would silently re-bless a stale System context table)."""
     lines = markdown.splitlines(keepends=True)
-    in_fence = False
-    start = None
-    for i, ln in enumerate(lines):
-        if _MD_FENCE_RE.match(ln):
-            in_fence = not in_fence
-        elif not in_fence and _ARCH_HEADING_RE.match(ln):
-            start = i
-            break
+    start = _arch_heading_line(lines)
     if start is None:
         if not create:
             raise ValueError("no '## Architecture (data flow)' section")

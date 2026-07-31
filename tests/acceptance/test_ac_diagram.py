@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from spec_eval import cli, syscontext
+from spec_eval import authoring, cli, syscontext
 
 
 def test_acd001_stdout_prints_a_mermaid_block_and_touches_nothing(tmp_path, fake_model, capsys):
@@ -39,14 +39,18 @@ def test_acd002_write_updates_the_architecture_section_and_restamps_only_the_dia
     assert syscontext.diagram_stale(md, ctx, ep, authoring.module_set(str(tmp_path), {})) is False
 
 
-def test_acd003_write_errors_when_the_doc_has_no_architecture_section(tmp_path, fake_model):
+def test_acd003_write_errors_when_the_doc_has_no_architecture_section(tmp_path, fake_model, monkeypatch):
     """ACD-003. Given a README with no Architecture section, When `diagram --write` runs (replace-only), Then
-    it errors and points at --add-section/generate — it never injects a section into an arbitrary doc."""
+    it errors and points at --add-section/generate — it never injects a section into an arbitrary doc, and it
+    refuses BEFORE synthesising (no wasted model calls)."""
     (tmp_path / "a.py").write_text("x = 1\n")
     (tmp_path / "README.md").write_text("# Proj\n\n## Install\nrun it\n")
+    synthesised = []
+    monkeypatch.setattr(authoring, "diagram_block", lambda *a, **k: synthesised.append(1))
     with pytest.raises(SystemExit) as ex:
         cli.main(["diagram", str(tmp_path), "--write", "-m", fake_model])
     assert "--add-section" in str(ex.value)
+    assert synthesised == []                                   # failed fast — diagram_block never ran
     assert (tmp_path / "README.md").read_text() == "# Proj\n\n## Install\nrun it\n"   # left intact
 
 
@@ -63,13 +67,16 @@ def test_acd009_add_section_appends_a_diagram_to_an_existing_doc_that_lacks_one(
     assert syscontext.read_arch_stamp(md) is not None
 
 
-def test_acd010_add_section_still_never_creates_a_doc(tmp_path, fake_model):
+def test_acd010_add_section_still_never_creates_a_doc(tmp_path, fake_model, monkeypatch):
     """ACD-010. Given no OVERVIEW.md/README.md, When `diagram --write --add-section` runs, Then it still errors
-    to `generate` — the opt-in relaxes 'section must exist', never 'doc must exist'."""
+    to `generate` — the opt-in relaxes 'section must exist', never 'doc must exist' — and fails fast."""
     (tmp_path / "a.py").write_text("x = 1\n")
+    synthesised = []
+    monkeypatch.setattr(authoring, "diagram_block", lambda *a, **k: synthesised.append(1))
     with pytest.raises(SystemExit) as ex:
         cli.main(["diagram", str(tmp_path), "--write", "--add-section", "-m", fake_model])
     assert "generate" in str(ex.value)
+    assert synthesised == []                                   # no target doc -> refused before synthesis
     assert not (tmp_path / "README.md").exists() and not (tmp_path / "OVERVIEW.md").exists()
 
 

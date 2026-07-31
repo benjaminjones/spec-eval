@@ -213,6 +213,14 @@ def test_a_main_guard_inside_a_string_literal_is_not_an_entry_point(tmp_path):
     assert syscontext.scan_entrypoints(str(tmp_path), {})["entrypoints"] == []
 
 
+def test_has_architecture_section_is_fence_aware():
+    """The cheap precondition `diagram --write` checks before synthesising — a real section is present, a
+    section-less doc or a fenced example is not."""
+    assert authoring.has_architecture_section("# P\n\n## Architecture (data flow)\nx\n")
+    assert not authoring.has_architecture_section("# P\n\n## Install\nrun it\n")
+    assert not authoring.has_architecture_section("# P\n\n```md\n## Architecture (data flow)\nex\n```\n")
+
+
 def test_set_architecture_section_ignores_a_heading_inside_a_code_fence(tmp_path):
     md = ("## What it is\nExample of the format:\n```md\n## Architecture (data flow)\nEXAMPLE\n```\n\n"
           "## Architecture (data flow)\nREAL old diagram\n\n## System context\n| x |\n")
