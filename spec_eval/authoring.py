@@ -254,6 +254,18 @@ def author_file(repo, code_path, model, rubric=AUTHORING_RUBRIC, code_cap=None):
     return md, ("; ".join(notes) or None)
 
 
+_MD_SECTION_RE = re.compile(r"^##\s+\S", re.M)
+_NOT_A_DOCUMENT = ("the model replied without a single '## ' section — a question or refusal, not an overview; "
+                   "nothing was written and no fingerprint was stamped (re-run, or use a stronger model)")
+
+
+def _has_sections(md):
+    """Did the model return a DOCUMENT? Every synthesis rubric asks for '## ' sections, so a reply carrying
+    none of them is a refusal, a question, or an apology — not an overview. Deliberately shape-only: it never
+    inspects WHICH sections, so it stays correct as the rubrics change."""
+    return bool(_MD_SECTION_RE.search(md or ""))
+
+
 def _cap_note(*parts):
     """Join shortfall notes (drop counts, slicing, token-cap flags) into one note string, or None. Every
     surface that can silently under-report — a spec, an overview, a diagram — reports through this."""
@@ -388,7 +400,9 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
 
     def emit(spec_path, code_ref, make_md, label):
         """Skip-existing / write, uniformly for specs and overviews. make_md() -> (markdown, note|None), and is
-        called only when a file is actually going to be written (never on a skip)."""
+        called only when a file is actually going to be written (never on a skip). A `None` markdown means the
+        maker REFUSED to produce a document: nothing is written and the target is recorded `failed` with the
+        reason. **Why:** a half-written target that still exists would be silently skipped on the next run."""
         dest = os.path.join(repo, spec_path)
         if os.path.exists(dest) and not overwrite:
             results.append({"code": code_ref, "spec": spec_path, "status": "skipped"})
@@ -396,6 +410,10 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
         if on_progress:
             on_progress(label)
         md, note = make_md()
+        if md is None:
+            results.append({"code": code_ref, "spec": spec_path, "status": "failed",
+                            **({"note": note} if note else {})})
+            return
         rec = {"code": code_ref, "spec": spec_path, "status": "authored"}
         if note:
             rec["note"] = note
@@ -434,6 +452,8 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
             md, levels, reply_capped = _synthesize(model, REPO_OVERVIEW_RUBRIC, items, "Repository overview",
                                                    on_progress, reduce_cap=reduce_cap,
                                                    extra=syscontext.overview_evidence(ctx, ep))
+            if not _has_sections(md):            # a stamp is a RECEIPT — never attach one to a non-document
+                return None, _NOT_A_DOCUMENT
             if syscontext.evidence_block(ctx):   # stamp the fingerprint this System context section was
                 md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # rendered from, so `--check` can
                                                                             # later flag staleness
@@ -461,6 +481,8 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
                                                        f"Directory overview — `{d or '.'}`", on_progress,
                                                        reduce_cap=reduce_cap,
                                                        extra=syscontext.evidence_block(ctx, scope_dir=d) or None)
+                if not _has_sections(md):
+                    return None, _NOT_A_DOCUMENT
                 return md, _cap_note(
                     f"index synthesised in {levels} passes (nothing dropped)" if levels > 1 else None,
                     "reply hit the token cap — the index may end mid-section" if reply_capped else None)

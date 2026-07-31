@@ -83,7 +83,9 @@ A diagram is drawn in **one pass** (`single_pass`). **Why:** the multi-pass redu
 - Otherwise the file is written at `<repo>/<spec path>` (`authored`) — an ordinary new file, reviewed via version control.
 - All writes create parent directories as needed and end the file with exactly one trailing newline.
 
-**Result reporting.** Returns a list of records, one per target, each carrying `code`, `spec`, `status`, and optionally `note`.
+**Refusing a non-document.** Every synthesis rubric asks for `## ` sections, so a reply carrying none of them is a question or a refusal, not an overview. The overview makers detect that shape and return no markdown: nothing is written, no fingerprint is stamped, and the target is recorded `failed` with the reason. **Why:** a stamp is a receipt — one attached to a non-document reads as *fresh* to `context --check`, which is worse than having no overview. Not writing also matters: a file that exists would be silently skipped on the next run, so failing cleanly leaves the target retryable.
+
+**Result reporting.** Returns a list of records, one per target, each carrying `code`, `spec`, `status` (`authored` | `skipped` | `failed`), and optionally `note`.
 
 **Progress.** When an `on_progress` callback is supplied, it is invoked with a short status line as each module (map call) and each target is authored — never on a skip — so a long run reports as it goes instead of running silent. **Why:** authoring is one sequential model call per module and prints its result list only at the end; without progress a multi-module run looks hung.
 
@@ -109,6 +111,7 @@ Semantic shapes:
 | INV-9 | If generated markdown begins with a code fence, the outer fence is removed before writing — except on the diagram path (`unfence=False`), whose output IS a fenced ```mermaid block. |
 | INV-10 | `diagram_block` makes exactly ONE synthesis call (`single_pass`): a diagram is never synthesised from other diagrams. Over the cap, every module intent is sliced to an equal share rather than dropped, and the returned note says so. |
 | INV-11 | `set_architecture_section` replaces from the `## Architecture (data flow)` heading to the next `#`/`##` heading or the first fingerprint receipt — never to a `###` subheading of its own body, and never past a stamp. Replacing an already-generated section is idempotent: the result carries exactly one copy of the section. |
+| INV-12 | An overview whose reply carries no `## ` section is never written and never stamped: the target is recorded `failed` with the reason. A fingerprint is a receipt, so it is attached only to a document. |
 
 ### Acceptance criteria (*Given / When / Then*)
 

@@ -186,6 +186,20 @@ def test_generate_stamps_the_repo_overview_with_an_architecture_fingerprint(tmp_
     assert syscontext.diagram_stale(overview, ctx, ep, modules) is False
 
 
+def test_a_non_document_reply_is_never_written_or_stamped(tmp_path, monkeypatch):
+    """A stamp is a RECEIPT. When the model answers with a question or a refusal instead of a document, the
+    overview must not be written and must carry no fingerprint — a stamped non-document reads as FRESH to
+    `context --check`, which is worse than no overview at all. Not writing also keeps the next run from
+    skipping the target as already-existing."""
+    monkeypatch.setattr(providers, "gen", lambda m, s, u, max_tokens=1200:
+                        "I need the module specs to build this. Could you paste them, or give me a path?")
+    _write(tmp_path, {"a.py": "import redis\n"})
+    res = authoring.generate_repo(str(tmp_path), {"authoring": {"overview": "repo"}}, "fake:model")
+    rec = next(r for r in res if r["spec"] == "OVERVIEW.md")
+    assert rec["status"] == "failed" and "not an overview" in rec["note"]
+    assert not (tmp_path / "OVERVIEW.md").exists()          # nothing written -> the next run retries it
+
+
 def test_per_dir_readme_is_not_architecture_stamped(tmp_path, monkeypatch):
     monkeypatch.setattr(providers, "gen", lambda m, s, u, max_tokens=1200: "## Map\n\n| x |\n")
     _write(tmp_path, {"pkg/a.py": "x = 1\n", "pkg/b.py": "y = 2\n"})

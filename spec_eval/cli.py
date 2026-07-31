@@ -191,7 +191,9 @@ def main(argv=None):
             note = f"  — {r['note']}" if r.get("note") else ""
             print(f"  {r['status']:10} {r['spec']}{note}")
         authored = sum(1 for r in res if r["status"] == "authored")
-        print(f"authored {authored} spec(s) beside the code; {len(res)-authored} skipped. "
+        failed = sum(1 for r in res if r["status"] == "failed")
+        print(f"authored {authored} spec(s) beside the code; {len(res) - authored - failed} skipped"
+              f"{f'; ⚠ {failed} failed (nothing written — see the note above)' if failed else ''}. "
               f"Review with `git diff`; drop any you don't want with `git checkout --`.")
         print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + {providers.USAGE['out']:,} out tokens")
         runlog.append_run(args.out, args.repo, "generate", args.model,
