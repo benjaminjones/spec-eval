@@ -254,15 +254,17 @@ def author_file(repo, code_path, model, rubric=AUTHORING_RUBRIC, code_cap=None):
     return md, ("; ".join(notes) or None)
 
 
-_MD_SECTION_RE = re.compile(r"^##\s+\S", re.M)
-_NOT_A_DOCUMENT = ("the model replied without a single '## ' section — a question or refusal, not an overview; "
-                   "nothing was written and no fingerprint was stamped (re-run, or use a stronger model)")
+_MD_SECTION_RE = re.compile(r"^#{1,2}\s+\S", re.M)
+_NOT_A_DOCUMENT = ("the model replied without a single markdown heading — a question or refusal, not an "
+                   "overview; nothing was written and no fingerprint was stamped (re-run, or use a stronger model)")
 
 
 def _has_sections(md):
-    """Did the model return a DOCUMENT? Every synthesis rubric asks for '## ' sections, so a reply carrying
-    none of them is a refusal, a question, or an apology — not an overview. Deliberately shape-only: it never
-    inspects WHICH sections, so it stays correct as the rubrics change."""
+    """Did the model return a DOCUMENT at all? A reply with no heading is a refusal, a question, or an
+    apology. Deliberately a SHAPE FLOOR, not a format check: it accepts `#` as well as `##` (a document that
+    headed its sections one level up is still a document, and writing it beats refusing it), and it never
+    inspects WHICH sections, so it stays correct as the rubrics change. A heading needs its space — `##Foo`
+    is a paragraph in CommonMark, not a heading."""
     return bool(_MD_SECTION_RE.search(md or ""))
 
 

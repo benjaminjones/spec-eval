@@ -167,6 +167,25 @@ def test_acd013_a_diagram_is_synthesised_in_exactly_one_pass(tmp_path, fake_mode
     assert "sliced to an equal share" in capsys.readouterr().err   # the partial view is reported
 
 
+def test_acd014_a_generated_repo_overview_is_a_document_with_its_stamps_last(tmp_path, fake_model):
+    """ACD-014. Given `generate --overview repo`, When it writes OVERVIEW.md, Then the file is a real document
+    — the rubric's sections survive the write path intact — and BOTH fingerprint receipts sit after the last
+    section. The rest of the acceptance layer asserts a file landed with some status; this asserts what landed
+    is a page, and that the stamps are a footer rather than something buried mid-document."""
+    (tmp_path / "a.py").write_text("import redis\n")
+    cli.main(["generate", str(tmp_path), "--overview", "repo", "-m", fake_model, "--out", str(tmp_path / "rep")])
+    md = (tmp_path / "OVERVIEW.md").read_text()
+
+    sections = [ln for ln in md.splitlines() if ln.startswith("## ")]
+    assert sections[0] == "## What it is" and sections[-1] == "## Reading order"
+    assert "```mermaid" in md                                  # the Architecture section survived the write
+
+    last_section = md.rindex("## Reading order")
+    for stamp in ("system-context-fingerprint", "architecture-fingerprint"):
+        assert md.index(stamp) > last_section, f"{stamp} is buried inside the document"
+    assert md.rstrip().endswith("-->")                         # the receipts are the footer
+
+
 def test_acd008_check_warns_for_a_stale_readme_diagram(tmp_path, fake_model, capsys):
     """ACD-008. Given a README (no OVERVIEW.md) that `diagram --write` architecture-stamped, When the code's
     systems change and `context --check` runs, Then it warns on the stale README diagram — the freshness check
