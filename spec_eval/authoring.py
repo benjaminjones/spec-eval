@@ -165,9 +165,11 @@ ARCH_DIAGRAM_RUBRIC = (
     "primary pipeline; label at most a third of edges with a 1-2 word verb; never draw an edge implied by "
     "transitivity. Node labels: a role noun phrase, then the bare file path after <br/> — never line numbers "
     "or mechanics in a label.\n"
-    "  Close the section with the caveat line: '> The invocation entries and external systems are "
-    "scanner-derived (file:line-observed) where noted; the internal edges are inferred from the module "
-    "intents, not verified against a call graph.'\n"
+    "  Close the section with EXACTLY this one-sentence caveat line, verbatim, with nothing appended: '> The "
+    "invocation entries and external systems are scanner-derived (file:line-observed) where noted; the "
+    "internal edges are inferred from the module intents, not verified against a call graph.' It states "
+    "provenance and nothing else — never restate it in other words, never append regeneration or stamp "
+    "mechanics, and never fold a budget-driven omission into it; those go in the SEPARATE one-line note.\n"
 )
 REPO_OVERVIEW_RUBRIC = (
     "You author the repository-level project OVERVIEW — the page a newcomer reads to understand the whole "

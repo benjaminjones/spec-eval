@@ -131,7 +131,8 @@ split of "how it's run" from "how data moves", so each diagram answers one quest
   boundary with dashed edges.
 - **Internal edges are inferred, not verified.** The wiring between components is read from the module intents,
   **not verified against a call graph** — the closing caveat line says so; external systems and noted entries
-  are **scanner-derived** (`file:line`-observed).
+  are **scanner-derived** (`file:line`-observed). Copy that line from the template verbatim: it is one
+  sentence of provenance, and regeneration mechanics or a dropped-detail note belong in their own line.
 
 **Asking an agent to add or update the diagrams in an existing README** (the chat mirror of
 `spec-eval diagram <path> --write`): update the `## Architecture (data flow)` section of an **existing**

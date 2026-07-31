@@ -54,7 +54,7 @@ flowchart LR
     style prep fill:none,stroke:#94a3b8,stroke-dasharray:4 4
     style core fill:none,stroke:#94a3b8,stroke-dasharray:4 4
 ```
-> The invocation entries and external systems are **scanner-derived** (`file:line`-observed) where noted; the internal edges are **inferred from the module intents, not verified against a call graph** — read them as intended data flow, not proof of runtime wiring. Regenerate with `spec-eval diagram . --write`; the page carries an `<!-- architecture-fingerprint: … -->` stamp so `spec-eval context --check` can flag a stale diagram.
+> The invocation entries and external systems are **scanner-derived** (`file:line`-observed) where noted; the internal edges are **inferred from the module intents, not verified against a call graph**.
 
 *(For internal component diagrams and stateful flows, see the relevant module spec's §3 Behavior.)*
 
