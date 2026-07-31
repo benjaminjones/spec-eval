@@ -127,10 +127,13 @@ split of "how it's run" from "how data moves", so each diagram answers one quest
   per-module spec — they live only here.
 - **`### Data flow`** — a `flowchart LR` producer→consumer pipeline, sources left → outputs right, with NO
   entry-points cluster and NO CLI/config nodes (invocation lives in the first diagram). It must span the
-  **full pipeline to the terminal output** — never truncate before the generated result / served response /
-  written report. Budget ~12 nodes / 18 edges — collapse *within* a stage (same-role siblings →
-  "Role`<br/>`glob-path", fold an artifact into its sole producer, drop only off-path tools like a profiler),
-  never a whole downstream stage; move dropped detail to a one-line note under the diagram. Stage subgraphs,
+  **full pipeline to the terminal output** — the user-facing result the invocation diagram shows the User
+  receiving (generated samples, served response, written report). If a sample/serve step produces that result
+  by consuming a pipeline artifact, that step **and its output node appear here too** — a checkpoint, index, or
+  cache is *not* the terminal output when a later stage consumes it; the two diagrams must agree on the ending.
+  Budget ~12 nodes / 18 edges, but the produce-the-result stage is **protected**: when over, fold *upstream*
+  detail first (same-role siblings → "Role`<br/>`glob-path", an artifact into its sole producer, off-path tools
+  like a profiler) — never the final stage; move dropped detail to a one-line note under the diagram. Stage subgraphs,
   semantic shapes (stadium = invocation surface, cylinder = artifact, parallelogram = external/terminal), and
   dark-mode-safe classDefs that always set fill+stroke+color together. External systems come only from the
   observed scan, on the boundary with dashed edges.
