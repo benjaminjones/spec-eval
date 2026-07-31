@@ -45,7 +45,7 @@ for variant in "${VARIANTS[@]}"; do
   for rep in $(seq 1 "$REPS"); do
     out="$RESULTS/$variant-$rep"
     mkdir -p "$out"
-    cp "$EXP/runlog.$variant.md.variant" "$SPEC"
+    cp "$EXP/runlog.$variant.md" "$SPEC"
     echo ""
     echo "=== $variant rep $rep/$REPS ==============================================="
     "$PY" -m spec_eval sufficiency "spec_eval/runlog.py" --model "$MODEL" --out "$out" || true

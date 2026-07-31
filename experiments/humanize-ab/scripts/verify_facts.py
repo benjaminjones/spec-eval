@@ -16,8 +16,8 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the experiment dir, one level up from scripts/
-BASELINE = os.path.join(HERE, "runlog.baseline.md.variant")
-VARIANTS = ["runlog.frozen.md.variant", "runlog.naive.md.variant"]
+BASELINE = os.path.join(HERE, "runlog.baseline.md")
+VARIANTS = ["runlog.frozen.md", "runlog.naive.md"]
 
 # Literals the grader can check a spec against. Markdown table pipes and heading marks are SHAPE, not fact, so
 # they are deliberately not extracted — losing them is the very thing the experiment is measuring.
