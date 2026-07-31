@@ -1,8 +1,10 @@
 ## 1. Purpose
 
+**In one line:** render drift and sufficiency results into two markdown reports whose headline counts match their contents.
+
 This module turns the raw results of a spec-vs-code audit into the **legible product output**: two human-readable markdown reports — a *drift report* (where code and docs disagree) and a *spec-sufficiency report* (whether the spec fully captures the code's behavior). It exists so the audit's findings become something a reviewer can read, diff in version control, and search — not a JSON blob.
 
-The one governing constraint a reviewer can check: **every number in a report's headline is a faithful count of what follows it.** If the header says "*3 high/medium drift finding(s) across 2 audited pair(s)*", then exactly 2 non-skipped pairs appear below and their high+medium findings total exactly 3. Skipped pairs are shown as skipped and never counted.
+**Every number in a report's headline is a faithful count of what follows it.** If the header says "*3 high/medium drift finding(s) across 2 audited pair(s)*", then exactly 2 non-skipped pairs appear below and their high+medium findings total exactly 3. Skipped pairs are shown as skipped and never counted.
 
 > Reconstructed intent (confidence: high) — the module docstrings state the "legible product output" and "fingerprint" goals explicitly.
 

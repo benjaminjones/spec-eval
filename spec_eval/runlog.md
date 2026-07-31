@@ -1,8 +1,10 @@
 ## 1. Purpose
 
+**In one line:** append one self-contained JSON line per completed check, stamped with the time and the repo's git SHA.
+
 `runlog` gives the system a durable, append-only history of every check it runs. Each time a check completes, the module records a single self-contained line — a timestamp, the git commit of the repo under inspection, the command and detector used, and whatever summary numbers that run produced. This lets a user track how scores move over time and trace any result back to the exact commit that produced it.
 
-The one governing constraint a reviewer can check: **the log is only ever added to, never rewritten.** Running a check again leaves all previous lines intact and adds exactly one new line at the end.
+**The log is only ever added to, never rewritten.** Running a check again leaves all previous lines intact and adds exactly one new line at the end.
 
 ## 2. Definitions
 

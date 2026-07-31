@@ -4,7 +4,7 @@
 
 This module gives the system a **fixed, portable auditing standard** for detecting *drift* — places where a codebase's implementation and its documentation contradict each other. It exists so the product can run drift-detection independently, without depending on any external rubric file: the rubric text is bundled directly in the package.
 
-The one governing constraint a reviewer can check: **the rubric is deliberately conservative — it prefers to miss a real drift rather than raise a false one.** In practice this means an empty result ("no drift found") is always an acceptable answer; a disagreement you could only surface by guessing or by running the code must NOT be reported, and one that needs the doc paraphrased to see is disqualified from **high** severity (reportable at most as medium/low, not silenced).
+**The rubric is deliberately conservative — it prefers to miss a real drift rather than raise a false one.** In practice this means an empty result ("no drift found") is always an acceptable answer; a disagreement you could only surface by guessing or by running the code must NOT be reported, and one that needs the doc paraphrased to see is disqualified from **high** severity (reportable at most as medium/low, not silenced).
 
 > Reconstructed intent (confidence: high) — inferred from the docstring and rubric text: the conservatism exists to protect reviewer trust; loosening it "trades trust for noise."
 

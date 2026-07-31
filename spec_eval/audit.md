@@ -1,8 +1,10 @@
 ## 1. Purpose
 
+**In one line:** pair each code file with its doc, ask a model for contradictions, and return severity-tagged drift findings.
+
 This module lets a system **automatically check whether a repository's code and its documentation have drifted apart** — that is, whether the docs still describe what the code actually does. It does this by grouping code and doc files into configured "pairs", handing each pair to a language model with a drift-review rubric, and collecting the model's structured findings about mismatches.
 
-The governing constraint a reviewer can check: **every finding the audit reports must carry a severity of exactly `high`, `medium`, or `low`** — nothing else counts as a finding. If the model emits anything with another (or missing) severity, it is discarded rather than reported.
+**Every finding the audit reports must carry a severity of exactly `high`, `medium`, or `low`** — nothing else counts as a finding. If the model emits anything with another (or missing) severity, it is discarded rather than reported.
 
 The module is deliberately **portable**: the repository being audited is always passed in as a path argument, so the same audit logic works against any checkout without hard-coded locations.
 
