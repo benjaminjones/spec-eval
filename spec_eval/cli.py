@@ -5,6 +5,7 @@
   spec-eval generate    <repo> [--config pairs.yml] --model … --env .env      # author specs beside the code
   spec-eval audit       <repo> --config pairs.yml --model … --env .env        # drift
   spec-eval sufficiency <repo> --config pairs.yml --model … --env .env        # sufficiency
+  spec-eval diagram     <path> [--model … --env .env] [--write]               # architecture (data flow) diagrams
 
 Keys come from the environment (ANTHROPIC_API_KEY / OPENAI_API_KEY / GOOGLE_API_KEY); --env loads a .env file.
 """
@@ -38,6 +39,16 @@ def _file_scope(path, cfg):
                                                           authoring_cfg.get("dir_spec_name", "<dir>")))
     return repo, {**cfg, "pairs": [{"label": stem, "code": [rel], "docs": [doc]}],
                   "authoring": {**authoring_cfg, "overview": "none"}}
+
+
+def _diagram_target(repo):
+    """The existing overview markdown `diagram --write` updates: OVERVIEW.md (canonical) then README.md, or
+    None if neither exists at the scope root — `--write` never creates a doc."""
+    for name in ("OVERVIEW.md", "README.md"):
+        p = os.path.join(repo, name)
+        if os.path.exists(p):
+            return p
+    return None
 
 
 def main(argv=None):
@@ -93,6 +104,23 @@ def main(argv=None):
                    help="compare a fresh scan against the stored system-context.json baseline in --out and "
                         "exit 1 if any external system was added or removed (a scanner change is a re-baseline, "
                         "not drift); does not overwrite the baseline")
+
+    d = sub.add_parser("diagram", help="DIAGRAM: print the repo's Mermaid architecture diagrams (an invocation "
+                                       "sequence + the data-flow pipeline) to stdout; --write updates the "
+                                       "Architecture section of an EXISTING OVERVIEW/README")
+    d.add_argument("repo", metavar="PROJECT_DIR",
+                   help="path to the project — a repo root, a subdirectory, or a file (its directory is diagrammed)")
+    d.add_argument("--config", "-c", default=None, help="optional config (YAML/JSON) for code_ext / exclude rules")
+    d.add_argument("--model", "-m", default=providers.DEFAULT_MODEL,
+                   help="provider:model, or claude-code (no API key — used only to derive any missing module intents)")
+    d.add_argument("--env", default=None, help="path to a .env file with API keys")
+    d.add_argument("--write", action="store_true",
+                   help="update the '## Architecture (data flow)' section of an EXISTING OVERVIEW.md/README.md at "
+                        "PROJECT_DIR and re-stamp the architecture fingerprint; REPLACE-ONLY — errors if no such "
+                        "section exists (see --add-section)")
+    d.add_argument("--add-section", action="store_true",
+                   help="write, and if the target doc has no '## Architecture (data flow)' section, APPEND one "
+                        "instead of erroring — an explicit opt-in; the doc must already exist (never creates a file)")
 
     args = ap.parse_args(argv)
 
@@ -163,7 +191,9 @@ def main(argv=None):
             note = f"  — {r['note']}" if r.get("note") else ""
             print(f"  {r['status']:10} {r['spec']}{note}")
         authored = sum(1 for r in res if r["status"] == "authored")
-        print(f"authored {authored} spec(s) beside the code; {len(res)-authored} skipped. "
+        failed = sum(1 for r in res if r["status"] == "failed")
+        print(f"authored {authored} spec(s) beside the code; {len(res) - authored - failed} skipped"
+              f"{f'; ⚠ {failed} failed (nothing written — see the note above)' if failed else ''}. "
               f"Review with `git diff`; drop any you don't want with `git checkout --`.")
         print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + {providers.USAGE['out']:,} out tokens")
         runlog.append_run(args.out, args.repo, "generate", args.model,
@@ -220,14 +250,23 @@ def main(argv=None):
                 raise SystemExit(0)
             d = syscontext.diff(baseline, ctx)
             print(syscontext.diff_receipt(d, sha=runlog.git_sha(args.repo)))
-            overview_path = os.path.join(args.repo, "OVERVIEW.md")           # second edge: fingerprint -> overview
-            overview_stale = (os.path.exists(overview_path)
-                              and syscontext.overview_stale(open(overview_path, errors="ignore").read(), ctx))
+            overview_path = _diagram_target(args.repo)                       # OVERVIEW.md, else README.md — the doc
+            overview_md = syscontext.read_text(overview_path) if overview_path else ""
+            doc = os.path.basename(overview_path) if overview_path else "OVERVIEW.md"
+            overview_stale = bool(overview_md) and syscontext.overview_stale(overview_md, ctx)   # second edge
             if overview_stale:
-                print("⚠ OVERVIEW.md system context is stale — regenerate its overview (`generate --overview`)")
+                print(f"⚠ {doc} system context is stale — regenerate its overview (`generate --overview`)")
+            diagram_stale = False
+            if syscontext.read_arch_stamp(overview_md):        # third edge: fingerprint -> diagram. The extra
+                ep = syscontext.scan_entrypoints(args.repo, cfg)   # scans run ONLY for a doc that carries the
+                modules = authoring.module_set(args.repo, cfg)     # stamp — no diagram, no walk to compare it to
+                diagram_stale = syscontext.diagram_stale(overview_md, ctx, ep, modules)
+            if diagram_stale:
+                print(f"⚠ {doc} architecture diagram is stale — regenerate it "
+                      "(`spec-eval diagram . --write`, or `generate --overview`)")
             runlog.append_run(args.out, args.repo, "context-check", None,
                               {"outcome": d["outcome"], "added": len(d["added"]), "removed": len(d["removed"]),
-                               "overview_stale": overview_stale})
+                               "overview_stale": overview_stale, "diagram_stale": diagram_stale})
             if d["outcome"] == "drift":
                 raise SystemExit(1)                # gate: a system was added or removed (overview staleness warns)
             raise SystemExit(0)
@@ -246,6 +285,47 @@ def main(argv=None):
         runlog.append_run(args.out, args.repo, "context", None,
                           {"systems_observed": len(ctx["entries"]), "files_scanned": ctx["files_scanned"],
                            "files_unscanned": sum(ctx["unscanned"].values())})
+
+    elif args.cmd == "diagram":
+        _load_keys(args.env, args.config)
+        cfg = audit.load_config(args.config) if args.config else {}
+        if os.path.isfile(args.repo):
+            args.repo = os.path.dirname(os.path.abspath(args.repo)) or "."   # a file -> its directory's diagram
+        target, original = None, None
+        if args.write or args.add_section:                        # validate the write target BEFORE synthesising,
+            target = _diagram_target(args.repo)                   # so a doc we'll refuse fails fast (no model calls)
+            if target is None:                                    # both flags update an EXISTING doc — never create one
+                raise SystemExit(
+                    f"diagram --write updates an EXISTING overview — none found at {args.repo} (looked for "
+                    f"OVERVIEW.md, README.md). Run `spec-eval generate {args.repo} --overview repo` to author "
+                    f"one, or pipe in `spec-eval diagram {args.repo}`.")
+            original = syscontext.read_text(target)
+            if not args.add_section and not authoring.has_architecture_section(original):   # replace-only, no section
+                raise SystemExit(
+                    f"{os.path.relpath(target)} has no '## Architecture (data flow)' section — pass --add-section to "
+                    f"append one, pipe in `spec-eval diagram {args.repo}`, or run "
+                    f"`spec-eval generate {args.repo} --overview repo`.")
+        block, ctx, ep, modules, note = authoring.diagram_block(
+            args.repo, cfg, args.model,
+            on_progress=lambda m: print(f"  … {m}", file=sys.stderr, flush=True))
+        if not modules:
+            raise SystemExit(f"no spec-worthy code files under {args.repo} — nothing to diagram.")
+        if note:
+            print(f"⚠ {note}", file=sys.stderr)                   # a partial view is REPORTED, never swallowed
+        if target is None:
+            print(block)                                          # STDOUT only — touches nothing, creates nothing
+        else:
+            if "```mermaid" not in block:                         # a doc is only ever overwritten with a diagram:
+                raise SystemExit(                                 # an empty/derailed reply must not blank a good one
+                    f"the model returned no ```mermaid block, so {os.path.relpath(target)} was left unchanged "
+                    f"(re-run, or inspect the reply with `spec-eval diagram {args.repo}`).")
+            md = authoring.set_architecture_section(original, block, create=args.add_section)
+            md = syscontext.restamp_architecture(md, ctx, ep, modules)   # refresh ONLY the architecture stamp
+            open(target, "w", encoding="utf-8").write(md.rstrip() + "\n")
+            print(f"wrote the Architecture (data flow) section + re-stamped → {os.path.abspath(target)}",
+                  file=sys.stderr)
+        print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + "
+              f"{providers.USAGE['out']:,} out tokens", file=sys.stderr)
 
 
 if __name__ == "__main__":

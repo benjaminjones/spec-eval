@@ -23,13 +23,13 @@ Two governing rules a reviewer can check:
 | overview_min_files | A per-dir overview is written only for a directory with **at least** this many spec-worthy files (default 2). |
 | template | Optional path to a custom per-module authoring template; replaces the built-in STRUCTURE. |
 | authoring rubric | The per-module system prompt: `AUTHORING_STRUCTURE` + `AUTHORING_DISCIPLINE` by default; a custom template replaces the structure but the discipline is always appended. |
-| synthesis rubric | `FOLDER_SPEC_RUBRIC` (self-contained folder spec) or `OVERVIEW_RUBRIC` (an index that defers to linked specs). |
+| synthesis rubric | `FOLDER_SPEC_RUBRIC` (self-contained folder spec), `REPO_OVERVIEW_RUBRIC` (the repo-root `OVERVIEW.md` — the full project overview, its section set pinned to `templates/OVERVIEW-template.md`), or `DIR_OVERVIEW_RUBRIC` (a per-directory `README.md` — a lean index that defers to linked specs, carrying no Architecture diagram). The Architecture instruction (`ARCH_DIAGRAM_RUBRIC`) and its closing provenance line (`ARCH_CAVEAT`) are single-sourced constants the repo overview and the `diagram` subcommand share verbatim. |
 | system-context evidence | The `OBSERVED SYSTEM EVIDENCE` block from the deterministic `syscontext` scan (free, no model call), appended to an overview call's final user message. It is the ONLY source the overview's `## System context` section may draw rows from. |
 | module intent | The per-module spec markdown — read from an existing co-located `<stem>.md` if present, else authored (map). Reused across synthesis passes. |
 | CODE_CAP | Max code characters fed to a per-module authoring call (`caps.code` in a config, default `audit.CODE_CAP`). |
 | REDUCE_CAP | Char budget for the per-module intents concatenated into one synthesis pass (`caps.reduce` in a config overrides the default). |
 | overwrite | Flag: regenerate already-present targets instead of skipping them. |
-| status | Per-target outcome: `authored` or `skipped`. |
+| status | Per-target outcome: `authored`, `skipped` (a file was already there), or `failed` (the reply was not a document — nothing written, nothing stamped). |
 | note | Optional per-target message flagging a partial view or extra work: a multi-pass (recursive) synthesis, code input over the cap, a model reply cut off at the token cap, or a per-dir overview skipped below `overview_min_files`. |
 | on_progress | Optional callback invoked with a short status string as each module (map) and target is authored — never on a skip. |
 
@@ -48,11 +48,11 @@ Two governing rules a reviewer can check:
 
 **Consolidation (map → reduce).** For a multi-file target (a `per-dir` directory, or a `per-pair` glob matching several files), each module's **intent** is obtained first — reused from an existing co-located spec, or authored on the fly — and those intents (not the raw code) are concatenated and synthesised into one document with `FOLDER_SPEC_RUBRIC`. The concatenation is capped at `REDUCE_CAP`; when the intents exceed it, they are packed into sub-groups, each sub-group is synthesised into an intermediate intent, and the intermediates are reduced in turn (recursively) — **modules are never dropped**. The recursion is bounded to `_MAX_LEVELS` passes. Past that (or once a pass stops shrinking the item count), the remaining intents are force-fit into one final call — each sliced to an equal share of the cap and marked `...[truncated]` — so a deep fan-out truncates content rather than dropping a module. A multi-pass synthesis is reported in the target's `note` ("synthesised in N passes … nothing dropped"), and a reply cut off at the token cap is flagged the same way. A lone intent larger than the whole cap is sliced with a visible marker so packing always terminates.
 
-**Overview layer.** After every spec has been produced (so it can read them), an optional index is authored with `OVERVIEW_RUBRIC`, which links down to the specs and does not restate their detail. Its Map reuses each spec's canonical `**In one line:**` sentence verbatim (a copy-pointer, not a paraphrase that could drift):
-- `repo` / `both` → a repo-root `OVERVIEW.md` indexing all targets.
-- `per-dir` / `both` → a `README.md` in each directory with **at least** `overview_min_files` spec-worthy files.
-  A directory below the threshold is recorded as `skipped` with a note naming the shortfall — small directories
-  are never silently omitted.
+**Overview layer.** After every spec has been produced (so it can read them), an optional index is authored. The two overview surfaces carry **different section sets on purpose**:
+- `repo` / `both` → a repo-root `OVERVIEW.md`, authored with `REPO_OVERVIEW_RUBRIC` — the full project overview whose section set (What it is, Governing principles, Architecture data flow, System context, Module map, Glossary, Health receipt, Reading order) is the **same as `templates/OVERVIEW-template.md`**, pinned by `test_overview_sections_sync.py`.
+- `per-dir` / `both` → a `README.md` in each directory with **at least** `overview_min_files` spec-worthy files, authored with `DIR_OVERVIEW_RUBRIC` — a **lean four-section index** (Map, How it fits together, Shared contract, System context) that carries **no Architecture diagram**. A directory below the threshold is recorded as `skipped` with a note naming the shortfall — small directories are never silently omitted.
+
+Both link down to the specs without restating their detail; the repo Module map and the per-dir Map reuse each spec's canonical `**In one line:**` sentence verbatim (a copy-pointer, not a paraphrase that could drift). The System-context section instruction is single-sourced (`_OV_SYSTEM_CONTEXT`) so both rubrics carry the same honesty rules.
 
 **System context (evidence-fed, never invented).** When any overview is authored, the deterministic
 `syscontext` scan runs once (free — no model call) and its `OBSERVED SYSTEM EVIDENCE` block is appended to the
@@ -70,6 +70,12 @@ appended to the file, recording the scan the section came from. A later `spec-ev
 back to flag an overview whose systems have drifted from the code. The per-dir `README.md` overviews are not
 stamped.
 
+**On-demand architecture diagrams.** `diagram_block` builds just the repo's Architecture section body — an invocation sequenceDiagram (scanner-verified entry points, provenance-noted) plus a pure data-flow pipeline ending at the observed external systems — for the `diagram` subcommand, reusing the same synthesis engine with a diagram-only rubric. It reads existing specs and derives any **missing** module intent in memory via the shared `_module_intent` (never writing a spec), so a diagram touches nothing. The **diagram itself is always a model call**: `diagram` avoids the per-module authoring calls a fully-specced repo doesn't need, not the synthesis call that draws the picture. Its output keeps the ```mermaid fence (`_synthesize` skips the outer-fence strip when `unfence=False`).
+
+A diagram is drawn in **one pass** (`single_pass`). **Why:** the multi-pass reduce feeds a rubric's own output back through that rubric, which is coherent for prose but not for a picture — intermediate passes would render partial diagrams that never saw the scanner evidence (it reaches only the final call), and the final pass would draw a diagram of diagrams. Over the cap, every module intent is instead sliced to an equal share so all of them still reach the one call, and the shortfall is reported in the returned note alongside a reply cut off at the token cap.
+
+`set_architecture_section` replaces the body of an existing `## Architecture (data flow)` section (replace-only by default — it raises rather than invent a section in an arbitrary doc; an explicit `create` opt-in inserts the section above the doc's stamp footer, but never invents the doc). The body ends at the next `#`/`##` heading or the first fingerprint receipt — **not** at a `###`, which is one of the section's own two subsections; ending there would replace only the first diagram and leave the rest of the stale section in place. `module_set` is the sorted code-file identifier set the architecture fingerprint binds to, and `generate`, `diagram`, and `context --check` all obtain it from that one function.
+
 **Custom template.** When `authoring.template` is set, its text replaces the built-in `AUTHORING_STRUCTURE`; `AUTHORING_DISCIPLINE` (the quality rules the drift/sufficiency checkers rely on) is always appended. **Why:** users own the structure, but the output stays gradeable.
 
 **Write policy** (uniform for specs and overviews):
@@ -77,7 +83,9 @@ stamped.
 - Otherwise the file is written at `<repo>/<spec path>` (`authored`) — an ordinary new file, reviewed via version control.
 - All writes create parent directories as needed and end the file with exactly one trailing newline.
 
-**Result reporting.** Returns a list of records, one per target, each carrying `code`, `spec`, `status`, and optionally `note`.
+**Refusing a non-document.** A reply carrying no markdown heading at all is a question or a refusal, not an overview. The overview makers detect that shape and return no markdown: nothing is written, no fingerprint is stamped, and the target is recorded `failed` with the reason. **Why:** a stamp is a receipt — one attached to a non-document reads as *fresh* to `context --check`, which is worse than having no overview. Not writing also matters: a file that exists would be silently skipped on the next run, so failing cleanly leaves the target retryable.
+
+**Result reporting.** Returns a list of records, one per target, each carrying `code`, `spec`, `status` (`authored` | `skipped` | `failed`), and optionally `note`.
 
 **Progress.** When an `on_progress` callback is supplied, it is invoked with a short status line as each module (map call) and each target is authored — never on a skip — so a long run reports as it goes instead of running silent. **Why:** authoring is one sequential model call per module and prints its result list only at the end; without progress a multi-module run looks hung.
 
@@ -100,7 +108,10 @@ Semantic shapes:
 | INV-5 | When `overwrite` is false and a target file already exists, that file is not written and no model call is made (for specs and overviews alike). |
 | INV-7 | Every authored file ends with exactly one trailing newline. |
 | INV-8 | A custom `template` replaces the built-in structure, but `AUTHORING_DISCIPLINE` is always appended to the rubric. |
-| INV-9 | If generated markdown begins with a code fence, the outer fence is removed before writing. |
+| INV-9 | If generated markdown begins with a code fence, the outer fence is removed before writing — except on the diagram path (`unfence=False`), whose output IS a fenced ```mermaid block. |
+| INV-10 | `diagram_block` makes exactly ONE synthesis call (`single_pass`): a diagram is never synthesised from other diagrams. Over the cap, every module intent is sliced to an equal share rather than dropped, and the returned note says so. |
+| INV-11 | `set_architecture_section` replaces from the `## Architecture (data flow)` heading to the next `#`/`##` heading or the first fingerprint receipt — never to a `###` subheading of its own body, and never past a stamp. Replacing an already-generated section is idempotent: the result carries exactly one copy of the section. |
+| INV-12 | An overview whose reply carries no markdown heading is never written and never stamped: the target is recorded `failed` with the reason. A fingerprint is a receipt, so it is attached only to a document. The check is a shape floor (`#` or `##`), never a format or section-set check. |
 
 ### Acceptance criteria (*Given / When / Then*)
 

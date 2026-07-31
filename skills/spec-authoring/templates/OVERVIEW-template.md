@@ -4,8 +4,8 @@
 > This page describes the *shape* of `<project>`; the specs describe the *contract*.
 > If this page and a spec disagree, **the spec wins**. This page never restates a value — it points.
 
-## What `<project>` is
-<2–4 sentences: what the project does, its core job, and what it optimizes for (clarity? speed? fidelity?).
+## What it is
+<2–4 sentences: what `<project>` does, its core job, and what it optimizes for (clarity? speed? fidelity?).
 Written so a newcomer understands the point before opening any spec.>
 
 ## Governing principles  *(the intent root — the "why" the whole set serves)*
@@ -13,12 +13,50 @@ Written so a newcomer understands the point before opening any spec.>
 - **<Principle 2>** — <one line>.
 <!-- If reverse-engineered: > Reconstructed intent (confidence: …) — inferred from the code, not stated by the author. -->
 
-## Architecture (data flow)
+## Architecture (data flow)  *(repo overview only — per-directory READMEs omit this)*
+
+### How it is invoked
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant E as src/app.py
+    participant R as src/run.py
+    U->>E: python src/app.py --mode live
+    Note over E: scanner-verified entry point (src/app.py:NN)
+    U->>R: python src/run.py config/preset.py
+    Note over R: conventional invocation (per the module intents, not scanner-detected)
+    R-->>U: artifact written
 ```
-<input> --[<component>]--> <intermediate (shape)> --[<component>]--> <output>
-                                                          |
-                            <the one seam / abstraction that threads through everything>
+
+### Data flow
+```mermaid
+flowchart LR
+    SRC[/"external source (see System context)"/]:::external
+    subgraph prep["Preparation"]
+        P["preparation step<br/>src/prep.py"]:::process
+    end
+    ART[("produced artifact")]:::artifact
+    subgraph core["Core pipeline"]
+        RUN["main pipeline<br/>src/run.py"]:::process
+        LIB[["library module<br/>src/lib.py"]]:::process
+    end
+    OUT[/"output"/]:::external
+
+    SRC -.->|downloads| P
+    P --> ART
+    ART ==> RUN
+    RUN ==> LIB
+    RUN --> OUT
+
+    classDef process fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
+    classDef artifact fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef external fill:#fae8ff,stroke:#9333ea,color:#581c87
+    style prep fill:none,stroke:#94a3b8,stroke-dasharray:4 4
+    style core fill:none,stroke:#94a3b8,stroke-dasharray:4 4
 ```
+> The invocation entries and external systems are **scanner-derived** (`file:line`-observed) where noted; the internal edges are **inferred from the module intents, not verified against a call graph**.
+<!-- ^ Copy that caveat line byte-for-byte: `spec-eval` emits the identical sentence, and a test pins the two together. -->
+
 *(For internal component diagrams and stateful flows, see the relevant module spec's §3 Behavior.)*
 
 ## System context  *(the observed external seams — what `<project>` talks to)*
