@@ -19,6 +19,7 @@ This module answers one question about a repository: **which code files have no 
 | SPEC-WORTHY | CANDIDATE minus all excluded files. The denominator for coverage. |
 | UNCOVERED | Spec-worthy files that are not covered. The core finding. |
 | ORPHAN (possible) | A spec-shaped `.md` in a directory that has code, whose same-stem code file no longer exists. Advisory heuristic — never moves the percentage. |
+| UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach — no code sibling, not a conventional doc. Reported, never scored. |
 | Pair | `{label, code[], docs[]}` — links code globs to spec doc(s). |
 | Pruned dir | A directory never walked into (vendored/build/cache/generated). |
 | `pct` | `100 × covered_worthy / max(spec_worthy, 1)`, rounded to 1 decimal. |
@@ -54,15 +55,21 @@ Returns `pct`, `spec_worthy` (count), `covered` (sorted list, intersected with s
 **Why intersect covered with spec-worthy:** an excluded file that happens to have a sibling `.md` should not inflate the numerator.
 
 ### Possible-orphan detection
-A `.md` file is flagged as a **possible orphaned spec** when all of these hold: it sits in a directory that contains at least one candidate code file; its stem is not a conventional doc name (README, OVERVIEW, CHANGELOG, LICENSE, SPEC-HEALTH, …); it is not the directory's folder-spec name; it is not matched by any config pair's `docs` glob; it is not matched by a user `exclude:` glob; and no code file with the same stem exists beside it.
+A `.md` file is flagged as a **possible orphaned spec** when all of these hold: it sits in a directory that contains at least one candidate code file; its stem is not a conventional doc name (README, OVERVIEW, CHANGELOG, LICENSE, SPEC-HEALTH, and the agent-instruction files `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / …); it is not the directory's folder-spec name; it is not matched by any config pair's `docs` glob; it is not matched by a user `exclude:` glob; and no code file with the same stem exists beside it.
 **Why:** with agentic development, code moves fast — a spec left behind by a moved/deleted module quietly falls out of date. The check is free and advisory: docs-only directories are never scanned (their `.md` files are docs, not specs), and the result never changes `pct`, `covered`, or `uncovered` — a heuristic must not fail a CI gate.
+**Why the agent-instruction files are conventional docs:** `CLAUDE.md` and its siblings are addressed to a coding agent and never had a same-stem code file, so proposing their removal as a stale spec is advice that is always wrong.
+
+### Unmodeled markdown detection
+Markdown that same-stem pairing cannot reach is grouped by top-level directory and reported when a group holds at least 3 files. A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name. Each group reports its directory, its file count, and up to 3 example paths.
+**Why:** two real bodies of writing are invisible to a same-stem model — a spec tree keyed by requirement id (`spec/functional/FR-021-….md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references). Neither has a code sibling, so neither can move the percentage, and a thoroughly specified repo built that way scores 0%. Naming the groups keeps the number honest: the reader sees the percentage is scoped to same-stem pairs, and sees what sits outside that scope.
+**Why report rather than score:** pairing cannot tell whether `FR-021` governs one file or twenty, so folding these into the percentage would be a guess dressed as a measurement. The 3-file floor keeps a couple of loose notes from reading as a corpus.
 
 ### Pair inference (`infer_pairs`)
 Independently walks the repo and, for each spec-worthy code file that has a sibling `<stem>.md`, emits a pair `{label: <stem>, code: [rel], docs: [md]}`. Result sorted by label.
 **Why:** lets downstream tools operate on the co-location convention with no hand-written pair config.
 
 ### Report formatting (`format_report`)
-Emits markdown: a headline percent line (`covered/spec_worthy`), an "⚠ Uncovered" section listing each uncovered file (only if any exist), a "Possible orphaned specs" section (only if any exist, marked as a heuristic), and an "Excluded … by class" section listing each tier with its count and up to 8 example files (`…` when truncated).
+Emits markdown: a headline percent line (`covered/spec_worthy`), an "⚠ Uncovered" section listing each uncovered file (only if any exist), an "Unmodeled markdown" section scoping the percentage (only if any group exists), a "Possible orphaned specs" section (only if any exist, marked as a heuristic), and an "Excluded … by class" section listing each tier with its count and up to 8 example files (`…` when truncated).
 
 ## 4. Contracts
 
@@ -73,7 +80,10 @@ Result shape of `coverage(repo, config)`:
   covered: [rel, ...],           # sorted, subset of spec-worthy
   uncovered: [rel, ...],         # sorted, spec_worthy minus covered
   orphans: [rel, ...],           # sorted; advisory — spec-shaped .md files whose code is gone
-  excluded: { tier: [rel, ...] } # each list sorted; tiers among the 7 classes
+  excluded: { tier: [rel, ...] }, # each list sorted; tiers among the 7 classes
+  unmodeled: [                   # sorted by dir; advisory — scopes the percentage, never moves it
+    { dir: str, files: int, sample: [rel, ...] }   # sample capped at 3
+  ]
 }
 ```
 
@@ -86,7 +96,9 @@ Result shape of `coverage(repo, config)`:
 | INV-3 | Reported `covered` is always the intersection of covered files with spec-worthy files. |
 | INV-4 | Every excluded file is assigned exactly one tier (first matching rule in `classify_exclude`). |
 | INV-5 | `orphans` never affects `pct`, `covered`, or `uncovered` — it is advisory output only. |
-| INV-6 | A conventional doc name (e.g. `README.md`), a folder spec, a pair-declared doc, a user-excluded path, and any `.md` in a docs-only directory are never reported as orphans. |
+| INV-6 | A conventional doc name (e.g. `README.md`, `CLAUDE.md`), a folder spec, a pair-declared doc, a user-excluded path, and any `.md` in a docs-only directory are never reported as orphans. |
+| INV-7 | `unmodeled` never affects `pct`, `covered`, or `uncovered` — like `orphans`, it is advisory output only. |
+| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |
 
 > Reconstructed intent (confidence: high) — INV-2/INV-3/INV-4 are inferred from the walk-filter, `covered & spec_worthy` intersection, and the ordered return-on-first-match in `classify_exclude`.
 
@@ -95,4 +107,9 @@ Result shape of `coverage(repo, config)`:
 | ID | Given | When | Then |
 |----|-------|------|------|
 | AC-1 | Repo with `model.py` and sibling `model.md`, no pairs configured | `coverage` runs | `model.py` appears in `covered`, not in `uncovered`. |
-| AC-2 | Repo with `foo.py`, no `fo
+| AC-2 | Repo with `foo.py` and no `foo.md`, no pairs configured | `coverage` runs | `foo.py` appears in `uncovered` and `pct` is `0.0`. |
+| AC-3 | Repo with `a.py` and a `spec/` tree of 3 files named `FR-001-x.md` … `FR-003-x.md` | `coverage` runs | `pct` is `0.0`, and `unmodeled` holds one group `{dir: "spec", files: 3}`. |
+| AC-4 | Repo with `a.py` and 3 `skills/*/reference.md` files | `coverage` runs | `unmodeled` holds one group `{dir: "skills", files: 3}`. |
+| AC-5 | Repo with `a.py` and a single `notes/one.md` | `coverage` runs | `unmodeled` is empty — below the 3-file floor. |
+| AC-6 | Repo with `a.py`, `CLAUDE.md`, and `AGENTS.md` at the root | `coverage` runs | `orphans` is empty. |
+| AC-7 | Repo with `a.py` and `removed_module.md` beside it | `coverage` runs | `orphans` is `["removed_module.md"]`. |

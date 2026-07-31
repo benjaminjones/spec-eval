@@ -190,14 +190,20 @@ def main(argv=None):
         for r in res:
             note = f"  — {r['note']}" if r.get("note") else ""
             print(f"  {r['status']:10} {r['spec']}{note}")
+        # counted by explicit status, never by subtraction — a new status must not silently inflate 'skipped'
         authored = sum(1 for r in res if r["status"] == "authored")
         failed = sum(1 for r in res if r["status"] == "failed")
-        print(f"authored {authored} spec(s) beside the code; {len(res) - authored - failed} skipped"
+        skipped = sum(1 for r in res if r["status"] == "skipped")
+        stray = sum(1 for r in res if r["status"] == "stray")
+        print(f"authored {authored} spec(s) beside the code; {skipped} skipped"
               f"{f'; ⚠ {failed} failed (nothing written — see the note above)' if failed else ''}. "
               f"Review with `git diff`; drop any you don't want with `git checkout --`.")
+        if stray:
+            print(f"⚠ {stray} file(s) appeared on disk that this run did not target — the model wrote them "
+                  f"directly. Nothing was deleted; review them in `git status` before committing.")
         print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + {providers.USAGE['out']:,} out tokens")
         runlog.append_run(args.out, args.repo, "generate", args.model,
-                          {"authored": authored, "skipped": len(res) - authored,
+                          {"authored": authored, "skipped": skipped, "failed": failed, "stray": stray,
                            "flagged": sum(1 for r in res if r.get("note"))})
 
     elif args.cmd == "coverage":
@@ -221,10 +227,14 @@ def main(argv=None):
             print(f"  possible orphaned spec(s) ({len(cov['orphans'])}) — spec-shaped .md with no same-stem code file; review or remove:")
             for f in cov["orphans"][:UNCOVERED_LIST_CAP]:
                 print(f"    - {f}")
+        for g in cov.get("unmodeled", []):        # scope the percentage before a reader treats it as the project's
+            print(f"  ⚠ unmodeled: {g['files']} markdown file(s) under {g['dir']}/ — outside the same-stem "
+                  f"pairing model, so neither covered nor uncovered")
         print(f"wrote coverage.md + coverage.json → {os.path.abspath(args.out)}  (free; no API key)")
         runlog.append_run(args.out, args.repo, "coverage", None,
                           {"coverage_pct": cov["pct"], "covered": len(cov["covered"]),
-                           "spec_worthy": cov["spec_worthy"], "orphans": len(cov.get("orphans", []))})
+                           "spec_worthy": cov["spec_worthy"], "orphans": len(cov.get("orphans", [])),
+                           "unmodeled_md": sum(g["files"] for g in cov.get("unmodeled", []))})
         if args.min is not None and cov["pct"] < args.min:
             print(f"FAIL: coverage {cov['pct']:.0f}% < --min {args.min:.0f}%")
             raise SystemExit(1)

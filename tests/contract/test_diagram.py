@@ -196,7 +196,8 @@ def test_a_non_document_reply_is_never_written_or_stamped(tmp_path, monkeypatch)
     _write(tmp_path, {"a.py": "import redis\n"})
     res = authoring.generate_repo(str(tmp_path), {"authoring": {"overview": "repo"}}, "fake:model")
     rec = next(r for r in res if r["spec"] == "OVERVIEW.md")
-    assert rec["status"] == "failed" and "not an overview" in rec["note"]
+    # the guard now covers specs as well as overviews, so its reason is artifact-neutral ("not a document")
+    assert rec["status"] == "failed" and "not a document" in rec["note"]
     assert not (tmp_path / "OVERVIEW.md").exists()          # nothing written -> the next run retries it
 
 
