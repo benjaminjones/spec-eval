@@ -130,6 +130,13 @@ DIR_OVERVIEW_RUBRIC = (
     + AUTHORING_DISCIPLINE
 )
 
+# The one-sentence provenance caveat every Architecture section closes with. SINGLE-SOURCED here and pinned
+# BYTE-IDENTICAL against `templates/OVERVIEW-template.md` and the skill by tests/contract/test_rubric_sync.py:
+# a CLI-authored overview and a template-authored one must close with the same sentence, not two paraphrases.
+ARCH_CAVEAT = ("> The invocation entries and external systems are **scanner-derived** (`file:line`-observed) "
+               "where noted; the internal edges are **inferred from the module intents, not verified against "
+               "a call graph**.")
+
 # The Architecture (data flow) section instruction — TWO scanner-fed Mermaid diagrams (an invocation sequence
 # and a pure data-flow pipeline: the arc42/C4 static-vs-runtime split, so each diagram answers ONE question).
 # ONLY the repo overview embeds it, so a per-dir README can never emit a diagram (repo-only by construction).
@@ -150,23 +157,18 @@ ARCH_DIAGRAM_RUBRIC = (
     "module intents, not scanner-detected)' — NEVER present an unscanned invocation as verified, and never "
     "invent a call order the intents do not state. No block and no documented invocation -> omit (a).\n"
     "  (b) '### Data flow' — a fenced `flowchart LR` of the producer->consumer pipeline ONLY: sources left, "
-    "outputs right. It MUST span the FULL pipeline end to end — from the source nodes to the terminal OUTPUT "
-    "node: the USER-FACING RESULT the invocation diagram (a) shows the User receiving (generated samples, a "
-    "served response, a written report). If (a) shows a run/sample/serve step producing that result by "
-    "consuming a pipeline artifact, that producing script AND its output node MUST appear here too — an "
-    "intermediate artifact (a checkpoint, an index, a cache) is NOT the terminal output when a later stage "
-    "consumes it to make the user's result. NEVER truncate before that final output; the terminal output node "
-    "is mandatory and (a) and (b) must agree on it. NO entry-points cluster and NO CLI/config/loader nodes — "
-    "invocation lives in (a). External "
+    "outputs right, NO entry-points cluster and NO CLI/config/loader nodes (invocation lives in (a)). It MUST "
+    "span the pipeline end to end and TERMINATE in the user-facing result (a) shows the User receiving — "
+    "generated samples, a served response, a written report. An intermediate artifact (a checkpoint, an index, "
+    "a cache) is NOT that result when a later stage consumes it to make it: the stage producing the user's "
+    "result and its output node are mandatory, and (a) and (b) must agree on the ending. External "
     "systems come ONLY from the OBSERVED SYSTEM EVIDENCE block, at the boundary, joined by dashed -.-> edges "
     "labeled with the transfer; NEVER invent one. BUDGET: at most 12 nodes and 18 edges (subgraph containers "
-    "don't count). The terminal produce-the-result stage is PROTECTED — when over budget, make room by folding "
-    "UPSTREAM/intermediate detail FIRST, in this order: merge same-role sibling sources/artifacts into one node "
-    "labeled 'Role<br/>glob-path', then merge an artifact into its sole producer, then drop only nodes NOT on "
-    "any source-to-output path (e.g. a profiler/benchmark). Fold intermediate stages before ever touching the "
-    "final stage; NEVER drop the produce-the-result step to keep upstream detail, and never meet the "
-    "budget by shrinking labels. State each folded fact in a one-line note under the diagram. Group into 2-5 "
-    "lifecycle-stage subgraphs (subgraph id[\"Label\"] ... end), "
+    "don't count), met by folding UPSTREAM detail ONLY, in this order: merge same-role sibling "
+    "sources/artifacts into one node labeled 'Role<br/>glob-path', then merge an artifact into its sole "
+    "producer, then drop nodes on no source-to-output path (a profiler, a benchmark). The produce-the-result "
+    "stage is never folded and labels are never shrunk to fit. State each folded fact in a one-line note under "
+    "the diagram. Group into 2-5 lifecycle-stage subgraphs (subgraph id[\"Label\"] ... end), "
     "each styled stroke-only (style id fill:none,stroke:#94a3b8,stroke-dasharray:4 4); never a `direction` "
     "statement inside a subgraph. SHAPES: stadium ([\"...\"]) = invocation surface, rect = runnable script, "
     "[[\"...\"]] = imported library, [(\"...\")] = data artifact, [/\"...\"/] = external system or terminal "
@@ -179,10 +181,8 @@ ARCH_DIAGRAM_RUBRIC = (
     "primary pipeline; label at most a third of edges with a 1-2 word verb; never draw an edge implied by "
     "transitivity. Node labels: a role noun phrase, then the bare file path after <br/> — never line numbers "
     "or mechanics in a label.\n"
-    "  Close the section with EXACTLY this one-sentence caveat line, verbatim, with nothing appended: '> The "
-    "invocation entries and external systems are scanner-derived (file:line-observed) where noted; the "
-    "internal edges are inferred from the module intents, not verified against a call graph.' It states "
-    "provenance and nothing else — never restate it in other words, never append regeneration or stamp "
+    "  Close the section with EXACTLY this line, verbatim, with nothing appended: '" + ARCH_CAVEAT + "' It "
+    "states provenance and nothing else — never restate it in other words, never append regeneration or stamp "
     "mechanics, and never fold a budget-driven omission into it; those go in the SEPARATE one-line note.\n"
 )
 REPO_OVERVIEW_RUBRIC = (
@@ -243,7 +243,7 @@ def author_file(repo, code_path, model, rubric=AUTHORING_RUBRIC, code_cap=None):
     Returns (markdown, note|None) — the note flags a partial view: code input over the cap, or a model reply
     cut off at the token cap (either can silently produce a spec that ends mid-section)."""
     code_cap = audit.CODE_CAP if code_cap is None else code_cap
-    raw = open(os.path.join(repo, code_path), errors="ignore").read()
+    raw = syscontext.read_text(os.path.join(repo, code_path))
     code = raw[:code_cap]
     stem = os.path.splitext(os.path.basename(code_path))[0]
     user = f"# Author a spec for module `{stem}`\n\n## Code (`{code_path}`)\n```\n{code}\n```\n"
@@ -252,6 +252,12 @@ def author_file(repo, code_path, model, rubric=AUTHORING_RUBRIC, code_cap=None):
              if len(raw) > code_cap else []) \
         + (["reply hit the token cap — the spec may end mid-section"] if providers.LAST["truncated"] else [])
     return md, ("; ".join(notes) or None)
+
+
+def _cap_note(*parts):
+    """Join shortfall notes (drop counts, slicing, token-cap flags) into one note string, or None. Every
+    surface that can silently under-report — a spec, an overview, a diagram — reports through this."""
+    return "; ".join(p for p in parts if p) or None
 
 
 def _pack(items, cap):
@@ -272,7 +278,8 @@ def _pack(items, cap):
     return groups
 
 
-def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce_cap=None, extra=None, unfence=True):
+def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce_cap=None, extra=None,
+                unfence=True, single_pass=False):
     """Reduce: synthesise (label, intent-markdown) modules into one document. Returns
     (markdown, levels, reply_capped). When the concatenated intents exceed the reduce cap, the items are packed
     into sub-groups, each sub-group is synthesised into an intermediate intent, and the intermediates are
@@ -280,6 +287,10 @@ def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce
     (1 = a single call); `reply_capped` is True when ANY pass's reply hit the token cap.
     `extra` is an optional evidence block appended to the FINAL call's user message only (intermediate passes
     summarise modules; the final pass is the one that renders sections from it).
+    `single_pass` forbids the recursion: over the cap, every intent is sliced to an equal share and rendered in
+    ONE call. **Why:** the recursion reduces a rubric's own OUTPUT back through that rubric, which is coherent
+    for prose but not for a diagram — a diagram synthesised from diagrams depicts neither the code nor the
+    evidence (which reaches only the final call). Every module still reaches the model, at reduced detail.
     Termination is guaranteed: past _MAX_LEVELS, or when a pass stops reducing the item count, the remaining
     items are force-fitted into one final call (each sliced to an equal share of the cap, visibly marked)."""
     cap = REDUCE_CAP if reduce_cap is None else reduce_cap
@@ -292,7 +303,7 @@ def _synthesize(model, rubric, items, header, on_progress=None, _level=1, reduce
         user = f"# {header}\n\n" + "\n".join(block for _, block in groups[0]) + tail
         md = finish(providers.gen(model, rubric, user, max_tokens=AUTHOR_MAX_TOKENS))
         return md, _level, providers.LAST["truncated"]
-    if _level >= _MAX_LEVELS or (_level > 1 and len(groups) >= len(items)):
+    if single_pass or _level >= _MAX_LEVELS or (_level > 1 and len(groups) >= len(items)):
         share = max(200, cap // len(items) - 40)
         blocks = [f"### {label}\n{(md or '').strip()[:share]}\n...[truncated]\n" for label, md in items]
         user = f"# {header}\n\n" + "\n".join(blocks) + tail
@@ -354,9 +365,8 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
     code_cap, _ = audit.caps_from(config)                                # caps: {code, docs, reduce} — config-overridable
     reduce_cap = int((config.get("caps") or {}).get("reduce", REDUCE_CAP))
 
-    cov = coverage_mod.coverage(repo, config)
-    files = sorted(cov["covered"] + cov["uncovered"])          # all spec-worthy code files
-    targets = _layout_targets(repo, files, layout, dir_spec_name, config)
+    files = module_set(repo, config)                           # all spec-worthy code files — the SAME set the
+    targets = _layout_targets(repo, files, layout, dir_spec_name, config)   # architecture fingerprint binds to
 
     results = []
     _intent = {}                                               # code_path -> per-module intent (reused across reduces)
@@ -367,7 +377,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
     def target_md(spec_path, code_files):
         dest = os.path.join(repo, spec_path)
         if os.path.exists(dest):
-            return open(dest, errors="ignore").read()
+            return syscontext.read_text(dest)
         if len(code_files) == 1:
             return module_intent(code_files[0])
         md, _, _ = _synthesize(model, FOLDER_SPEC_RUBRIC,               # INV-4: synthesise, never silently slice
@@ -393,11 +403,6 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
         open(dest, "w").write(md.rstrip() + "\n")
         results.append(rec)
 
-    def _cap_notes(*parts):
-        """Join shortfall notes (drop counts, token-cap flags) into one note string, or None."""
-        joined = "; ".join(p for p in parts if p)
-        return joined or None
-
     # 1. Specs — map (single file) or map -> reduce (a directory / pair of files).
     for spec_path, code_files in sorted(targets.items()):
         if len(code_files) == 1:
@@ -412,7 +417,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
                                                        [(f, module_intent(f)) for f in cfs],
                                                        f"Modules in `{os.path.dirname(sp) or '.'}`", on_progress,
                                                        reduce_cap=reduce_cap)
-                return md, _cap_notes(
+                return md, _cap_note(
                     (f"synthesised in {levels} passes from all {len(cfs)} modules "
                      f"(nothing dropped)") if levels > 1 else None,
                     "reply hit the token cap — the spec may end mid-section" if reply_capped else None)
@@ -424,17 +429,16 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
     ctx = syscontext.scan(repo, config) if overview != "none" else None
     if overview in ("repo", "both"):
         def _repo_overview():
-            block = syscontext.evidence_block(ctx) or None
             ep = syscontext.scan_entrypoints(repo, config)               # how the repo is invoked (deterministic)
-            ep_block = syscontext.entrypoints_block(ep) or None
-            extra = "\n\n".join(b for b in (ep_block, block) if b) or None   # both reach the final synthesis pass
             items = [(sp, target_md(sp, cf)) for sp, cf in sorted(targets.items())]
             md, levels, reply_capped = _synthesize(model, REPO_OVERVIEW_RUBRIC, items, "Repository overview",
-                                                   on_progress, reduce_cap=reduce_cap, extra=extra)
-            if block:            # stamp the fingerprint this System context section was rendered from, so a
-                md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # later `--check` can flag staleness
+                                                   on_progress, reduce_cap=reduce_cap,
+                                                   extra=syscontext.overview_evidence(ctx, ep))
+            if syscontext.evidence_block(ctx):   # stamp the fingerprint this System context section was
+                md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # rendered from, so `--check` can
+                                                                            # later flag staleness
             md = md.rstrip() + "\n\n" + syscontext.architecture_stamp_comment(ctx, ep, files)
-            return md, _cap_notes(
+            return md, _cap_note(
                 f"index synthesised in {levels} passes over all {len(items)} specs (nothing dropped)" if levels > 1 else None,
                 "reply hit the token cap — the index may end mid-section" if reply_capped else None)
         emit("OVERVIEW.md", ".", _repo_overview, f"authoring OVERVIEW.md (index over {len(targets)} spec(s))")
@@ -457,7 +461,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
                                                        f"Directory overview — `{d or '.'}`", on_progress,
                                                        reduce_cap=reduce_cap,
                                                        extra=syscontext.evidence_block(ctx, scope_dir=d) or None)
-                return md, _cap_notes(
+                return md, _cap_note(
                     f"index synthesised in {levels} passes (nothing dropped)" if levels > 1 else None,
                     "reply hit the token cap — the index may end mid-section" if reply_capped else None)
             emit(readme, d or ".", _dir_overview, f"authoring {readme} (index)")
@@ -485,7 +489,7 @@ def _module_intent(repo, code_path, model, rubric, code_cap, cache=None, on_prog
         return cache[code_path]
     colo = os.path.join(repo, spec_path_for(code_path))
     if os.path.exists(colo):
-        intent = open(colo, errors="ignore").read()              # reuse the existing per-file spec
+        intent = syscontext.read_text(colo)                      # reuse the existing per-file spec
     else:
         if on_progress:
             on_progress(f"· module {code_path}")                 # each map call is a model round-trip
@@ -506,8 +510,9 @@ def module_set(repo, config):
 def diagram_block(repo, config, model, on_progress=None):
     """Build the repo's Architecture section body — the invocation sequenceDiagram + the data-flow pipeline —
     for the `diagram` subcommand. Reads existing specs; derives any MISSING module intent in memory and writes
-    nothing. Returns `(section_body_markdown, ctx, ep, modules)` — the two fenced diagrams plus the two scans
-    and the module set it is stamped from."""
+    nothing. Returns `(section_body_markdown, ctx, ep, modules, note|None)` — the two fenced diagrams, the two
+    scans and the module set it is stamped from, and a shortfall note when the one synthesis pass could not see
+    everything at full detail (intents sliced to fit, or a reply cut off at the token cap)."""
     repo = os.path.abspath(repo)
     rubric = _rubric(config.get("authoring", {}).get("template"))
     code_cap, _ = audit.caps_from(config)
@@ -517,29 +522,54 @@ def diagram_block(repo, config, model, on_progress=None):
     items = [(f, _module_intent(repo, f, model, rubric, code_cap, cache, on_progress)) for f in modules]
     ctx = syscontext.scan(repo, config)
     ep = syscontext.scan_entrypoints(repo, config)
-    extra = "\n\n".join(b for b in (syscontext.entrypoints_block(ep) or None,
-                                    syscontext.evidence_block(ctx) or None) if b) or None
-    md, _, _ = _synthesize(model, ARCH_DIAGRAM_ONLY_RUBRIC, items, "Architecture diagram",
-                           on_progress, reduce_cap=reduce_cap, extra=extra, unfence=False)  # keep the ```mermaid fence
-    return md.strip(), ctx, ep, modules
+    md, _, reply_capped = _synthesize(model, ARCH_DIAGRAM_ONLY_RUBRIC, items, "Architecture diagram",
+                                      on_progress, reduce_cap=reduce_cap,
+                                      extra=syscontext.overview_evidence(ctx, ep),
+                                      unfence=False,          # a mermaid diagram keeps its ```mermaid fence
+                                      single_pass=True)       # one picture, drawn once, over every module
+    sliced = len(_pack(items, reduce_cap)) > 1                  # the same packing the pass just force-fitted
+    note = _cap_note(
+        f"{len(items)} module intents exceeded the reduce cap — each was sliced to an equal share for the "
+        f"single diagram pass (every module still seen, at reduced detail)" if sliced else None,
+        "reply hit the token cap — the diagram may be incomplete" if reply_capped else None)
+    return md.strip(), ctx, ep, modules, note
 
 
 _ARCH_HEADING_RE = re.compile(r"^##\s+Architecture \(data flow\)")
-_MD_HEADING_RE = re.compile(r"^#{1,3}\s")
+# A SECTION ends at the next heading of the SAME level or higher (`#` or `##`) — never at a `###` subheading,
+# which is part of the section's own body. The Architecture body is itself two `###` subsections, so treating
+# `###` as a boundary would replace only the first one and leave the rest of the old section behind.
+_MD_SECTION_END_RE = re.compile(r"^#{1,2}\s")
 _MD_FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _STAMP_COMMENT_RE = re.compile(r"^\s*<!--\s*(?:system-context|architecture)-fingerprint:")
 
 
-def _arch_heading_line(lines):
-    """Index of the first '## Architecture (data flow)' heading at fence depth 0, or None — FENCE-AWARE, so a
-    heading that sits inside a ``` code block (an example) is not the section."""
+def _outside_fences(lines, start=0):
+    """Yield (index, line) for the lines at fence depth 0. A heading or a receipt inside a ``` block is
+    CONTENT, not structure — the one fence-walker every markdown-surgery helper below shares."""
     in_fence = False
-    for i, ln in enumerate(lines):
-        if _MD_FENCE_RE.match(ln):
+    for i in range(start, len(lines)):
+        if _MD_FENCE_RE.match(lines[i]):
             in_fence = not in_fence
-        elif not in_fence and _ARCH_HEADING_RE.match(ln):
+        elif not in_fence:
+            yield i, lines[i]
+
+
+def _arch_heading_line(lines):
+    """Index of the first '## Architecture (data flow)' heading at fence depth 0, or None."""
+    for i, ln in _outside_fences(lines):
+        if _ARCH_HEADING_RE.match(ln):
             return i
     return None
+
+
+def _footer_line(lines):
+    """Index of the first trailing fingerprint receipt, or len(lines). The stamps are the document's FOOTER,
+    so a section appended to the document belongs above them, not after them."""
+    for i, ln in _outside_fences(lines):
+        if _STAMP_COMMENT_RE.match(ln):
+            return i
+    return len(lines)
 
 
 def has_architecture_section(markdown):
@@ -551,27 +581,25 @@ def has_architecture_section(markdown):
 
 def set_architecture_section(markdown, body, create=False):
     """Replace the BODY of the existing '## Architecture (data flow)' section with `body` (the fenced mermaid
-    block + caveat), keeping the heading line intact. REPLACE-ONLY by default: raises ValueError if the
-    document has no such section. When `create` is set (an explicit caller opt-in), APPEND a new section to the
-    end of the document instead of raising — the document must already exist; this never invents one.
-    FENCE-AWARE: a heading that sits inside a ``` code block is not the section. STAMP-AWARE: the section body
-    ends at the next heading OR the first trailing fingerprint receipt, so a diagram update never swallows the
-    trailing system-context stamp (which would silently re-bless a stale System context table)."""
+    blocks + caveat), keeping the heading line intact. REPLACE-ONLY by default: raises ValueError if the
+    document has no such section. When `create` is set (an explicit caller opt-in), the section is INSERTED
+    above the document's stamp footer instead of raising — the document must already exist; this never invents
+    one. FENCE-AWARE: a heading inside a ``` code block is not the section. The body ends at the next `#`/`##`
+    heading — NOT at a `###`, which is one of the body's OWN subsections — or at the first fingerprint receipt,
+    so a diagram update never swallows the trailing system-context stamp (which would silently re-bless a stale
+    System context table)."""
     lines = markdown.splitlines(keepends=True)
+    section = "## Architecture (data flow)\n" + body.strip() + "\n"
     start = _arch_heading_line(lines)
     if start is None:
         if not create:
             raise ValueError("no '## Architecture (data flow)' section")
-        prefix = markdown.rstrip() + "\n\n" if markdown.strip() else ""      # append; deterministic, at the end
-        return prefix + "## Architecture (data flow)\n" + body.strip() + "\n"
+        at = _footer_line(lines)                          # insert ABOVE the receipts; they stay the footer
+        head, footer = "".join(lines[:at]).rstrip(), "".join(lines[at:]).strip()
+        return (head + "\n\n" if head else "") + section + ("\n" + footer + "\n" if footer else "")
     end = len(lines)
-    in_fence = False
-    for j in range(start + 1, len(lines)):
-        ln = lines[j]
-        if _MD_FENCE_RE.match(ln):
-            in_fence = not in_fence
-        elif not in_fence and (_MD_HEADING_RE.match(ln) or _STAMP_COMMENT_RE.match(ln)):
+    for j, ln in _outside_fences(lines, start + 1):
+        if _MD_SECTION_END_RE.match(ln) or _STAMP_COMMENT_RE.match(ln):
             end = j
             break
-    new_section = lines[start].rstrip("\n") + "\n" + body.strip() + "\n\n"
-    return "".join(lines[:start]) + new_section + "".join(lines[end:])
+    return "".join(lines[:start]) + section + "\n" + "".join(lines[end:])

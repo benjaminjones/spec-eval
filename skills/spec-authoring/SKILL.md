@@ -113,8 +113,9 @@ fingerprint it was rendered from, so `spec-eval context --check` can later flag 
 
 ## Architecture diagrams (the repo overview's two pictures)
 The repo `OVERVIEW.md`'s `## Architecture (data flow)` section carries TWO `mermaid` diagrams — the arc42/C4
-split of "how it's run" from "how data moves", so each diagram answers one question. It is a
-**repo-overview-only** section: per-directory READMEs stay lean and carry no diagram.
+split of "how it's run" from "how data moves", so each diagram answers one question. Authoring writes it into
+the **repo overview only** — per-directory READMEs stay a lean index. A README gains one only when someone
+asks for it outright (`spec-eval diagram <path> --write --add-section`), never as a by-product of `generate`.
 - **`### How it is invoked`** — a small sequenceDiagram: the User, the entry points, and what each run
   produces. Depict the **primary end-to-end workflow** a user runs, not just the first step — for a pipeline
   that is the whole run path (e.g. prepare → train → sample/serve), including the main run/serve entry even
@@ -139,25 +140,32 @@ split of "how it's run" from "how data moves", so each diagram answers one quest
   observed scan, on the boundary with dashed edges.
 - **Internal edges are inferred, not verified.** The wiring between components is read from the module intents,
   **not verified against a call graph** — the closing caveat line says so; external systems and noted entries
-  are **scanner-derived** (`file:line`-observed). Copy that line from the template verbatim: it is one
-  sentence of provenance, and regeneration mechanics or a dropped-detail note belong in their own line.
+  are **scanner-derived** (`file:line`-observed). Close the section with this line, byte-for-byte — one
+  sentence of provenance, with regeneration mechanics or a dropped-detail note kept to their own line:
+
+> The invocation entries and external systems are **scanner-derived** (`file:line`-observed) where noted; the internal edges are **inferred from the module intents, not verified against a call graph**.
 
 **Asking an agent to add or update the diagrams in an existing README** (the chat mirror of
 `spec-eval diagram <path> --write`): update the `## Architecture (data flow)` section of an **existing**
 `OVERVIEW.md`/`README.md`, touching only that section's body. If the doc has **no** such section, adding one is
 a **deliberate** act — the CLI gates it behind `--add-section`, and a doc that does not exist is authored by
-`generate` first. Re-stamp deterministically by running `spec-eval diagram <path> --write` (or
-`spec-eval context`); never hand-write the fingerprint digest. A ready prompt:
+`generate` first. A ready prompt:
 
 > Regenerate the `## Architecture (data flow)` mermaid diagrams for `<path>` from the current entry points and
 > module intents, and update only that section of its existing `OVERVIEW.md` — an invocation sequenceDiagram
 > (scanner-verified entries noted with their `file:line`; conventional invocations noted as not
 > scanner-detected) and a pure data-flow `flowchart LR`, internal edges marked inferred (not verified against
-> a call graph) — then re-stamp with `spec-eval diagram <path> --write`.
+> a call graph).
+
+**On the fingerprint stamp.** Never hand-write a digest, and don't ask an agent to. `spec-eval diagram <path>
+--write` is the only thing that stamps, and it stamps what *it* draws — it regenerates the section and writes
+the matching receipt in one step, so run it **instead of** a hand edit, not after one (running it after
+replaces the hand-written diagram). A hand-edited section simply carries no stamp, and an unstamped doc is
+never flagged stale — an honest silence, not a false receipt.
 
 *(CLI equivalent: `spec-eval diagram <path>` prints the fenced ```mermaid blocks to stdout and touches nothing;
 `--write` replaces the Architecture section of an existing doc and re-stamps only the architecture fingerprint;
-`--add-section` explicitly appends the section when the doc lacks one. Neither ever creates a doc.)*
+`--add-section` explicitly adds the section when the doc lacks one. Neither ever creates a doc.)*
 
 ## Reconstructed intent (reverse-engineering code you didn't write)
 When specifying code with no stated rationale, you may *infer* the "why" — but **label it**:

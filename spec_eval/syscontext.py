@@ -190,10 +190,10 @@ _AZURE_SDK = {"azure.storage.blob": "Azure Blob Storage", "@azure/storage-blob":
               "azure.servicebus": "Azure Service Bus", "@azure/service-bus": "Azure Service Bus",
               "azure.cosmos": "Azure Cosmos DB", "@azure/cosmos": "Azure Cosmos DB"}
 
-# --- entry-point detection (how the repo is INVOKED) — a SEPARATE scanner with its OWN provenance, never
-# folded into `_tables_digest`, so an entry-point-detection change never re-baselines the system-context
-# fingerprint. Python + packaging-manifest focused; other languages are a stated gap, never a fabricated node.
-EP_SCHEMA = 1                 # entry-point result layout version (separate artifact from the `scan()` result)
+# --- entry-point detection (how the repo is INVOKED) — a SEPARATE scanner whose detection knowledge is
+# deliberately kept OUT of `_tables_digest` below, so an entry-point-detection change can never re-baseline the
+# system-context fingerprint. Python + packaging-manifest focused; other languages are a stated gap, never a
+# fabricated node.
 EP_KIND_ORDER = {"script": 0, "package-main": 1, "web-app": 2, "cli-main": 3, "module-main": 4}
 EP_MODULE_MAIN_CAP = 6        # bare `if __name__ == '__main__'` guards kept in the cluster — capped so a repo
                               # full of demo/self-test guards can't drown the declared roots
@@ -271,6 +271,18 @@ def _visible_code(line, in_block, style):
     return "".join(out), in_block
 
 
+def read_text(path, cap=None):
+    """Read a file as UTF-8 with a FIXED encoding — never the host locale's default, or the same tree would
+    scan (and so fingerprint) differently across machines. `cap` bounds the bytes read; None reads it all.
+    Returns '' for an unreadable path. The ONE read path for every input that feeds a fingerprint: the code
+    scans and manifest parse here, and the spec/overview reads in `authoring` and `cli`."""
+    try:
+        raw = open(path, "rb").read(cap) if cap else open(path, "rb").read()
+    except OSError:
+        return ""
+    return raw.decode("utf-8", errors="ignore")
+
+
 def _visible_lines(rel, text):
     """Yield (lineno, raw_line, visible) for each line that carries visible, non-comment code — Python
     triple-quoted blocks and C-family / trailing-# comments stripped exactly as the scanner sees them, so a
@@ -300,11 +312,7 @@ def _visible_lines(rel, text):
 
 
 def _scan_file(repo, rel, add):
-    try:
-        raw = open(os.path.join(repo, rel), "rb").read(FILE_CAP)
-    except OSError:
-        return
-    text = raw.decode("utf-8", errors="ignore")     # fixed encoding: the scan must not vary with the locale
+    text = read_text(os.path.join(repo, rel), FILE_CAP)
     boto3_import = None            # (lineno, line) of `import boto3` — reported only if no client id resolves
     boto3_resolved = False
     go_block = False               # inside Go's `import ( ... )` block — those lines carry no keyword
@@ -466,8 +474,8 @@ def scanner_provenance():
     return {"version": __version__, "tables_digest": _tables_digest()}
 
 
-# --- entry-point scan: how is this codebase INVOKED? A deterministic sibling of `scan()` with its OWN
-# provenance, feeding the repo overview's Architecture (data flow) invocation diagram. ------------------------
+# --- entry-point scan: how is this codebase INVOKED? A deterministic sibling of `scan()` feeding the repo
+# overview's Architecture (data flow) invocation diagram. ----------------------------------------------------
 
 def _module_dotted(rel):
     """`spec_eval/cli.py` -> `spec_eval.cli` — the dotted module name for an entry-point label."""
@@ -478,10 +486,7 @@ def _scan_entrypoints_file(repo, rel, found, module_mains):
     """Collect entry-point evidence from one file's VISIBLE lines (prose can never be a root). `__main__.py`
     is a declared package entry (`python -m pkg`); a `__main__` guard with argparse/click is a cli-main; a
     bare guard is a (capped) module-main; a framework app object is an observed web-app capability."""
-    try:
-        text = open(os.path.join(repo, rel), "rb").read(FILE_CAP).decode("utf-8", errors="ignore")
-    except OSError:
-        return
+    text = read_text(os.path.join(repo, rel), FILE_CAP)
     guard = None                   # (lineno, matched line) of the __main__ guard
     has_cli = False                # argparse / click seen in this file
     for lineno, line, vis in _visible_lines(rel, text):
@@ -504,12 +509,6 @@ def _scan_entrypoints_file(repo, rel, found, module_mains):
             module_mains.append(("module-main", _module_dotted(rel), "run as a script", rel, ln, ltext))
 
 
-def _read_text(path):
-    """Read a file as UTF-8, locale-independent — matches the code scanners (`_scan_file`), so the manifest
-    parse is byte-deterministic across hosts (a locale-default decode would vary the entry-point targets)."""
-    return open(path, "rb").read().decode("utf-8", errors="ignore")
-
-
 def _parse_manifest_scripts(repo):
     """DECLARED console entry points from packaging manifests, read statically (UTF-8, no tomllib, never
     importing setup.py). Returns [(name, target, file, lineno, line)] sorted by name. Scoped to console/gui
@@ -518,7 +517,7 @@ def _parse_manifest_scripts(repo):
     pp = os.path.join(repo, "pyproject.toml")
     if os.path.exists(pp):
         section = None
-        for lineno, line in enumerate(_read_text(pp).splitlines(), 1):
+        for lineno, line in enumerate(read_text(pp).splitlines(), 1):
             h = _TOML_HEADER.match(line)
             if h:                                    # ANY table header resets section (no state leak past a
                 section = h.group(1) if h.group(1) in _MANIFEST_SCRIPT_SECTIONS else None  # non-script table)
@@ -530,7 +529,7 @@ def _parse_manifest_scripts(repo):
     sc = os.path.join(repo, "setup.cfg")
     if os.path.exists(sc):
         in_group = False
-        for lineno, line in enumerate(_read_text(sc).splitlines(), 1):
+        for lineno, line in enumerate(read_text(sc).splitlines(), 1):
             if line.strip().startswith("["):                       # a new [section] ends the console_scripts block
                 in_group = False
                 continue
@@ -550,8 +549,9 @@ def _parse_manifest_scripts(repo):
 def scan_entrypoints(repo, config):
     """Scan how the repo is INVOKED. Deterministic: same tree -> same result. Two passes over the SAME code
     universe/exclusions as `scan()` (a code walk on visible lines for guards / app objects / CLI mains) plus a
-    static manifest read for declared console scripts. Returns
-    `{schema, scanner, repo, files_scanned, entrypoints:[{kind, name, target, evidence:{file,line,match}}]}`."""
+    static manifest read for declared console scripts. Returns `{repo, files_scanned, module_mains_capped,
+    entrypoints:[{kind, name, target, evidence:{file,line,match}}]}`, where `module_mains_capped` counts the
+    bare `__main__` guards `EP_MODULE_MAIN_CAP` held back — a capped tier is REPORTED, never silently cut."""
     repo = os.path.abspath(repo)
     exts = tuple(config.get("code_ext") or coverage_mod.DEFAULT_CODE_EXT)
     user_excludes = config.get("exclude", [])
@@ -578,28 +578,8 @@ def scan_entrypoints(repo, config):
                     "evidence": {"file": f, "line": ln, "match": m}} for (k, n, t, f, ln, m) in found]
     entrypoints.sort(key=lambda e: (EP_KIND_ORDER.get(e["kind"], 9), e["name"], e["target"] or "",
                                     e["evidence"]["file"], e["evidence"]["line"]))
-    return {"schema": EP_SCHEMA, "scanner": ep_scanner_provenance(),
-            "repo": os.path.basename(repo), "files_scanned": files_scanned, "entrypoints": entrypoints}
-
-
-def _ep_tables_digest():
-    """16-char hash of the ENTRY-POINT detection knowledge — SEPARATE from `_tables_digest` so an entry-point
-    detection change never re-baselines the system-context fingerprint (the two scanners keep distinct
-    provenance)."""
-    payload = repr([
-        sorted(EP_KIND_ORDER.items()), sorted(FRAMEWORK_APP_FACTORIES), EP_MODULE_MAIN_CAP,
-        _MAIN_GUARD.pattern, _ARGPARSE.pattern, _CLICK.pattern, _APP_FACTORY.pattern,
-        sorted(_MANIFEST_SCRIPT_SECTIONS), _TOML_HEADER.pattern, _MANIFEST_SCRIPT_ROW.pattern,
-        _SETUPCFG_SCRIPT_GROUP.pattern, _SETUPCFG_SCRIPT_ROW.pattern,
-    ])
-    return hashlib.sha256(payload.encode()).hexdigest()[:16]
-
-
-def ep_scanner_provenance():
-    """Identity of the entry-point scanner: package version + its own detection-table digest, kept apart from
-    the system-context scanner's provenance."""
-    from spec_eval import __version__
-    return {"version": __version__, "ep_tables_digest": _ep_tables_digest()}
+    return {"repo": os.path.basename(repo), "files_scanned": files_scanned,
+            "module_mains_capped": max(0, len(module_mains) - EP_MODULE_MAIN_CAP), "entrypoints": entrypoints}
 
 
 def _scoped(result, scope_dir):
@@ -648,13 +628,12 @@ def evidence_block(result, scope_dir=None):
     return "\n".join(lines)
 
 
-def entrypoints_block(ep_result, scope_dir=None):
+def entrypoints_block(ep_result):
     """The OBSERVED ENTRY POINTS block handed to the repo overview synthesis call — one line per detected
     entry point with a verifiable evidence site, for the Architecture section's invocation diagram. Empty
-    string when none detected (the diagram then shows no entry cluster — never an invented one)."""
+    string when none detected (the diagram then shows no entry cluster — never an invented one). A capped
+    module-main tier is stated as a count, so the block never reads as the complete list when it is not."""
     entries = ep_result.get("entrypoints", [])
-    if scope_dir is not None:
-        entries = [e for e in entries if os.path.dirname(e["evidence"]["file"]) == scope_dir]
     if not entries:
         return ""
     lines = ["## OBSERVED ENTRY POINTS (architecture)",
@@ -666,7 +645,19 @@ def entrypoints_block(ep_result, scope_dir=None):
         ev = e["evidence"]
         lines.append(f"- {e['name']}{tgt} | kind: {e['kind']} | evidence: `{ev['file']}:{ev['line']}` — "
                      f"`{ev['match']}`")
+    capped = ep_result.get("module_mains_capped", 0)
+    if capped:                                     # a held-back tier is stated, never silently dropped
+        lines.append(f"({capped} further bare `__main__` guard(s) observed but not listed — the weakest tier "
+                     f"is capped at {EP_MODULE_MAIN_CAP} so declared roots stay legible.)")
     return "\n".join(lines)
+
+
+def overview_evidence(ctx_result, ep_result=None):
+    """The scanner-derived evidence appended to an overview/diagram synthesis call: the entry-point block then
+    the system block, joined — or None when neither observed anything. ONE composer, so `generate --overview`
+    and `diagram` always feed the model the same evidence in the same order."""
+    blocks = [entrypoints_block(ep_result) if ep_result else "", evidence_block(ctx_result)]
+    return "\n\n".join(b for b in blocks if b) or None
 
 
 def format_report(result, repo):
@@ -754,79 +745,103 @@ def diff_receipt(d, sha=None):
     return f"System-context drift{at}:\n" + _delta_lines(d)
 
 
-# --- overview freshness stamp: does a generated overview still match the scan it was rendered from? ---------
+# --- freshness stamps: does a generated doc still match the scan it was rendered from? ----------------------
+# A generated doc carries one invisible HTML-comment receipt per claim it makes about the code. Two exist:
+#   system-context-fingerprint  (edge 2) — the System context table vs the observed `(system, direction)` set.
+#   architecture-fingerprint    (edge 3) — the Architecture diagram vs the systems + entry points + module set.
+# Both are the SAME mechanism over a different digest, so the read/compare/replace behaviour lives once, in
+# `_Stamp`, and only the digest functions differ. Neither digest includes the detection tables: a scanner
+# upgrade is a benign re-baseline, not doc staleness. Staleness WARNS; it never gates.
 
-STAMP_RE = re.compile(r"<!--\s*system-context-fingerprint:\s*([0-9a-f]+)\s*-->")
+def _digest(payload):
+    """The 12-char content hash both stamps use — `sorted()` inputs only, so it is order-independent and
+    stable across runs."""
+    return hashlib.sha256(repr(payload).encode()).hexdigest()[:12]
+
+
+class _Stamp:
+    """One named fingerprint receipt: render it, read it back, compare it, refresh it in place."""
+
+    def __init__(self, name):
+        self.name = name
+        self.re = re.compile(rf"<!--\s*{name}:\s*([0-9a-f]+)\s*-->")
+
+    def comment(self, digest):
+        """The receipt line appended to a generated doc — invisible in rendered markdown."""
+        return f"<!-- {self.name}: {digest} -->"
+
+    def read(self, markdown):
+        m = self.re.search(markdown)
+        return m.group(1) if m else None
+
+    def stale(self, markdown, digest):
+        """True only when a stamp is PRESENT and no longer matches — an unstamped doc is never flagged."""
+        stamp = self.read(markdown)
+        return stamp is not None and stamp != digest
+
+    def restamp(self, markdown, digest):
+        """Replace this stamp in place, or append it when absent. Touches NO other stamp: refreshing one
+        receipt must never re-bless a claim it did not regenerate."""
+        comment = self.comment(digest)
+        if self.re.search(markdown):
+            return self.re.sub(lambda _m: comment, markdown, count=1)
+        return markdown.rstrip() + "\n\n" + comment + "\n"
+
+
+_SYS_STAMP = _Stamp("system-context-fingerprint")
+_ARCH_STAMP = _Stamp("architecture-fingerprint")
+STAMP_RE = _SYS_STAMP.re            # the compiled patterns stay module surface (readers match on them)
+ARCH_STAMP_RE = _ARCH_STAMP.re
 
 
 def fingerprint_digest(result):
     """A 12-char hash of the observed `(system, direction)` key set — the same identity `diff` uses. Two
     scans with the same systems share a digest even if evidence sites moved."""
-    keys = sorted((e["system"], e["direction"]) for e in result.get("entries", []))
-    return hashlib.sha256(repr(keys).encode()).hexdigest()[:12]
-
-
-def stamp_comment(result):
-    """The HTML-comment receipt appended to a generated overview: the fingerprint the System context section
-    was rendered from. Invisible in rendered markdown; read back by `overview_stale`."""
-    return f"<!-- system-context-fingerprint: {fingerprint_digest(result)} -->"
-
-
-def read_stamp(markdown):
-    m = STAMP_RE.search(markdown)
-    return m.group(1) if m else None
-
-
-def overview_stale(markdown, current):
-    """True when the overview carries a stamp whose digest no longer matches the current scan — the code's
-    external systems changed but the overview was not regenerated. Absent stamp -> not stale (nothing to
-    verify)."""
-    stamp = read_stamp(markdown)
-    return stamp is not None and stamp != fingerprint_digest(current)
-
-
-# --- architecture diagram freshness stamp (edge 3: fingerprint -> diagram) ----------------------------------
-# A PARALLEL, distinct stamp so a stale diagram can be flagged without touching the system-context stamp above.
-# Its digest composes BOTH scanner-derived layers (external systems + entry points) AND the module set the
-# diagram was drawn over, so a new system, a new entry point, or an added/renamed module all trip `--check`.
-# Like `fingerprint_digest`, it excludes the detection tables — a scanner upgrade is a benign re-baseline.
-
-ARCH_STAMP_RE = re.compile(r"<!--\s*architecture-fingerprint:\s*([0-9a-f]+)\s*-->")
+    return _digest(sorted((e["system"], e["direction"]) for e in result.get("entries", [])))
 
 
 def architecture_digest(ctx_result, ep_result, modules):
     """A 12-char hash binding the diagram to what it depicts: the observed `(system, direction)` key set, the
-    `(kind, name, target)` entry-point key set, and the sorted module identifiers."""
+    `(kind, name, target)` entry-point key set (plus the count of capped module-mains, so a held-back entry
+    still moves the digest), and the sorted module identifiers."""
     sys_keys = sorted((e["system"], e["direction"]) for e in ctx_result.get("entries", []))
     ep_keys = sorted((e["kind"], e["name"], e.get("target") or "") for e in ep_result.get("entrypoints", []))
-    payload = repr([sys_keys, ep_keys, sorted(modules)])
-    return hashlib.sha256(payload.encode()).hexdigest()[:12]
+    return _digest([sys_keys, ep_keys, ep_result.get("module_mains_capped", 0), sorted(modules)])
+
+
+def stamp_comment(result):
+    """The receipt recording the fingerprint a System context section was rendered from."""
+    return _SYS_STAMP.comment(fingerprint_digest(result))
+
+
+def read_stamp(markdown):
+    return _SYS_STAMP.read(markdown)
+
+
+def overview_stale(markdown, current):
+    """True when the overview carries a stamp whose digest no longer matches the current scan — the code's
+    external systems changed but the overview was not regenerated."""
+    return _SYS_STAMP.stale(markdown, fingerprint_digest(current))
 
 
 def architecture_stamp_comment(ctx_result, ep_result, modules):
-    """The HTML-comment receipt appended to a generated overview alongside (and distinct from) the
-    system-context stamp: the architecture fingerprint the diagram was rendered from."""
-    return f"<!-- architecture-fingerprint: {architecture_digest(ctx_result, ep_result, modules)} -->"
+    """The receipt recording the architecture fingerprint a diagram was rendered from — distinct from, and
+    appended alongside, the system-context stamp."""
+    return _ARCH_STAMP.comment(architecture_digest(ctx_result, ep_result, modules))
 
 
 def read_arch_stamp(markdown):
-    m = ARCH_STAMP_RE.search(markdown)
-    return m.group(1) if m else None
+    return _ARCH_STAMP.read(markdown)
 
 
 def diagram_stale(markdown, ctx_result, ep_result, modules):
-    """True when the overview carries an architecture stamp whose digest no longer matches a fresh scan — the
-    systems, entry points, or module set changed but the diagram was not regenerated. Absent stamp -> not
-    stale. Diagram staleness WARNS; it never gates."""
-    stamp = read_arch_stamp(markdown)
-    return stamp is not None and stamp != architecture_digest(ctx_result, ep_result, modules)
+    """True when the doc carries an architecture stamp whose digest no longer matches a fresh scan — the
+    systems, entry points, or module set changed but the diagram was not regenerated."""
+    return _ARCH_STAMP.stale(markdown, architecture_digest(ctx_result, ep_result, modules))
 
 
 def restamp_architecture(markdown, ctx_result, ep_result, modules):
-    """Refresh (replace-or-append) ONLY the architecture-fingerprint stamp — used by `diagram --write`, which
-    regenerates the diagram alone. Any existing system-context stamp is left BYTE-IDENTICAL: a diagram update
-    must never re-bless a stale System context table, and it never adds a system-context stamp of its own."""
-    stamp = architecture_stamp_comment(ctx_result, ep_result, modules)
-    if ARCH_STAMP_RE.search(markdown):
-        return ARCH_STAMP_RE.sub(lambda _m: stamp, markdown, count=1)
-    return markdown.rstrip() + "\n\n" + stamp + "\n"
+    """Refresh ONLY the architecture-fingerprint stamp — used by `diagram --write`, which regenerates the
+    diagram alone. Any existing system-context stamp is left BYTE-IDENTICAL: a diagram update must never
+    re-bless a stale System context table, and it never adds a system-context stamp of its own."""
+    return _ARCH_STAMP.restamp(markdown, architecture_digest(ctx_result, ep_result, modules))

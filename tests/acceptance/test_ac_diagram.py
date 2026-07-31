@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from spec_eval import authoring, cli, syscontext
+from spec_eval import authoring, cli, providers, syscontext
 
 
 def test_acd001_stdout_prints_a_mermaid_block_and_touches_nothing(tmp_path, fake_model, capsys):
@@ -119,6 +119,52 @@ def test_acd007_diagram_on_a_directory_with_no_code_errors_cleanly(tmp_path, fak
     with pytest.raises(SystemExit) as ex:
         cli.main(["diagram", str(tmp_path), "-m", fake_model])
     assert "nothing to diagram" in str(ex.value)
+
+
+def test_acd011_a_second_write_replaces_the_section_it_wrote(tmp_path, fake_model):
+    """ACD-011. Given a doc `diagram --write` already wrote (so its Architecture body is two '###'
+    subsections), When `--write` runs again, Then the section is REPLACED — the doc does not accumulate a
+    second copy of the diagrams on every regeneration."""
+    (tmp_path / "a.py").write_text("x = 1\n")
+    (tmp_path / "OVERVIEW.md").write_text("# Proj\n\n## Architecture (data flow)\nold\n\n## System context\n| x |\n")
+    cli.main(["diagram", str(tmp_path), "--write", "-m", fake_model])
+    first = (tmp_path / "OVERVIEW.md").read_text()
+    cli.main(["diagram", str(tmp_path), "--write", "-m", fake_model])
+    second = (tmp_path / "OVERVIEW.md").read_text()
+    assert second.count("### How it is invoked") == 1 and second.count("### Data flow") == 1
+    assert second == first                                     # same code + same reply -> byte-identical doc
+
+
+def test_acd012_a_reply_with_no_mermaid_block_never_overwrites_the_doc(tmp_path, fake_model, monkeypatch):
+    """ACD-012. Given a model reply carrying no ```mermaid block (an empty or derailed synthesis), When
+    `diagram --write` runs, Then it exits non-zero and the doc is left BYTE-IDENTICAL — a bad reply must not
+    blank a good diagram."""
+    (tmp_path / "a.py").write_text("x = 1\n")
+    original = "# Proj\n\n## Architecture (data flow)\n```mermaid\nflowchart LR\n  A --> B\n```\n> caveat\n"
+    (tmp_path / "OVERVIEW.md").write_text(original)
+    monkeypatch.setattr(authoring, "diagram_block", lambda *a, **k: ("I could not produce a diagram.", {}, {}, ["a.py"], None))
+    with pytest.raises(SystemExit) as ex:
+        cli.main(["diagram", str(tmp_path), "--write", "-m", fake_model])
+    assert "mermaid" in str(ex.value)
+    assert (tmp_path / "OVERVIEW.md").read_text() == original
+
+
+def test_acd013_a_diagram_is_synthesised_in_exactly_one_pass(tmp_path, fake_model, monkeypatch, capsys):
+    """ACD-013. Given module intents far over the reduce cap, When `diagram` runs, Then there is exactly ONE
+    synthesis call — a diagram is never drawn from other diagrams — every module still reaches it, and the
+    slicing is reported rather than passed off as a full view."""
+    monkeypatch.setattr(authoring, "REDUCE_CAP", 400)
+    for i in range(6):
+        (tmp_path / f"m{i}.py").write_text("x = 1\n")
+        (tmp_path / f"m{i}.md").write_text(f"## 1. Purpose\n\n**In one line:** module {i}.\n" + "filler. " * 60)
+    seen = []
+    real_gen = providers.gen
+    monkeypatch.setattr(providers, "gen", lambda m, s, u, **k: (seen.append(u), real_gen(m, s, u, **k))[1])
+    cli.main(["diagram", str(tmp_path), "-m", fake_model])
+    assert len(seen) == 1                                      # one picture, drawn once
+    for i in range(6):
+        assert f"m{i}.py" in seen[0]                           # ...over every module, none dropped
+    assert "sliced to an equal share" in capsys.readouterr().err   # the partial view is reported
 
 
 def test_acd008_check_warns_for_a_stale_readme_diagram(tmp_path, fake_model, capsys):

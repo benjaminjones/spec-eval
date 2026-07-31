@@ -249,14 +249,16 @@ def main(argv=None):
             d = syscontext.diff(baseline, ctx)
             print(syscontext.diff_receipt(d, sha=runlog.git_sha(args.repo)))
             overview_path = _diagram_target(args.repo)                       # OVERVIEW.md, else README.md — the doc
-            overview_md = open(overview_path, errors="ignore").read() if overview_path else ""   # diagram --write stamps
+            overview_md = syscontext.read_text(overview_path) if overview_path else ""
             doc = os.path.basename(overview_path) if overview_path else "OVERVIEW.md"
             overview_stale = bool(overview_md) and syscontext.overview_stale(overview_md, ctx)   # second edge
             if overview_stale:
                 print(f"⚠ {doc} system context is stale — regenerate its overview (`generate --overview`)")
-            ep = syscontext.scan_entrypoints(args.repo, cfg)                 # third edge: fingerprint -> diagram
-            modules = authoring.module_set(args.repo, cfg)
-            diagram_stale = bool(overview_md) and syscontext.diagram_stale(overview_md, ctx, ep, modules)
+            diagram_stale = False
+            if syscontext.read_arch_stamp(overview_md):        # third edge: fingerprint -> diagram. The extra
+                ep = syscontext.scan_entrypoints(args.repo, cfg)   # scans run ONLY for a doc that carries the
+                modules = authoring.module_set(args.repo, cfg)     # stamp — no diagram, no walk to compare it to
+                diagram_stale = syscontext.diagram_stale(overview_md, ctx, ep, modules)
             if diagram_stale:
                 print(f"⚠ {doc} architecture diagram is stale — regenerate it "
                       "(`spec-eval diagram . --write`, or `generate --overview`)")
@@ -295,23 +297,29 @@ def main(argv=None):
                     f"diagram --write updates an EXISTING overview — none found at {args.repo} (looked for "
                     f"OVERVIEW.md, README.md). Run `spec-eval generate {args.repo} --overview repo` to author "
                     f"one, or pipe in `spec-eval diagram {args.repo}`.")
-            original = open(target, errors="ignore").read()
+            original = syscontext.read_text(target)
             if not args.add_section and not authoring.has_architecture_section(original):   # replace-only, no section
                 raise SystemExit(
                     f"{os.path.relpath(target)} has no '## Architecture (data flow)' section — pass --add-section to "
                     f"append one, pipe in `spec-eval diagram {args.repo}`, or run "
                     f"`spec-eval generate {args.repo} --overview repo`.")
-        block, ctx, ep, modules = authoring.diagram_block(
+        block, ctx, ep, modules, note = authoring.diagram_block(
             args.repo, cfg, args.model,
             on_progress=lambda m: print(f"  … {m}", file=sys.stderr, flush=True))
         if not modules:
             raise SystemExit(f"no spec-worthy code files under {args.repo} — nothing to diagram.")
+        if note:
+            print(f"⚠ {note}", file=sys.stderr)                   # a partial view is REPORTED, never swallowed
         if target is None:
             print(block)                                          # STDOUT only — touches nothing, creates nothing
         else:
+            if "```mermaid" not in block:                         # a doc is only ever overwritten with a diagram:
+                raise SystemExit(                                 # an empty/derailed reply must not blank a good one
+                    f"the model returned no ```mermaid block, so {os.path.relpath(target)} was left unchanged "
+                    f"(re-run, or inspect the reply with `spec-eval diagram {args.repo}`).")
             md = authoring.set_architecture_section(original, block, create=args.add_section)
             md = syscontext.restamp_architecture(md, ctx, ep, modules)   # refresh ONLY the architecture stamp
-            open(target, "w").write(md.rstrip() + "\n")
+            open(target, "w", encoding="utf-8").write(md.rstrip() + "\n")
             print(f"wrote the Architecture (data flow) section + re-stamped → {os.path.abspath(target)}",
                   file=sys.stderr)
         print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + "

@@ -55,6 +55,7 @@ flowchart LR
     style core fill:none,stroke:#94a3b8,stroke-dasharray:4 4
 ```
 > The invocation entries and external systems are **scanner-derived** (`file:line`-observed) where noted; the internal edges are **inferred from the module intents, not verified against a call graph**.
+<!-- ^ Copy that caveat line byte-for-byte: `spec-eval` emits the identical sentence, and a test pins the two together. -->
 
 *(For internal component diagrams and stateful flows, see the relevant module spec's §3 Behavior.)*
 

@@ -6,8 +6,6 @@ architecture-fingerprint stamp is distinct from the system-context-fingerprint s
 """
 import json
 
-import pytest
-
 from spec_eval import authoring, providers, syscontext
 from spec_eval.authoring import ARCH_DIAGRAM_RUBRIC
 
@@ -82,6 +80,20 @@ def test_module_main_cluster_is_capped(tmp_path):
     assert sum(1 for e in eps if e["kind"] == "module-main") == syscontext.EP_MODULE_MAIN_CAP
 
 
+def test_a_capped_module_main_tier_is_reported_not_silently_dropped(tmp_path):
+    """A cap that drops evidence must leave a receipt, like coverage's '… and N more' — the block states the
+    held-back count, and the count feeds the architecture digest so the (N+1)th guard still trips staleness."""
+    n = syscontext.EP_MODULE_MAIN_CAP
+    _write(tmp_path, {f"m{i}.py": "if __name__ == '__main__':\n    go()\n" for i in range(n + 2)})
+    ep = syscontext.scan_entrypoints(str(tmp_path), {})
+    assert ep["module_mains_capped"] == 2
+    assert "2 further bare `__main__` guard(s) observed but not listed" in syscontext.entrypoints_block(ep)
+
+    at_cap = dict(ep, module_mains_capped=0)                    # the same repo with the cap exactly met
+    assert (syscontext.architecture_digest({}, ep, ["a.py"])
+            != syscontext.architecture_digest({}, at_cap, ["a.py"]))
+
+
 # --- determinism + evidence -------------------------------------------------------------------------------
 
 def test_entrypoint_scan_is_deterministic(tmp_path):
@@ -111,13 +123,14 @@ def test_entrypoints_block_marker_agrees_with_the_rubric(tmp_path):
 
 # --- provenance is separate from the system-context scanner -----------------------------------------------
 
-def test_entrypoint_provenance_is_separate_from_system_context(tmp_path, monkeypatch):
-    """An entry-point-detection change moves the EP digest but NOT the system-context tables digest — the two
-    scanners keep distinct provenance, so an EP tweak never re-baselines system context."""
-    sys_base, ep_base = syscontext._tables_digest(), syscontext._ep_tables_digest()
+def test_entrypoint_knowledge_never_rebaselines_the_system_context_fingerprint(monkeypatch):
+    """The entry-point detection tables are deliberately absent from `_tables_digest`: teaching the scanner a
+    new framework or moving the module-main cap must never make a stored system-context baseline read as a
+    scanner re-baseline."""
+    base = syscontext._tables_digest()
     monkeypatch.setattr(syscontext, "FRAMEWORK_APP_FACTORIES", syscontext.FRAMEWORK_APP_FACTORIES + ("Litestar",))
-    assert syscontext._ep_tables_digest() != ep_base            # EP knowledge changed -> EP digest moves
-    assert syscontext._tables_digest() == sys_base              # ...system-context provenance untouched
+    monkeypatch.setattr(syscontext, "EP_MODULE_MAIN_CAP", syscontext.EP_MODULE_MAIN_CAP + 1)
+    assert syscontext._tables_digest() == base
 
 
 # --- architecture digest / stamp: distinct from the system-context stamp ----------------------------------
@@ -227,6 +240,35 @@ def test_set_architecture_section_ignores_a_heading_inside_a_code_fence(tmp_path
     out = authoring.set_architecture_section(md, "```mermaid\nflowchart TD\n  a --> b\n```\n> caveat")
     assert "EXAMPLE" in out                                    # the fenced example is not the section — untouched
     assert "REAL old diagram" not in out and "flowchart TD" in out   # the real section body was replaced
+
+
+GENERATED_BODY = ("### How it is invoked\n```mermaid\nsequenceDiagram\n    actor U as User\n    U->>R: run\n```\n\n"
+                  "### Data flow\n```mermaid\nflowchart LR\n    A --> B\n```\n> caveat\n")
+
+
+def test_replacing_a_generated_section_is_idempotent_not_cumulative(tmp_path):
+    """THE shape the feature itself produces: an Architecture body is two '###' subsections. The section must
+    end at the next '##' — ending at a '###' would replace only the first diagram and leave the rest of the
+    stale section behind, so every regeneration would append another copy."""
+    md = ("# P\n\n## Governing principles\n- **X** — y.\n\n"
+          "## Architecture (data flow)\n" + GENERATED_BODY.replace("A --> B", "OLD --> STALE") +
+          "\n## System context\n| x |\n")
+    once = authoring.set_architecture_section(md, GENERATED_BODY)
+    twice = authoring.set_architecture_section(once, GENERATED_BODY)
+    for out in (once, twice):
+        assert out.count("### How it is invoked") == 1 and out.count("### Data flow") == 1
+        assert "OLD --> STALE" not in out                       # the stale diagram is gone, not pushed down
+        assert "## Governing principles" in out and "## System context" in out    # neighbours intact
+    assert twice == once                                       # regenerating twice changes nothing further
+
+
+def test_add_section_keeps_the_stamp_footer_at_the_bottom(tmp_path):
+    """The receipts are the document's footer: a first-time add goes ABOVE them, never after, so the stamps
+    don't end up stranded mid-document."""
+    md = "# P\n\n## Install\nrun it\n\n<!-- system-context-fingerprint: aaaa1111bbbb -->\n"
+    out = authoring.set_architecture_section(md, GENERATED_BODY, create=True)
+    assert out.index("## Architecture (data flow)") < out.index("<!-- system-context-fingerprint")
+    assert syscontext.read_stamp(out) == "aaaa1111bbbb"         # and the existing receipt is untouched
 
 
 def test_set_architecture_section_preserves_a_trailing_system_context_stamp(tmp_path):

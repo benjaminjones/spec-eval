@@ -9,7 +9,8 @@ SOURCE OF TRUTH for the repo overview's section set — `test_overview_sections_
 to it — and both overview rubrics share the System-context honesty phrases pinned below.)"""
 import os
 
-from spec_eval.authoring import ARCH_DIAGRAM_RUBRIC, AUTHORING_RUBRIC, DIR_OVERVIEW_RUBRIC, REPO_OVERVIEW_RUBRIC
+from spec_eval.authoring import (ARCH_CAVEAT, ARCH_DIAGRAM_RUBRIC, AUTHORING_RUBRIC, DIR_OVERVIEW_RUBRIC,
+                                 REPO_OVERVIEW_RUBRIC)
 from spec_eval.rubric import DRIFT_RUBRIC
 
 _ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -154,6 +155,16 @@ def test_diagram_phrases_shared_across_rubric_skill_and_template():
         assert phrase in ARCH_DIAGRAM_RUBRIC, f"authoring.py ARCH_DIAGRAM_RUBRIC lost the diagram phrase: {phrase!r}"
         assert phrase in skill, f"spec-authoring SKILL.md lost the diagram phrase: {phrase!r}"
         assert phrase in template, f"OVERVIEW-template.md lost the diagram phrase: {phrase!r}"
+
+
+def test_the_provenance_caveat_is_one_sentence_byte_for_byte():
+    """The rubric orders the model to close the section with this line 'verbatim' while the skill tells an
+    agent to copy it from the template — so the three copies must be the SAME STRING, not three paraphrases
+    that render differently depending on who authored the page. Substring pins can't catch a formatting
+    divergence; this compares the whole sentence."""
+    assert ARCH_CAVEAT in ARCH_DIAGRAM_RUBRIC                  # the rubric embeds the constant, not a retype
+    for path, name in ((OVERVIEW_TEMPLATE_PATH, "OVERVIEW-template.md"), (AUTHORING_SKILL_PATH, "SKILL.md")):
+        assert ARCH_CAVEAT in open(path).read(), f"{name} no longer carries the caveat line byte-for-byte"
 
 
 def test_per_dir_overview_never_carries_the_architecture_diagram():
