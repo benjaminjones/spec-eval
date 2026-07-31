@@ -29,7 +29,7 @@ Two governing rules a reviewer can check:
 | CODE_CAP | Max code characters fed to a per-module authoring call (`caps.code` in a config, default `audit.CODE_CAP`). |
 | REDUCE_CAP | Char budget for the per-module intents concatenated into one synthesis pass (`caps.reduce` in a config overrides the default). |
 | overwrite | Flag: regenerate already-present targets instead of skipping them. |
-| status | Per-target outcome: `authored` or `skipped`. |
+| status | Per-target outcome: `authored`, `skipped` (a file was already there), or `failed` (the reply was not a document — nothing written, nothing stamped). |
 | note | Optional per-target message flagging a partial view or extra work: a multi-pass (recursive) synthesis, code input over the cap, a model reply cut off at the token cap, or a per-dir overview skipped below `overview_min_files`. |
 | on_progress | Optional callback invoked with a short status string as each module (map) and target is authored — never on a skip. |
 
