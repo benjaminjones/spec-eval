@@ -116,19 +116,24 @@ The repo `OVERVIEW.md`'s `## Architecture (data flow)` section carries TWO `merm
 split of "how it's run" from "how data moves", so each diagram answers one question. It is a
 **repo-overview-only** section: per-directory READMEs stay lean and carry no diagram.
 - **`### How it is invoked`** — a small sequenceDiagram: the User, the entry points, and what each run
-  produces. Its layout is deterministic (participants render in declaration order), so only the content can be
-  wrong — and the content is provenance-labeled: a scanner-observed entry carries
-  `Note over X: scanner-verified entry point (file:line)`; an invocation read from the module intents or docs
-  carries `Note over X: conventional invocation (per the module intents, not scanner-detected)`. Never present
-  an unscanned invocation as verified; never add an entry you cannot point at; never write entry points into a
+  produces. Depict the **primary end-to-end workflow** a user runs, not just the first step — for a pipeline
+  that is the whole run path (e.g. prepare → train → sample/serve), including the main run/serve entry even
+  when it is a conventional (not scanner-detected) invocation. Its layout is deterministic (participants render
+  in declaration order), so only the content can be wrong — and the content is provenance-labeled: a
+  scanner-observed entry carries `Note over X: scanner-verified entry point (file:line)`; an invocation read
+  from the module intents or docs carries
+  `Note over X: conventional invocation (per the module intents, not scanner-detected)`. Never present an
+  unscanned invocation as verified; never add an entry you cannot point at; never write entry points into a
   per-module spec — they live only here.
 - **`### Data flow`** — a `flowchart LR` producer→consumer pipeline, sources left → outputs right, with NO
-  entry-points cluster and NO CLI/config nodes (invocation lives in the first diagram). Budget ~12 nodes /
-  18 edges — collapse same-role siblings ("Role`<br/>`glob-path"), fold an artifact into its sole producer,
-  and move dropped detail to a one-line note under the diagram. Stage subgraphs, semantic shapes (stadium =
-  invocation surface, cylinder = artifact, parallelogram = external/terminal), and dark-mode-safe classDefs
-  that always set fill+stroke+color together. External systems come only from the observed scan, on the
-  boundary with dashed edges.
+  entry-points cluster and NO CLI/config nodes (invocation lives in the first diagram). It must span the
+  **full pipeline to the terminal output** — never truncate before the generated result / served response /
+  written report. Budget ~12 nodes / 18 edges — collapse *within* a stage (same-role siblings →
+  "Role`<br/>`glob-path", fold an artifact into its sole producer, drop only off-path tools like a profiler),
+  never a whole downstream stage; move dropped detail to a one-line note under the diagram. Stage subgraphs,
+  semantic shapes (stadium = invocation surface, cylinder = artifact, parallelogram = external/terminal), and
+  dark-mode-safe classDefs that always set fill+stroke+color together. External systems come only from the
+  observed scan, on the boundary with dashed edges.
 - **Internal edges are inferred, not verified.** The wiring between components is read from the module intents,
   **not verified against a call graph** — the closing caveat line says so; external systems and noted entries
   are **scanner-derived** (`file:line`-observed). Copy that line from the template verbatim: it is one
