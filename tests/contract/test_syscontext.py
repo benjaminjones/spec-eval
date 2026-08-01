@@ -130,7 +130,7 @@ def test_cli_context_writes_both_artifacts_without_a_key(ctx_repo, tmp_path, cap
     assert data["schema"] == syscontext.SCHEMA and data["entries"]
     assert data["scanner"]["version"] and data["scanner"]["tables_digest"]
     assert "# System context" in open(out / "system-context.md").read()
-    assert any(json.loads(l)["command"] == "context" for l in open(out / "runs.jsonl"))
+    assert any(json.loads(line)["command"] == "context" for line in open(out / "runs.jsonl"))
 
 
 def test_cli_context_rejects_a_file_path(ctx_repo):

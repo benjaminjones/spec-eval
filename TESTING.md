@@ -28,3 +28,8 @@ pip install -e ".[dev]"
 ruff check .          # Layer 0
 pytest                # Layers 1, 2, 3 — no API key needed
 ```
+
+Layers 0 through 3 also run in CI on every pull request and on `main`
+([`tests.yml`](.github/workflows/tests.yml)), against the `requires-python` floor and a current release, so the
+version claim in `pyproject.toml` stays true rather than aspirational. The manual layer stays local by design:
+it needs a model.
