@@ -3,8 +3,8 @@ name: Artifact hygiene
 # Fails a pull request that leaks a personal path, a denylisted project name, or narration of the session that
 # produced the change. The rule already lives in CONTRIBUTING and the PR template; this makes it mechanical.
 #
-# `edited` is in the trigger list on purpose: the PR body is a published artifact, and editing it after opening
-# would otherwise slip past a check that only ran on push.
+# `edited` is in the trigger list on purpose: the PR body is a published artifact and becomes the merge commit on
+# a squash merge, so a body edited after opening would otherwise slip past a check that only ran on push.
 
 on:
   pull_request:
@@ -13,38 +13,64 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: artifact-hygiene-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   check:
     name: No leaked references
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0            # commit messages and the branch diff both need real history
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Collect the PR's text surfaces
-        # Every value from the pull request arrives through `env`, never interpolated into the script body.
-        # A title containing shell syntax is then data, not code.
+        # Every value from the pull request arrives through `env`, never interpolated into the script body, so a
+        # title containing shell syntax is data rather than code.
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           mkdir -p .hygiene
-          printf '%s' "$PR_TITLE" > .hygiene/title.txt
-          printf '%s' "$PR_BODY"  > .hygiene/body.txt
+          printf '%s' "$PR_TITLE"    > .hygiene/title.txt
+          printf '%s' "$PR_BODY"     > .hygiene/body.txt
+          printf '%s' "$PR_HEAD_REF" > .hygiene/head_ref.txt
+          : > .hygiene/commits.txt
+          : > .hygiene/diff.txt
           # Compare against the merge base, so a base branch that moved on does not drag unrelated commits in.
-          BASE=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
-          git log --format='%H%n%B' "$BASE".."$HEAD_SHA" > .hygiene/commits.txt
-          git diff "$BASE" "$HEAD_SHA"                   > .hygiene/diff.txt
+          # A plumbing failure here is an infrastructure problem, not a hygiene finding, and says so.
+          if BASE=$(git merge-base "$BASE_SHA" "$HEAD_SHA" 2>/dev/null); then
+            git log --format='%H%n%B' "$BASE".."$HEAD_SHA" > .hygiene/commits.txt
+            git diff "$BASE" "$HEAD_SHA"                   > .hygiene/diff.txt
+          else
+            echo "::warning::could not compute the merge base; scanning title, body and branch name only"
+          fi
+
+      - name: Take the checker from the base branch
+        # The pull request under test must not supply its own gate. The base copy is authoritative; the PR tree
+        # is data. On the pull request that first adds the checker there is no base copy, so it bootstraps from
+        # the PR and says so.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SCRIPT: .github/scripts/check_artifact_hygiene.py
+        run: |
+          set -euo pipefail
+          if git show "$BASE_SHA:$SCRIPT" > "$RUNNER_TEMP/check.py" 2>/dev/null; then
+            echo "using the checker from the base branch"
+          else
+            cp "$SCRIPT" "$RUNNER_TEMP/check.py"
+            echo "::warning::no checker on the base branch; bootstrapping from this pull request"
+          fi
 
       - name: Check
         env:
           ARTIFACT_DENYLIST: ${{ secrets.ARTIFACT_DENYLIST }}
-        run: python .github/scripts/check_artifact_hygiene.py .hygiene
+          IS_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        run: python3 "$RUNNER_TEMP/check.py" .hygiene

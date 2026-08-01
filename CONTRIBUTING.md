@@ -39,12 +39,20 @@ agnostic of the working session that produced it. General use cases are fine; co
 references to specific private projects are not.
 
 The mechanical half of that rule runs in CI. [`artifact-hygiene.yml`](.github/workflows/artifact-hygiene.yml)
-scans the PR title, the PR body, every commit message on the branch, and the diff's **added** lines, and fails on
-a path from a personal machine, a phrase narrating the session, or a name listed in the `ARTIFACT_DENYLIST`
-repository secret. The names live in the secret rather than the repo, because a denylist naming the private
-projects would publish exactly what it exists to hide — so a fork pull request runs the generic rules only, and
-says so. Judgement calls (defensive negation, a chat-shaped contrast, a flourish) are still the cold-read pass's
-job; the check catches the categories a reader can name, not the ones they have to feel.
+scans the PR title, the PR body, the branch name, every commit message on the branch, and the diff's **added**
+lines and newly introduced **paths** — a name in a filename is permanent in git history, and a rename or a
+binary addition carries no added lines at all. It fails on a path from a personal machine, a phrase narrating the
+session, an RFC1918 address, or a name listed in the `ARTIFACT_DENYLIST` repository secret.
+
+The names live in the secret rather than the repo, because a denylist naming the private projects would publish
+exactly what it exists to hide. One entry covers the spellings a name actually gets written in: listing
+`project-x` also catches `project x`, `project_x` and `ProjectX`. A fork pull request cannot read the secret, so
+it runs the structural rules and warns; on a branch, a missing secret **fails** rather than passing quietly.
+
+Two escape hatches, both leaving a record: `HYGIENE_EXEMPT_PATHS` in the checker (its own source and tests, which
+must contain leak-shaped literals to work), and an inline `hygiene: allow` pragma on a line you judge
+intentional. Judgement calls — defensive negation, a chat-shaped contrast, a flourish — are still the cold-read
+pass's job. The check catches the categories a reader can name, not the ones they have to feel.
 
 ## Tests
 
