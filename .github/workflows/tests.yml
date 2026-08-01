@@ -1,0 +1,55 @@
+name: Tests
+
+# Runs the suite and the linter on every pull request and on main.
+#
+# Until this existed, no workflow ran pytest or ruff at all: every contract test in tests/contract/ — the ones
+# pinning the authoring rules, the drift rubric, the trust signals and the hygiene checker — was enforced only by
+# whoever remembered to run it locally. For a project whose thesis is that an unenforced rule goes stale, that
+# was the gap closest to home.
+#
+# The matrix covers the floor and a current release. `requires-python = ">=3.9"` is a published claim in
+# pyproject.toml, and 3.9 is here to keep it true rather than aspirational.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false            # a 3.9-only failure is the interesting one; don't hide it behind 3.13
+      matrix:
+        python-version: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Identify the interpreter under test
+        run: uv run --extra dev python -c "import sys; print(sys.version)"
+
+      - run: uv run --extra dev pytest -q
+
+  ruff:
+    name: ruff
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - run: uv run --extra dev ruff check .
