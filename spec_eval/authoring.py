@@ -255,8 +255,8 @@ def author_file(repo, code_path, model, rubric=AUTHORING_RUBRIC, code_cap=None):
 
 
 _MD_SECTION_RE = re.compile(r"^#{1,2}\s+\S", re.M)
-_NOT_A_DOCUMENT = ("the model replied without a single markdown heading — a question or refusal, not an "
-                   "overview; nothing was written and no fingerprint was stamped (re-run, or use a stronger model)")
+_NOT_A_DOCUMENT = ("the model replied without a single markdown heading — a question or refusal, not a "
+                   "document; nothing was written and no fingerprint was stamped (re-run, or use a stronger model)")
 
 
 def _has_sections(md):
@@ -272,6 +272,149 @@ def _cap_note(*parts):
     """Join shortfall notes (drop counts, slicing, token-cap flags) into one note string, or None. Every
     surface that can silently under-report — a spec, an overview, a diagram — reports through this."""
     return "; ".join(p for p in parts if p) or None
+
+
+# --- trust guards: every claim a written artifact makes about its own provenance must be checkable ---------
+
+# A provider with file-write tools can answer by WRITING the document and REPLYING with a summary of having
+# written it. That reply is prose about the work, not the work — and it passes any heading-free shape floor by
+# not having headings at all. Matching the reply's opening move (first-person authoring, a 'wrote it to <path>'
+# report) catches the class without inspecting WHICH sections a document carries.
+_REPLY_NOT_DOCUMENT_RE = re.compile(
+    r"^\s*(?:I(?:'ve|'ll| have| will| had)?\s+(?:authored|written|created|wrote|saved|generated|placed|added)\b"
+    r"|(?:Here|Here's|Below)\b[^\n]{0,60}\b(?:the|your)\s+(?:spec|specification|overview|document)\b"
+    r"|(?:Summary|Note)\s+of\s+what\s+I\s+did\b)", re.I)
+_NOT_A_DOCUMENT_REPLY = ("the model replied ABOUT authoring the spec instead of returning it (a tool-using "
+                         "provider may have written the file itself) — nothing was written (re-run; if it "
+                         "recurs, the provider is answering with prose, not a document)")
+
+
+def _document_or_none(md, note):
+    """Gate an authored artifact: `(markdown, note)` through, or `(None, reason)` when the reply is not a
+    document. The single chokepoint every authoring path returns through, so a new call site cannot skip it.
+
+    Two independent floors, each with its own reason: a SHAPE floor (at least one markdown heading) and a REPLY
+    floor (the text does not OPEN as a report of having authored something). **Why both:** a heading-free
+    refusal and a chatty 'I've authored the spec at <path>' reply are different failures, and the second is the
+    dangerous one — it reads as success and gets recorded as an authored spec unless the reply shape is checked."""
+    if md is None:
+        return None, note
+    if not _has_sections(md):
+        return None, _NOT_A_DOCUMENT
+    if _REPLY_NOT_DOCUMENT_RE.match(md):
+        return None, _NOT_A_DOCUMENT_REPLY
+    return md, note
+
+
+_SCANNER_VERIFIED_RE = re.compile(r"(Note over [^:\n]+:\s*)scanner-verified entry point\s*\(\s*([^)]*?)\s*\)")
+_CONVENTIONAL_NOTE = "conventional invocation (per the module intents, not scanner-detected)"
+
+
+def verify_scanner_labels(md, ep_result):
+    """Downgrade every `scanner-verified entry point (file:line)` note whose citation the entry-point scan did
+    NOT observe, rewriting it to the conventional-invocation wording. Returns `(markdown, downgraded_count)`.
+
+    **Why rewrite rather than flag:** `scanner-verified` is the one label a reader is invited to trust without
+    opening the code, so a wrong one is worse than no label. The scanned sites are a CLOSED set, which makes
+    this a set-membership test, not a judgement — and when the scan observed nothing the set is empty, so every
+    such note is downgraded. That is the common case for a repo whose entry points the scanner cannot see."""
+    sites = syscontext.verified_entry_sites(ep_result or {})
+    downgraded = 0
+
+    def _sub(m):
+        nonlocal downgraded
+        if m.group(2).strip().strip("`") in sites:
+            return m.group(0)
+        downgraded += 1
+        return m.group(1) + _CONVENTIONAL_NOTE
+    return _SCANNER_VERIFIED_RE.sub(_sub, md or ""), downgraded
+
+
+_MD_LINK_RE = re.compile(r"\[([^\]\n]+)\]\(\s*([^)\s]+?)\s*\)")
+
+
+def repair_links(md, repo, doc_path):
+    """Resolve every relative markdown link against the DOC'S OWN directory, repairing the repo-root-relative
+    form in place. Returns `(markdown, repaired_count, broken_paths)`.
+
+    **Why:** a synthesis call is fed each spec by its repo-relative path, so the model writes that path into a
+    document that may sit several directories down — `src/a/list.md` inside `src/a/OVERVIEW.md` resolves to
+    `src/a/src/a/list.md` and every link 404s. A link that misses from the doc but HITS from the repo root is
+    that exact bug and is rewritten to the correct relative path; anything still unresolvable is reported, never
+    silently rewritten to a guess. Absolute URLs, in-page anchors, and links inside fenced blocks are left
+    alone."""
+    doc_dir = os.path.dirname(doc_path)
+    lines = md.splitlines(keepends=True)
+    fixed, broken = [], []
+
+    def _repair(m):
+        target = m.group(2)
+        path, _, frag = target.partition("#")
+        if not path or "://" in path or path.startswith(("/", "mailto:")):
+            return m.group(0)                      # external, absolute, or a pure in-page anchor — not ours
+        if os.path.exists(os.path.join(repo, doc_dir, path)):
+            return m.group(0)                      # already resolves from the document — nothing to do
+        if os.path.exists(os.path.join(repo, path)):
+            rel = os.path.relpath(path, doc_dir) if doc_dir else path
+            fixed.append(rel)
+            return f"[{m.group(1)}]({rel}{'#' + frag if frag else ''})"
+        broken.append(path)
+        return m.group(0)
+
+    out, in_fence = [], False
+    for ln in lines:
+        if _MD_FENCE_RE.match(ln):
+            in_fence = not in_fence
+            out.append(ln)
+        else:
+            out.append(ln if in_fence else _MD_LINK_RE.sub(_repair, ln))
+    return "".join(out), len(fixed), sorted(set(broken))
+
+
+def _md_inventory(repo):
+    """Every markdown file in the repo right now, as `rel -> (mtime_ns, size)`. The before/after snapshot the
+    stray-write check diffs — see `_stray_writes`."""
+    repo = os.path.abspath(repo)
+    seen = {}
+    for root, dirs, files in os.walk(repo):
+        dirs[:] = [d for d in dirs if d not in coverage_mod.PRUNE_DIRS]
+        for fn in files:
+            if fn.endswith(".md"):
+                p = os.path.join(root, fn)
+                try:
+                    st = os.stat(p)
+                except OSError:
+                    continue
+                seen[os.path.relpath(p, repo)] = (st.st_mtime_ns, st.st_size)
+    return seen
+
+
+def _label_note(downgraded):
+    """The note for provenance labels the artifact could not back. Silence when none were downgraded."""
+    if not downgraded:
+        return None
+    return (f"{downgraded} 'scanner-verified' entry-point label(s) cited a site the entry-point scan did not "
+            f"observe — each was downgraded to 'conventional invocation'")
+
+
+def _link_note(fixed, broken):
+    """The note for link surgery: what was repaired, and what could not be resolved at all."""
+    return _cap_note(
+        f"{fixed} link(s) repaired from repo-root-relative to document-relative" if fixed else None,
+        (f"{len(broken)} link(s) point at no file and were left as written: "
+         + ", ".join(f"`{b}`" for b in broken[:5]) + (" …" if len(broken) > 5 else "")) if broken else None)
+
+
+def _stray_writes(before, after, declared):
+    """Markdown files that appeared or changed during a run WITHOUT being one of the run's declared targets.
+
+    **Why:** a provider holding file-write tools can create files anywhere it likes, so 'what the generator
+    wrote' and 'what appeared on disk' are two different sets. Only the first is recorded in the run summary;
+    the difference is invisible unless the tree is diffed. A stray write is reported, never deleted — the file
+    may be the real work product, and destroying a model's output to enforce tidiness is the worse failure."""
+    declared = set(declared)
+    return sorted(rel for rel, sig in after.items()
+                  if rel not in declared and before.get(rel) != sig)
 
 
 def _pack(items, cap):
@@ -382,6 +525,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
     files = module_set(repo, config)                           # all spec-worthy code files — the SAME set the
     targets = _layout_targets(repo, files, layout, dir_spec_name, config)   # architecture fingerprint binds to
 
+    before = _md_inventory(repo)       # what markdown existed BEFORE any model call — see `_stray_writes`
     results = []
     _intent = {}                                               # code_path -> per-module intent (reused across reduces)
 
@@ -423,11 +567,13 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
         open(dest, "w").write(md.rstrip() + "\n")
         results.append(rec)
 
-    # 1. Specs — map (single file) or map -> reduce (a directory / pair of files).
+    # 1. Specs — map (single file) or map -> reduce (a directory / pair of files). Every path returns through
+    # `_document_or_none`, so a reply that is prose ABOUT the spec is recorded `failed`, never written.
     for spec_path, code_files in sorted(targets.items()):
         if len(code_files) == 1:
             code_ref, cf = code_files[0], code_files[0]
-            emit(spec_path, code_ref, lambda cf=cf: author_file(repo, cf, model, rubric, code_cap),
+            emit(spec_path, code_ref,
+                 lambda cf=cf: _document_or_none(*author_file(repo, cf, model, rubric, code_cap)),
                  f"authoring {spec_path}")
         else:
             code_ref = os.path.dirname(spec_path) or "."
@@ -437,10 +583,10 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
                                                        [(f, module_intent(f)) for f in cfs],
                                                        f"Modules in `{os.path.dirname(sp) or '.'}`", on_progress,
                                                        reduce_cap=reduce_cap)
-                return md, _cap_note(
+                return _document_or_none(md, _cap_note(
                     (f"synthesised in {levels} passes from all {len(cfs)} modules "
                      f"(nothing dropped)") if levels > 1 else None,
-                    "reply hit the token cap — the spec may end mid-section" if reply_capped else None)
+                    "reply hit the token cap — the spec may end mid-section" if reply_capped else None))
             emit(spec_path, code_ref, _folder, f"authoring {spec_path} ({len(code_files)} modules)")
 
     # 2. Overview layer — an index that links down to the specs the layout produced (runs after every spec exists).
@@ -454,15 +600,19 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
             md, levels, reply_capped = _synthesize(model, REPO_OVERVIEW_RUBRIC, items, "Repository overview",
                                                    on_progress, reduce_cap=reduce_cap,
                                                    extra=syscontext.overview_evidence(ctx, ep))
-            if not _has_sections(md):            # a stamp is a RECEIPT — never attach one to a non-document
-                return None, _NOT_A_DOCUMENT
+            md, guard_note = _document_or_none(md, None)   # a stamp is a RECEIPT — never attach one to a
+            if md is None:                                 # non-document, and never stamp a chat reply
+                return None, guard_note
+            md, downgraded = verify_scanner_labels(md, ep)
+            md, fixed, broken = repair_links(md, repo, "OVERVIEW.md")
             if syscontext.evidence_block(ctx):   # stamp the fingerprint this System context section was
                 md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # rendered from, so `--check` can
                                                                             # later flag staleness
             md = md.rstrip() + "\n\n" + syscontext.architecture_stamp_comment(ctx, ep, files)
             return md, _cap_note(
                 f"index synthesised in {levels} passes over all {len(items)} specs (nothing dropped)" if levels > 1 else None,
-                "reply hit the token cap — the index may end mid-section" if reply_capped else None)
+                "reply hit the token cap — the index may end mid-section" if reply_capped else None,
+                _label_note(downgraded), _link_note(fixed, broken))
         emit("OVERVIEW.md", ".", _repo_overview, f"authoring OVERVIEW.md (index over {len(targets)} spec(s))")
 
     if overview in ("per-dir", "both"):
@@ -477,19 +627,29 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
                 continue                                       # recorded, never silently omitted
             dtargets = {tp: cf for tp, cf in targets.items() if os.path.dirname(tp) == d}
 
-            def _dir_overview(dtargets=dtargets, d=d):
+            def _dir_overview(dtargets=dtargets, d=d, readme=readme):
                 items = [(tp, target_md(tp, cf)) for tp, cf in sorted(dtargets.items())]
                 md, levels, reply_capped = _synthesize(model, DIR_OVERVIEW_RUBRIC, items,
                                                        f"Directory overview — `{d or '.'}`", on_progress,
                                                        reduce_cap=reduce_cap,
                                                        extra=syscontext.evidence_block(ctx, scope_dir=d) or None)
-                if not _has_sections(md):
-                    return None, _NOT_A_DOCUMENT
+                md, guard_note = _document_or_none(md, None)
+                if md is None:
+                    return None, guard_note
+                md, fixed, broken = repair_links(md, repo, readme)   # a per-dir index links from ITS directory
                 return md, _cap_note(
                     f"index synthesised in {levels} passes (nothing dropped)" if levels > 1 else None,
-                    "reply hit the token cap — the index may end mid-section" if reply_capped else None)
+                    "reply hit the token cap — the index may end mid-section" if reply_capped else None,
+                    _link_note(fixed, broken))
             emit(readme, d or ".", _dir_overview, f"authoring {readme} (index)")
 
+    # 3. Stray writes — markdown that appeared or changed on disk without being one of this run's targets. A
+    # provider with file-write tools can author straight to a path of its own choosing, and only the declared
+    # targets are recorded above, so the two sets are compared rather than assumed equal.
+    for rel in _stray_writes(before, _md_inventory(repo), [r["spec"] for r in results]):
+        results.append({"code": "-", "spec": rel, "status": "stray",
+                        "note": "written during this run but not a declared target — the model wrote it "
+                                "directly; review it (nothing was deleted)"})
     return results
 
 
@@ -551,11 +711,13 @@ def diagram_block(repo, config, model, on_progress=None):
                                       extra=syscontext.overview_evidence(ctx, ep),
                                       unfence=False,          # a mermaid diagram keeps its ```mermaid fence
                                       single_pass=True)       # one picture, drawn once, over every module
+    md, downgraded = verify_scanner_labels(md, ep)   # the diagram's own provenance claims, held to the scan
     sliced = len(_pack(items, reduce_cap)) > 1                  # the same packing the pass just force-fitted
     note = _cap_note(
         f"{len(items)} module intents exceeded the reduce cap — each was sliced to an equal share for the "
         f"single diagram pass (every module still seen, at reduced detail)" if sliced else None,
-        "reply hit the token cap — the diagram may be incomplete" if reply_capped else None)
+        "reply hit the token cap — the diagram may be incomplete" if reply_capped else None,
+        _label_note(downgraded))
     return md.strip(), ctx, ep, modules, note
 
 

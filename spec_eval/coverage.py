@@ -46,10 +46,14 @@ def classify_exclude(rel, user_excludes):
     return None
 
 
-# doc names that are never co-located specs — a `README.md` beside code is a doc, not an orphaned spec
+# doc names that are never co-located specs — a `README.md` beside code is a doc, not an orphaned spec. The
+# agent-instruction files (`CLAUDE.md`, `AGENTS.md`, …) are here for the same reason: they are addressed to a
+# coding agent, they never had a same-stem code file, and proposing their removal as a stale spec is advice a
+# repo should never be given.
 CONVENTIONAL_DOC_STEMS = {"readme", "overview", "changelog", "changes", "contributing", "license", "notice",
                           "spec-health", "testing", "faq", "getting-started", "getting_started", "security",
-                          "code_of_conduct", "skill", "todo", "authors", "maintainers", "install", "upgrading"}
+                          "code_of_conduct", "skill", "todo", "authors", "maintainers", "install", "upgrading",
+                          "agents", "agent", "claude", "gemini", "cursorrules", "copilot-instructions", "llms"}
 
 # directories never worth walking into (vendored deps, build output, caches, generated test artifacts)
 PRUNE_DIRS = {".git", ".venv", "venv", "env", "build", "dist", "target", "node_modules", "__pycache__",
@@ -90,6 +94,38 @@ def infer_pairs(repo, config):
             if os.path.isfile(os.path.join(repo, md)):
                 pairs.append({"label": os.path.splitext(os.path.basename(rel))[0], "code": [rel], "docs": [md]})
     return sorted(pairs, key=lambda p: p["label"])
+
+
+# A markdown corpus this size in one directory tree is a deliberate body of documentation, not stray notes —
+# below it, a couple of loose files read as incidental and reporting them would be noise.
+UNMODELED_MIN_FILES = 3
+
+
+def unmodeled_markdown(repo, candidate, mds, user_excludes):
+    """Markdown the code-pairing model cannot reach, grouped by top-level directory: `[{dir, files, sample}]`.
+
+    Coverage pairs a spec to a code file by same-stem filename, so two real bodies of writing are invisible to
+    it — a spec tree organised by requirement id (`spec/functional/FR-021-….md`) and behavior implemented AS
+    markdown (an agent skill's `SKILL.md`). Neither has a same-stem code sibling, so neither can raise or lower
+    the percentage, and a repo made mostly of them scores 0% while being thoroughly specified.
+
+    **Why report rather than score:** the pairing model genuinely cannot tell whether `FR-021` governs one file
+    or twenty, so folding these into the percentage would be a guess. Naming them keeps the number honest — a
+    reader sees the percentage is scoped to same-stem pairs and can see what sits outside that scope."""
+    code_dirs = {os.path.dirname(rel) for rel in candidate}
+    groups = {}
+    for md in mds:
+        d = os.path.dirname(md)
+        if d in code_dirs:
+            continue                                     # sits beside code — the pairing model already sees it
+        if classify_exclude(md, user_excludes) == "user":
+            continue                                     # respect the repo's own exclude: scoping
+        if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS:
+            continue                                     # README/CHANGELOG/… are docs, not an unmodeled corpus
+        top = md.split(os.sep)[0] if os.sep in md else "."
+        groups.setdefault(top, []).append(md)
+    return [{"dir": top, "files": len(fs), "sample": sorted(fs)[:3]}
+            for top, fs in sorted(groups.items()) if len(fs) >= UNMODELED_MIN_FILES]
 
 
 def coverage(repo, config):
@@ -170,7 +206,8 @@ def coverage(repo, config):
 
     return {"pct": round(pct, 1), "spec_worthy": len(spec_worthy),
             "covered": sorted(covered_worthy), "uncovered": uncovered, "orphans": sorted(orphans),
-            "excluded": {t: sorted(v) for t, v in by_tier.items()}}
+            "excluded": {t: sorted(v) for t, v in by_tier.items()},
+            "unmodeled": unmodeled_markdown(repo, candidate, mds, user_excludes)}
 
 
 def format_report(cov, repo):
@@ -180,6 +217,16 @@ def format_report(cov, repo):
     if cov["uncovered"]:
         lines.append("## ⚠ Uncovered (spec-worthy, no governing pair)")
         lines += [f"- `{f}`" for f in cov["uncovered"]]
+        lines.append("")
+    if cov.get("unmodeled"):
+        lines.append("## Unmodeled markdown *(outside the same-stem pairing model — neither covered nor uncovered)*")
+        lines.append("The percentage above scores code files against a spec of the same name. These directories "
+                     "hold markdown that pairing cannot reach — a spec tree keyed by requirement id, or behavior "
+                     "written AS markdown. Read the percentage as scoped to same-stem pairs, not to the project.")
+        for g in cov["unmodeled"]:
+            sample = ", ".join(f"`{s}`" for s in g["sample"])
+            lines.append(f"- **{g['dir']}/** — {g['files']} markdown file(s): {sample}"
+                         + (" …" if g["files"] > len(g["sample"]) else ""))
         lines.append("")
     if cov.get("orphans"):
         lines.append("## Possible orphaned specs *(heuristic — a spec-shaped `.md` whose same-stem code file is gone; the code may have moved. Review, then delete or re-pair.)*")

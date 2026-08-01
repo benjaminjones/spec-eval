@@ -652,6 +652,14 @@ def entrypoints_block(ep_result):
     return "\n".join(lines)
 
 
+def verified_entry_sites(ep_result):
+    """The `file:line` citations the entry-point scan actually OBSERVED — the closed set a diagram's
+    'scanner-verified entry point (file:line)' note may cite. Empty when nothing was detected, which is the
+    load-bearing case: a repo the scanner finds no entry point in must yield NO verified notes at all, so an
+    empty set is a real answer here and never means 'unchecked'."""
+    return {f"{e['evidence']['file']}:{e['evidence']['line']}" for e in ep_result.get("entrypoints", [])}
+
+
 def overview_evidence(ctx_result, ep_result=None):
     """The scanner-derived evidence appended to an overview/diagram synthesis call: the entry-point block then
     the system block, joined — or None when neither observed anything. ONE composer, so `generate --overview`

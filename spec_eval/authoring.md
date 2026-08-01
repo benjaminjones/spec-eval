@@ -83,9 +83,21 @@ A diagram is drawn in **one pass** (`single_pass`). **Why:** the multi-pass redu
 - Otherwise the file is written at `<repo>/<spec path>` (`authored`) — an ordinary new file, reviewed via version control.
 - All writes create parent directories as needed and end the file with exactly one trailing newline.
 
-**Refusing a non-document.** A reply carrying no markdown heading at all is a question or a refusal, not an overview. The overview makers detect that shape and return no markdown: nothing is written, no fingerprint is stamped, and the target is recorded `failed` with the reason. **Why:** a stamp is a receipt — one attached to a non-document reads as *fresh* to `context --check`, which is worse than having no overview. Not writing also matters: a file that exists would be silently skipped on the next run, so failing cleanly leaves the target retryable.
+**Refusing a non-document.** Every authored artifact — a per-module spec, a folder spec, and both overviews — passes through one gate before it can be written, so a new call site cannot skip it. Two independent floors reject a reply:
+- **Shape:** the reply carries no markdown heading at all, which is a question or a refusal.
+- **Reply:** the reply OPENS as a report of having authored something ("I've authored the spec at `<path>`", "Here is the spec", "Summary of what I did").
 
-**Result reporting.** Returns a list of records, one per target, each carrying `code`, `spec`, `status` (`authored` | `skipped` | `failed`), and optionally `note`.
+Either way no markdown is returned: nothing is written, no fingerprint is stamped, and the target is recorded `failed` with the reason.
+
+**Why two floors:** a provider holding file-write tools can answer by writing the document itself and replying with a summary of having written it. That reply is prose about the work, not the work — and a shape floor alone accepts any such reply that happens to carry a heading, records it `authored`, and leaves a chat message on disk where a spec should be. **Why not writing matters:** a file that exists would be silently skipped on the next run, so failing cleanly leaves the target retryable. **Why a stamp is withheld:** a receipt attached to a non-document reads as *fresh* to `context --check`, which is worse than having no overview.
+
+**Holding provenance labels to the scan.** A diagram may note an invocation as `scanner-verified entry point (file:line)` only when the entry-point scan actually observed that `file:line`. The observed sites are a closed set, so this is a set-membership test rather than a judgement: after synthesis, every such note whose citation is not in the set is rewritten to the conventional-invocation wording, and the count is reported in the target's `note`. **Why rewrite rather than flag:** `scanner-verified` is the one label a reader is invited to trust without opening the code, so a wrong one is worse than no label. **Why this fires often:** when the scan observes no entry points the set is empty, so every such note is downgraded — the correct outcome for a repo whose invocation surface the scanner cannot see.
+
+**Resolving links from the document.** A synthesis call is fed each spec by its repo-relative path, so a model writes that path into a document that may sit several directories down: `src/a/list.md` inside `src/a/OVERVIEW.md` resolves to `src/a/src/a/list.md`, and every link 404s. After synthesis each relative link is resolved against the document's own directory; one that misses from there but hits from the repo root is that exact bug and is rewritten to the correct relative path. A link that resolves from neither is reported in the `note` and left exactly as written — never rewritten to a guess. Absolute URLs, in-page anchors, and links inside fenced blocks are untouched.
+
+**Accounting for what appeared on disk.** The markdown tree is inventoried before the first model call and again after the last one. Any file that appeared or changed without being one of the run's declared targets is reported as `stray`. **Why:** a provider with file-write tools can author straight to a path of its own choosing, so "what the generator wrote" and "what appeared on disk" are two different sets, and only the first is recorded. A stray is reported, never deleted — it may be the real work product, and destroying a model's output to enforce tidiness is the worse failure.
+
+**Result reporting.** Returns a list of records, one per target, each carrying `code`, `spec`, `status` (`authored` | `skipped` | `failed` | `stray`), and optionally `note`.
 
 **Progress.** When an `on_progress` callback is supplied, it is invoked with a short status line as each module (map call) and each target is authored — never on a skip — so a long run reports as it goes instead of running silent. **Why:** authoring is one sequential model call per module and prints its result list only at the end; without progress a multi-module run looks hung.
 
@@ -111,7 +123,10 @@ Semantic shapes:
 | INV-9 | If generated markdown begins with a code fence, the outer fence is removed before writing — except on the diagram path (`unfence=False`), whose output IS a fenced ```mermaid block. |
 | INV-10 | `diagram_block` makes exactly ONE synthesis call (`single_pass`): a diagram is never synthesised from other diagrams. Over the cap, every module intent is sliced to an equal share rather than dropped, and the returned note says so. |
 | INV-11 | `set_architecture_section` replaces from the `## Architecture (data flow)` heading to the next `#`/`##` heading or the first fingerprint receipt — never to a `###` subheading of its own body, and never past a stamp. Replacing an already-generated section is idempotent: the result carries exactly one copy of the section. |
-| INV-12 | An overview whose reply carries no markdown heading is never written and never stamped: the target is recorded `failed` with the reason. A fingerprint is a receipt, so it is attached only to a document. The check is a shape floor (`#` or `##`), never a format or section-set check. |
+| INV-12 | A reply carrying no markdown heading, or opening as a report of having authored something, is never written and never stamped: the target is recorded `failed` with the reason. A fingerprint is a receipt, so it is attached only to a document. The shape check is a floor (`#` or `##`), never a format or section-set check. Every authoring path — per-module spec, folder spec, repo overview, per-dir overview — returns through this one gate. |
+| INV-13 | A `scanner-verified entry point (file:line)` note survives only when that exact `file:line` is in the entry-point scan's observed set; every other one is rewritten to `conventional invocation (per the module intents, not scanner-detected)` and counted in the `note`. An empty scan therefore leaves no verified label anywhere in the artifact. |
+| INV-14 | Every relative link in an authored overview resolves from the document's own directory, or is reported in the `note`. A link resolvable from the repo root but not the document is rewritten; a link resolvable from neither is left byte-identical. |
+| INV-15 | Markdown that appeared or changed on disk during a run without being a declared target is reported with status `stray`, and is never deleted or modified. |
 
 ### Acceptance criteria (*Given / When / Then*)
 
@@ -127,3 +142,10 @@ Semantic shapes:
 | AC-9 | model returns text wrapped in triple-backtick fences | authoring runs | the returned markdown has the outer fence removed. |
 | AC-10 | `overview: repo`, code with observable external systems | `generate_repo` runs | the overview call's user message carries the `OBSERVED SYSTEM EVIDENCE` block from the `syscontext` scan. |
 | AC-11 | `overview: repo`, code with no observable external systems | `generate_repo` runs | no evidence block is passed — the overview carries no `## System context` section. |
+| AC-12 | the model replies `I've authored the spec at /tmp/x.md.` with no heading | a spec target is authored | status `failed`, nothing written, note names the missing heading. |
+| AC-13 | the model replies `I've authored the spec at /tmp/x.md.\n\n## Summary\n- did a thing` | a spec target is authored | status `failed` — a heading does not make a report into a document. |
+| AC-14 | entry-point scan observed nothing; the diagram notes `scanner-verified entry point (tests/cli.test.ts:301)` | `diagram_block` runs | the note reads `conventional invocation (per the module intents, not scanner-detected)` and the count appears in the note. |
+| AC-15 | entry-point scan observed `src/cli.py:12`; the diagram cites it | `diagram_block` runs | the `scanner-verified` label is preserved unchanged. |
+| AC-16 | `OVERVIEW.md` at `src/a/`, link written as `(src/a/list.md)`, that file exists | `generate_repo` runs | the written link is `(list.md)` and the repair count appears in the note. |
+| AC-17 | an overview links `(SPEC-HEALTH.md)` and no such file exists | `generate_repo` runs | the link is left byte-identical and reported as broken in the note. |
+| AC-18 | the provider writes `specs/catalog-show.md` itself during a run targeting `src/a/` | `generate_repo` runs | a record `{spec: "specs/catalog-show.md", status: "stray"}` is returned and the file is untouched. |
