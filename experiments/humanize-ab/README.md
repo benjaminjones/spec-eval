@@ -1,39 +1,37 @@
-# Does humanizing a spec cost sufficiency?
+# Does plainer wording cost sufficiency?
 
 An A/B experiment against spec-eval's own graders, on one small spec.
 
 ## The question
 
-Editing passes that remove AI-writing tells work on prose: they cut filler, drop boilerplate emphasis, and
-dissolve bolded inline-header lists into flowing sentences. Applied to a generated spec, the last of those
-changes the artifact spec-eval measures.
+[FAQ.md](../../FAQ.md) tells readers a spec can be rewritten in plainer language, that the checkers grade
+"meaning, not tone", and that `audit` and `sufficiency` will catch a rewrite that went too far: *"If both hold
+steady, that's strong evidence the plainer wording lost nothing that matters."*
 
-`SUFFICIENCY_RUBRIC` grades whether a spec captures the code's behaviors, contracts, defaults and rules, and
-states that "1:1 line restatement is NOT required". Read literally, that means it scores **content**. But a spec
-carries much of its content in tables: Definitions, `INV-*` invariants, and `AC-*` acceptance criteria. If the
-grader also rewards **shape**, then prose-ifying those tables costs score even when every fact survives.
+That is a claim the documentation makes to users, and nothing has verified it. If the graders in fact reward
+presentation as well as content, the advice sends people into a scored artifact with false confidence.
 
-Nobody has measured which. This experiment answers it for about ten model calls.
+This experiment measures it for about a dozen model calls.
 
 ## Design
 
-One module, `spec_eval/runlog.py`, and three versions of its spec. `runlog.md` is the smallest spec in the repo
-(4,502 bytes) and still carries 3 invariants and 6 acceptance criteria, so it exercises the table question at
-minimum cost.
+One module, `spec_eval/runlog.py`, and two versions of its spec. `runlog.md` is the smallest spec in the repo
+and still carries 3 invariants and 6 acceptance criteria, so it exercises the question at minimum cost.
 
 | Variant | What changed |
 |---------|--------------|
 | `baseline` | The shipped `runlog.md`, unmodified. Establishes the score and the noise floor. |
-| `frozen` | Prose-only edit. Tables, code fences, IDs, numbers and rubric markers are protected; only sentences change. |
-| `naive` | Every table dissolved into prose. All facts kept, all structure lost. |
+| `frozen` | Exactly the edit FAQ.md prescribes: plainer sentences, every number, default, name and rule kept as written. |
 
-Both variants preserve every checkable literal from the baseline. `scripts/verify_facts.py` enforces this before
-any model call is spent: it extracts the baseline's backticked spans and bare numbers and asserts each survives.
-A variant that dropped a fact would produce a score drop explained by the missing fact rather than by the lost
-shape, and the run would prove nothing.
+`frozen` preserves every checkable literal from the baseline. `scripts/verify_facts.py` enforces that before any
+model call is spent: it extracts the baseline's backticked spans, bare numbers and structural IDs, and asserts
+each survives. A variant that dropped a fact would produce a score drop explained by the missing fact rather than
+by the wording, and the run would prove nothing.
 
-The `naive` variant drops all 9 structural IDs. That is the variable under test, not a defect, so the guard
-reports IDs separately from facts.
+> An earlier draft carried a third `naive` variant that dissolved every table into prose. It was cut after review:
+> a reader found it materially harder to read than the original, so it tested a rewrite nobody would ship, and
+> FAQ.md never advises it. The remaining comparison is between the shipped spec and the edit the docs actually
+> recommend.
 
 ### The freeze list
 
@@ -72,14 +70,13 @@ artifact: `spec-reports/runs.jsonl` contains no same-SHA repeat, so the often-ci
 with the doc fixes made between those runs. The baseline reps here are that missing noise floor. A variant delta
 smaller than the baseline's own spread is indistinguishable from grader variance.
 
-Three outcomes and what each one means:
+Two outcomes and what each one means:
 
-- **`naive` drops well past the noise floor, `frozen` sits inside it.** The grader rewards shape as well as
-  content. A prose pass must protect tables, and a freeze list is mandatory rather than optional.
-- **Both sit inside the noise floor.** The grader scores content, as its rubric claims. Presentation is free,
-  and the cost question becomes the only one that matters.
-- **`frozen` also drops.** Something in the prose edits is load-bearing. The per-run `sufficiency.json` gap
-  lists say which, since each gap carries a `code_ref`.
+- **`frozen` sits inside the noise floor.** The graders score meaning, as the rubric says and FAQ.md promises.
+  The advice is sound and now has evidence behind it.
+- **`frozen` drops past the floor.** Something in the prose edits is load-bearing even with every fact frozen,
+  and FAQ.md is over-promising. The per-run `sufficiency.json` gap lists say what went missing, since each gap
+  carries a `code_ref` — and that list is the material for rewording the advice.
 
 ## Watch the drift number too
 

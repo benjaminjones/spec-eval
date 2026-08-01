@@ -44,8 +44,8 @@ def row(out_dir, variant, rep):
 
 
 def summarize(csv_path):
-    lines = [l.strip() for l in open(csv_path, encoding="utf-8") if l.strip()]
-    header, rows = lines[0].split(","), [l.split(",") for l in lines[1:]]
+    lines = [line.strip() for line in open(csv_path, encoding="utf-8") if line.strip()]
+    rows = [line.split(",") for line in lines[1:]]          # lines[0] is the header, not data
     by_variant = {}
     for r in rows:
         by_variant.setdefault(r[0], []).append(r)
@@ -53,7 +53,7 @@ def summarize(csv_path):
     print(f"{'variant':<10} {'n':>2}  {'sufficiency (min..max)':<26} {'gaps maj/min':<14} {'drift h/m/l':<12}")
     print("-" * 72)
     baseline_mean = None
-    for variant in ("baseline", "frozen", "naive"):
+    for variant in ("baseline", "frozen"):
         rs = by_variant.get(variant)
         if not rs:
             continue

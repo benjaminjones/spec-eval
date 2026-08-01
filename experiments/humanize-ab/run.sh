@@ -16,7 +16,7 @@ PY="${PY:-.venv/bin/python}"
 SPEC="spec_eval/runlog.md"
 EXP="experiments/humanize-ab"
 RESULTS="$EXP/.results"
-VARIANTS=(baseline frozen naive)
+VARIANTS=(baseline frozen)
 
 [ -x "$PY" ] || { echo "no interpreter at $PY (set PY=...)"; exit 1; }
 if [ -z "${ANTHROPIC_API_KEY:-}${OPENAI_API_KEY:-}${GOOGLE_API_KEY:-}" ] && [ ! -f .env ]; then

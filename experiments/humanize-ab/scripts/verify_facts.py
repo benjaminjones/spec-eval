@@ -17,7 +17,7 @@ import sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the experiment dir, one level up from scripts/
 BASELINE = os.path.join(HERE, "runlog.baseline.md")
-VARIANTS = ["runlog.frozen.md", "runlog.naive.md"]
+VARIANTS = ["runlog.frozen.md"]
 
 # Literals the grader can check a spec against. Markdown table pipes and heading marks are SHAPE, not fact, so
 # they are deliberately not extracted — losing them is the very thing the experiment is measuring.
@@ -26,9 +26,9 @@ _CODE_SPAN = re.compile(r"`([^`\n]+)`")
 # rejects only a following word character, not a following period.
 _NUMBER = re.compile(r"(?<![\w.])(\d+(?:\.\d+)*)(?!\w)")
 
-# INV-1 / AC-6 are structural IDs, and their digits are not facts about the module. The naive variant dissolves
-# the tables that carry them BY CONSTRUCTION, so they are stripped before number extraction and tracked
-# separately — otherwise the guard would fail the naive variant for the very shape change under test.
+# INV-1 / AC-6 are structural IDs, not facts about the module, so their digits are stripped before number
+# extraction. They are still counted and reported: the freeze list promises every table survives intact, and a
+# dropped ID is the first sign it did not.
 _STRUCTURAL_ID = re.compile(r"\b((?:INV|AC)-\d+)\b")
 
 
@@ -63,7 +63,7 @@ def main():
               f"numbers {len(base_numbers) - len(missing_numbers)}/{len(base_numbers)} preserved, "
               f"structural IDs {len(base_ids) - len(dropped_ids)}/{len(base_ids)} retained")
         if dropped_ids:
-            print(f"       IDs dropped (SHAPE, the variable under test): {', '.join(dropped_ids)}")
+            print(f"       IDs dropped — the freeze list should have kept these: {', '.join(dropped_ids)}")
         if missing_spans:
             print(f"       MISSING code spans: {', '.join(missing_spans)}")
         if missing_numbers:
