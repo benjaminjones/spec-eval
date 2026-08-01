@@ -30,13 +30,29 @@ Docs describe **what exists and how it works** — not the conversation that pro
   how it reads, a TL;DR that restates the body, or a stylistic flourish.
 - **Describe what a thing IS, never what it isn't** — state it on its own terms. Generated specs enforce this too
   (`AUTHORING_DISCIPLINE`, pinned by [`test_rubric_sync.py`](tests/contract/test_rubric_sync.py)); narrative docs
-  like the README have no linter, so the cold-read pass is their only guard.
+  like the README have no linter for these qualities, so the cold-read pass is their only guard.
 - **Pragmatic wording for trade-offs.** Name a drawback by its mechanism — "goes stale", "changes faster than
   docs can follow", "already maintained elsewhere" — not by a doom word ("rot"). Realistic beats dramatic.
 
 The same rules apply to **commit messages and PR titles/descriptions**: state the change and its logic,
 agnostic of the working session that produced it. General use cases are fine; conversation narrative and
 references to specific private projects are not.
+
+The mechanical half of that rule runs in CI. [`artifact-hygiene.yml`](.github/workflows/artifact-hygiene.yml)
+scans the PR title, the PR body, the branch name, every commit message on the branch, and the diff's **added**
+lines and newly introduced **paths** — a name in a filename is permanent in git history, and a rename or a
+binary addition carries no added lines at all. It fails on a path from a personal machine, a phrase narrating the
+session, an RFC1918 address, or a name listed in the `ARTIFACT_DENYLIST` repository secret.
+
+The names live in the secret rather than the repo, because a denylist naming the private projects would publish
+exactly what it exists to hide. One entry covers the spellings a name actually gets written in: listing
+`project-x` also catches `project x`, `project_x` and `ProjectX`. A fork pull request cannot read the secret, so
+it runs the structural rules and warns; on a branch, a missing secret **fails** rather than passing quietly.
+
+Two escape hatches, both leaving a record: `HYGIENE_EXEMPT_PATHS` in the checker (its own source and tests, which
+must contain leak-shaped literals to work), and an inline `hygiene: allow` pragma on a line you judge
+intentional. Judgement calls — defensive negation, a chat-shaped contrast, a flourish — are still the cold-read
+pass's job. The check catches the categories a reader can name, not the ones they have to feel.
 
 ## Tests
 
