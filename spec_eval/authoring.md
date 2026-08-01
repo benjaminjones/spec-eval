@@ -4,7 +4,7 @@ This module gives the system the ability to **bootstrap intent-led specification
 
 Where a spec lands is chosen by a **layout**. The default, `per-file`, writes a spec **beside its code** (`src/x.py` → `src/x.md`: same directory, same stem). Two other layouts consolidate: `per-dir` writes **one spec per directory** (`src/parser/*.py` → `src/parser/parser.md`), and `per-pair` authors the `docs` file of each explicit config pair. An optional **overview** layer adds a navigation index (a repo-level `OVERVIEW.md` and/or a per-directory `README.md`) that links down to whatever specs the layout produced.
 
-Two governing rules a reviewer can check:
+Two rules always hold:
 1. **Existing work is never silently destroyed.** If a file already exists at a target path it is skipped (no model call) unless the caller passes `overwrite`. Authored specs are ordinary new files in the working tree, reviewed and accepted (or rejected) through version control.
 2. **A consolidated (multi-file) spec is synthesised from the per-module *intents*, never from the raw code** — the per-module authoring runs first (map), then a synthesis pass reduces those intents into the folder/overview doc. This keeps a large directory under the character cap that raw concatenation would blow.
 

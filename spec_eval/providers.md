@@ -1,8 +1,10 @@
 ## 1. Purpose
 
+**In one line:** ask any supported vendor's model a question through one portable model string, with token usage tracked.
+
 This module lets the rest of the system ask a large-language model a question and get back text, without caring which vendor (Anthropic, OpenAI, or Google) actually answers. Callers name a model with a portable string like `"anthropic:claude-opus-4"` or a bare `"gpt-4o"`, and the module routes the request to the right vendor SDK and tracks how many tokens were consumed. Callers can also name **`claude-code`**, which routes through the **local Claude Code CLI** (the user's Claude subscription) instead of a vendor SDK — no API key at all.
 
-The governing constraint a reviewer can check: **nothing about any specific machine, file path, or account is baked into the code — every credential comes from the environment (or, for the `claude-code` bridge, from the CLI's own login)**, so the same module runs unchanged on any machine that has the right API keys set or the CLI logged in. If a caller names a vendor the module does not know, the call fails loudly rather than guessing.
+**Nothing about any specific machine, file path, or account is baked into the code — every credential comes from the environment (or, for the `claude-code` bridge, from the CLI's own login)**, so the same module runs unchanged on any machine that has the right API keys set or the CLI logged in. If a caller names a vendor the module does not know, the call fails loudly rather than guessing.
 
 ## 2. Definitions
 

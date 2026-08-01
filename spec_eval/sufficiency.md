@@ -8,7 +8,7 @@ This module gives the system the ability to score how much *load-bearing behavio
 
 It is the deliberate inverse of the drift auditor. Where drift asks "does the spec *contradict* the code?" and treats silence as acceptable, sufficiency asks "does the spec *omit* behavior that's in the code?" — silence IS the finding here. The bar is not line-by-line restatement; pure implementation trivia may be omitted freely. The bar is intent-level behavior, contracts, defaults, and events.
 
-The one governing constraint a reviewer can check: **every reported gap is something a rebuild-from-spec would have to guess, and each carries a severity of either `major` or `minor`.** A whole missing feature is major; a missing default or edge-case is minor.
+**Every reported gap is something a rebuild-from-spec would have to guess, and each carries a severity of either `major` or `minor`.** A whole missing feature is major; a missing default or edge-case is minor.
 
 ## 2. Definitions
 

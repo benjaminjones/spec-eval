@@ -1,5 +1,7 @@
 ## 1. Purpose
 
+**In one line:** the command-line surface for the six checks, routing each to its engine and reporting the result.
+
 This module is the command-line entry point for **spec-eval** — a tool that treats specifications as first-class artifacts sitting beside code, and gives a team six distinct capabilities from one command surface:
 
 - **coverage** — find code files that have *no governing spec* (free, needs no API key).
@@ -11,7 +13,7 @@ This module is the command-line entry point for **spec-eval** — a tool that tr
 
 Its job is to parse arguments, load API keys from the environment, dispatch to the right analysis engine, write both a machine-readable JSON artifact and a human-readable Markdown report into an output directory, print a one-glance summary, and append a run record to a log.
 
-The one governing constraint a reviewer can check: **`coverage` and `context` never need a model; `audit`, `sufficiency`, `generate`, and `diagram` always do** — either an API-key provider (`anthropic:` / `openai:` / `google:`, key from the environment) or the key-free `claude-code` bridge (the Claude Code CLI's own login). If you run `coverage` or `context` with no key configured, they must still work; if you run any of the other four without a key **and** without the `claude-code` model, they cannot. `diagram` is the cheapest of the four: the picture itself is always one synthesis call, and a repo whose modules all have co-located specs needs no further calls to derive their intents.
+**`coverage` and `context` never need a model; `audit`, `sufficiency`, `generate`, and `diagram` always do** — either an API-key provider (`anthropic:` / `openai:` / `google:`, key from the environment) or the key-free `claude-code` bridge (the Claude Code CLI's own login). If you run `coverage` or `context` with no key configured, they must still work; if you run any of the other four without a key **and** without the `claude-code` model, they cannot. `diagram` is the cheapest of the four: the picture itself is always one synthesis call, and a repo whose modules all have co-located specs needs no further calls to derive their intents.
 
 ## 2. Definitions
 
