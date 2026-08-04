@@ -13,7 +13,8 @@ This module turns the raw results of a spec-vs-code audit into the **legible pro
 | Term | Meaning (bounds / units) |
 |---|---|
 | **Pair** | One audited unit (a code/doc module pairing), carried as a result record with a `label`. |
-| **Finding** | A drift item on a pair: `severity` ∈ {high, medium, low, ...}, `summary`, optional `code_ref`, `doc_ref`, `suggestion`. |
+| **Finding** | A drift item on a pair: `severity` ∈ {high, medium, low, ...}, `summary`, optional `code_ref`, `doc_ref`, `evidence`, `suggestion`. |
+| **Evidence block** | The finding's quoted code and doc snippets, rendered as a four-space-indented fenced block so a multi-line quote stays inside its list item. Fences inside the quote are neutralized so they cannot close the block early. |
 | **Drift load** | Count of a pair's findings whose severity is `high` or `medium`. Integer ≥ 0. |
 | **Skipped pair** | A result carrying a truthy `skipped` reason string; excluded from all counts and fingerprints. |
 | **Sufficiency** | Per-pair score in `0.0..1.0`: how fully the spec captures the code's behavior (1.0 = fully). May be absent (`None`) → "not scored". |
@@ -28,7 +29,7 @@ Renders a markdown document headed with the repo's basename, the detector model,
 
 Each pair is a section:
 - **Skipped** pairs → `## {label} — _skipped: {reason}_` and nothing more.
-- **Audited** pairs → header marked `✓ clean` (drift load 0) or `⚠ N drift`; a ⚠ *partial view* line follows when the pair carries `truncated` notes (findings may be incomplete); then one bullet per finding: `**[severity]** summary`, appending a `` (`code_ref` vs `doc_ref`) `` suffix only when at least one ref exists (missing side shown as `?`), and an indented `*fix:*` line when a suggestion exists.
+- **Audited** pairs → header marked `✓ clean` (drift load 0) or `⚠ N drift`; a ⚠ *partial view* line follows when the pair carries `truncated` notes (findings may be incomplete); then one bullet per finding: `**[severity]** summary`, appending a `` (`code_ref` vs `doc_ref`) `` suffix only when at least one ref exists (missing side shown as `?`), an indented `*evidence:*` fenced block when the finding quotes evidence, and an indented `*fix:*` line when a suggestion exists. A finding with empty evidence emits no block at all.
 
 **Why:** clean pairs still appear so the reader sees coverage, not just problems.
 
@@ -78,6 +79,9 @@ Both reports read `providers.USAGE['calls']` at render time — the header state
 | AC-1 | 3 pairs, 1 skipped, remaining two with 2 and 0 high/medium findings | `write_markdown` | headline reads "**2 high/medium drift finding(s) across 2 audited pair(s).**"; skipped pair shown as `_skipped: …_`; return value = 2. |
 | AC-2 | a finding with `code_ref` set, `doc_ref` absent | render drift bullet | bullet suffix is `` (`<code_ref>` vs `?`) ``. |
 | AC-3 | a finding with no `code_ref` and no `doc_ref` | render drift bullet | no ref suffix appended. |
+| AC-8 | a finding whose `evidence` is two lines | render drift bullet | an `*evidence:*` fenced block follows the bullet, every line indented four spaces, and the `*fix:*` line still renders after it. |
+| AC-9 | a finding whose `evidence` itself contains a ``` fence | render drift bullet | the rendered block contains exactly two fences — its own — so the report cannot spill into a code block. |
+| AC-10 | a finding whose `evidence` is the empty string | render drift bullet | no `*evidence:*` block is emitted. |
 | AC-4 | pairs with sufficiency 0.4, 0.9, and one `None` | `write_sufficiency_markdown` | per-module detail order is 0.4, 0.9, then the `None` pair last; average = 0.65. |
 | AC-5 | no scored pairs | `write_sufficiency_markdown` | average = 0.00; sufficiency fingerprint omitted. |
 | AC-6 | `sufficiency = 1.0` | `_bar(1.0)` | returns 20 `█` and 0 `░`. |

@@ -69,13 +69,15 @@ def parse_findings(resp):
                 if s in SEV:
                     out.append({"severity": s, "summary": str(f.get("summary", "")),
                                 "code_ref": f.get("code_ref"), "doc_ref": f.get("doc_ref"),
+                                "evidence": str(f.get("evidence", "")),
                                 "suggestion": f.get("suggestion", "")})
             return out
         except Exception:
             pass
     for s in re.findall(r'"severity"\s*:\s*"(high|medium|low)"', resp, re.I):
-        out.append({"severity": s.lower(),
-                    "summary": "(unparsed finding — the response was not valid JSON; re-run this pair to get detail)"})
+        out.append({"severity": s.lower(),                                        # same key set as the parsed path:
+                    "summary": "(unparsed finding — the response was not valid JSON; re-run this pair to get detail)",
+                    "code_ref": None, "doc_ref": None, "evidence": "", "suggestion": ""})
     return out
 
 
