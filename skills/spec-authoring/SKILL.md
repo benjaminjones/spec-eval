@@ -95,7 +95,7 @@ context section and a reversed diagram pair both read as choices, so confirm the
    **in this order** — `### How it is invoked` first, `### Data flow` second.
 
 Confirm before the page is finished:
-- [ ] The seam scan ran (`spec-eval context`, or the manual sweep), and every hit is recorded as `file:line`.
+- [ ] The seam scan ran (`spec-eval context <path>`, or the manual sweep), and every hit is recorded as `file:line`.
 - [ ] `## System context` carries a row for every system the scan reported — or the section is absent because
       the scan reported none.
 - [ ] `## Architecture (data flow)` carries both diagrams, invocation first, closed by the caveat line copied
@@ -106,9 +106,9 @@ The OVERVIEW's `## System context` section inventories what the project *talks t
 (S3, databases, queues), partner applications, configured endpoints, and any surface the code exposes to
 callers.
 
-**Scan before you decide.** `spec-eval context` is the scan — free, deterministic, no API key — so run it first
-and build the table from what it reports. Without the CLI, sweep the code by hand for the same evidence classes
-and record each hit as `file:line`:
+**Scan before you decide.** `spec-eval context <path>` is the scan — free, deterministic, no API key — so run
+it first and build the table from what it reports. Without the CLI, sweep the code by hand for the same
+evidence classes and record each hit as `file:line`:
 - **SDK / driver imports** — a database driver, a queue or streaming client, a cloud SDK, a SaaS API client.
 - **Connection-string schemes** — `postgres://`, `amqps://`, `s3://`, and their dialect forms.
 - **Literal HTTP(S) URLs** — a host named in code (a mention, integration unconfirmed).
@@ -147,9 +147,9 @@ fingerprint it was rendered from, so `spec-eval context --check` can later flag 
 
 ## Architecture diagrams (the repo overview's two pictures)
 The repo `OVERVIEW.md`'s `## Architecture (data flow)` section carries TWO `mermaid` diagrams — the arc42/C4
-split of "how it's run" from "how data moves", so each diagram answers one question. They appear **in this
-order**: the invocation diagram first, the data-flow diagram second, so the page shows how the project is run
-before it shows what moves through it. Authoring writes it into
+split of "how it's run" from "how data moves", so each diagram answers one question. The two appear
+**in this order** — invocation first, data flow second — so the page shows how the project is run before it
+shows what moves through it. Authoring writes it into
 the **repo overview only** — per-directory READMEs stay a lean index. A README gains one only when someone
 asks for it outright (`spec-eval diagram <path> --write --add-section`), never as a by-product of `generate`.
 - **`### How it is invoked`** — a small sequenceDiagram: the User, the entry points, and what each run

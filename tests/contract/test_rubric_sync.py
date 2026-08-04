@@ -158,6 +158,19 @@ def test_diagram_phrases_shared_across_rubric_skill_and_template():
         assert phrase in template, f"OVERVIEW-template.md lost the diagram phrase: {phrase!r}"
 
 
+def test_the_invocation_diagram_precedes_the_data_flow_diagram_in_every_copy():
+    """'in this order' is a phrase until something checks the order. Each copy must introduce
+    '### How it is invoked' BEFORE '### Data flow' — a reader meets how the project is run before what moves
+    through it, whether the page came from the CLI, the skill, or the template."""
+    copies = (("ARCH_DIAGRAM_RUBRIC", ARCH_DIAGRAM_RUBRIC),
+              ("spec-authoring SKILL.md", open(AUTHORING_SKILL_PATH).read()),
+              ("OVERVIEW-template.md", open(OVERVIEW_TEMPLATE_PATH).read()))
+    for name, text in copies:
+        invoked, data_flow = text.find("### How it is invoked"), text.find("### Data flow")
+        assert invoked >= 0 and data_flow >= 0, f"{name} lost one of the two diagram subsections"
+        assert invoked < data_flow, f"{name} introduces the data-flow diagram before the invocation diagram"
+
+
 def test_the_provenance_caveat_is_one_sentence_byte_for_byte():
     """The rubric orders the model to close the section with this line 'verbatim' while the skill tells an
     agent to copy it from the template — so the three copies must be the SAME STRING, not three paraphrases

@@ -62,7 +62,7 @@ flowchart LR
 *(For internal component diagrams and stateful flows, see the relevant module spec's §3 Behavior.)*
 
 ## System context  *(the observed external seams — what `<project>` talks to)*
-<!-- Scan first, then fill: run `spec-eval context` (or sweep the code for SDK/driver imports, connection-string
+<!-- Scan first, then fill: run `spec-eval context <path>` (or sweep the code for SDK/driver imports, connection-string
      schemes, literal URLs, endpoint-shaped env vars, and web-framework imports). Leaving this section out is
      what a scan that found nothing looks like — not a way to skip the scan. -->
 | External system | Direction | What flows | Evidence |
