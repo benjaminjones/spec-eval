@@ -84,13 +84,47 @@ user asks otherwise, use **`per-file` + `none`** and write nothing but a spec be
 - **Right-size to the module** — collapse to one sentence, or omit, any section that would carry ≤1 real row;
   empty scaffolding and N/A rows are fatigue, not rigor. A small utility module gets a short spec.
 
+## Authoring the OVERVIEW — order of operations
+The OVERVIEW is written in a fixed order, and a page that skipped a step still looks finished. An absent System
+context section and a reversed diagram pair both read as choices, so confirm these rather than assume them:
+
+1. **Read `templates/OVERVIEW-template.md`.** The section set and its order come from the template.
+2. **Scan for external seams** (below) *before* writing `## System context`. The section is rendered from what
+   the scan returned; omitting it is a scan **result**, never a way to skip the scan.
+3. **Write the sections in template order**, and inside `## Architecture (data flow)` write the two diagrams
+   **in this order** — `### How it is invoked` first, `### Data flow` second.
+
+Confirm before the page is finished:
+- [ ] The seam scan ran (`spec-eval context`, or the manual sweep), and every hit is recorded as `file:line`.
+- [ ] `## System context` carries a row for every system the scan reported — or the section is absent because
+      the scan reported none.
+- [ ] `## Architecture (data flow)` carries both diagrams, invocation first, closed by the caveat line copied
+      byte-for-byte from the template.
+
 ## System context (the observed external seams)
 The OVERVIEW's `## System context` section inventories what the project *talks to* — infrastructure services
 (S3, databases, queues), partner applications, configured endpoints, and any surface the code exposes to
-callers. Three rules keep it trustworthy:
+callers.
+
+**Scan before you decide.** `spec-eval context` is the scan — free, deterministic, no API key — so run it first
+and build the table from what it reports. Without the CLI, sweep the code by hand for the same evidence classes
+and record each hit as `file:line`:
+- **SDK / driver imports** — a database driver, a queue or streaming client, a cloud SDK, a SaaS API client.
+- **Connection-string schemes** — `postgres://`, `amqps://`, `s3://`, and their dialect forms.
+- **Literal HTTP(S) URLs** — a host named in code (a mention, integration unconfirmed).
+- **Endpoint-shaped environment variable names** — an UPPER_SNAKE name ending in `_URL`, `_ENDPOINT`, `_HOST`,
+  `_QUEUE`, `_BUCKET`, and the like (the scanner's list is the authority on which suffixes count).
+- **Web-framework imports** — the code exposes an inbound surface, whose callers this repo cannot see.
+
+Sweep the code the scanner would read: skip tests, examples, and generated files, and treat a hit inside a
+comment or docstring as prose, not evidence. A per-directory README counts only the evidence sitting directly
+in that folder. When the scan names files it could not read (its `Not scanned:` line), reproduce that line
+beneath the table — a language gap must stay visible.
+
+Three rules keep the table trustworthy:
 - **Observed only.** A row needs code evidence you actually saw — an SDK/driver import, a client call, a
   literal URL, an endpoint-shaped env var — cited as `file:line` in the Evidence column. NEVER invent a row or
-  list a system you cannot point at; when nothing was observed, omit the section entirely.
+  list a system you cannot point at; when the completed scan found nothing, omit the section entirely.
 - **Unknowable cells stay honest.** What flows, and who calls an exposed surface, is often not in this repo:
   write `unknown from this repo`, don't guess. Rows are evidence of capability in the code, not proof of runtime traffic.
   Close the section with the fixed boundary line — inbound
@@ -113,7 +147,9 @@ fingerprint it was rendered from, so `spec-eval context --check` can later flag 
 
 ## Architecture diagrams (the repo overview's two pictures)
 The repo `OVERVIEW.md`'s `## Architecture (data flow)` section carries TWO `mermaid` diagrams — the arc42/C4
-split of "how it's run" from "how data moves", so each diagram answers one question. Authoring writes it into
+split of "how it's run" from "how data moves", so each diagram answers one question. They appear **in this
+order**: the invocation diagram first, the data-flow diagram second, so the page shows how the project is run
+before it shows what moves through it. Authoring writes it into
 the **repo overview only** — per-directory READMEs stay a lean index. A README gains one only when someone
 asks for it outright (`spec-eval diagram <path> --write --add-section`), never as a by-product of `generate`.
 - **`### How it is invoked`** — a small sequenceDiagram: the User, the entry points, and what each run
