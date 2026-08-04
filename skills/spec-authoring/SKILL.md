@@ -188,10 +188,10 @@ a **deliberate** act — the CLI gates it behind `--add-section`, and a doc that
 `generate` first. A ready prompt:
 
 > Regenerate the `## Architecture (data flow)` mermaid diagrams for `<path>` from the current entry points and
-> module intents, and update only that section of its existing `OVERVIEW.md` — an invocation sequenceDiagram
-> (scanner-verified entries noted with their `file:line`; conventional invocations noted as not
-> scanner-detected) and a pure data-flow `flowchart LR`, internal edges marked inferred (not verified against
-> a call graph).
+> module intents, and update only that section of its existing `OVERVIEW.md` — in this order: an invocation
+> sequenceDiagram (scanner-verified entries noted with their `file:line`; conventional invocations noted as not
+> scanner-detected), then a pure data-flow `flowchart LR` whose external systems come only from the observed
+> scan, internal edges marked inferred (not verified against a call graph).
 
 **On the fingerprint stamp.** Never hand-write a digest, and don't ask an agent to. `spec-eval diagram <path>
 --write` is the only thing that stamps, and it stamps what *it* draws — it regenerates the section and writes
