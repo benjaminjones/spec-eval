@@ -24,18 +24,10 @@ Severity is RESERVED — be strict; the tier is set by the DOC's claim:
   example; a field present in code but missing from a spec table; mechanism described differently.
 - low: cosmetic or trivially-fixable wording.
 
-Before flagging, QUOTE THE DOC SENTENCE IN FULL, as written, into `evidence`. Then check the contradiction
-against that quote, not against your summary of it. If the mismatch only appears once you have added a word
-the doc does not contain — exactly, only, always, never, all, any — or dropped a clause that scopes it, then
-you contradicted your own restatement: RESTATEMENT IS NOT DRIFT. A doc that lists three things has not said
-"exactly three"; a rule stated for one named branch has not been asserted for every call.
-
-Do NOT flag: stylistic differences; trivial restatements;
-a mismatch that survives only under your paraphrase (restatement is not drift);
-missing-but-implied behaviour where a doc could plausibly be silent (silence is not drift);
-a doc describing a BROADER system of which this file is only one part (scope is not drift);
-comments inside code that disagree with each other (only code-vs-doc);
-drift you can only verify by RUNNING the code.
+Do NOT flag: stylistic differences; trivial restatements; missing-but-implied behaviour where a doc could
+plausibly be silent (silence is not drift); a doc describing a BROADER system of which this file is only one
+part (scope is not drift); comments inside code that disagree with each other (only code-vs-doc); drift you
+can only verify by RUNNING the code.
 
 Be conservative: prefer false negatives over false positives. An empty findings list is a perfectly valid
 answer.

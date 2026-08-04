@@ -4,7 +4,7 @@
 
 This module gives the system a **fixed, portable auditing standard** for detecting *drift* — places where a codebase's implementation and its documentation contradict each other. It exists so the product can run drift-detection independently, without depending on any external rubric file: the rubric text is bundled directly in the package.
 
-**The rubric is deliberately conservative — it prefers to miss a real drift rather than raise a false one.** In practice this means an empty result ("no drift found") is always an acceptable answer; a disagreement you could only surface by guessing or by running the code must NOT be reported, and one that needs the doc paraphrased to see is not reported at any severity — the reviewer quotes the doc sentence in full and checks the contradiction against that quote, so a mismatch that survives only under the paraphrase is the reviewer contradicting their own restatement.
+**The rubric is deliberately conservative — it prefers to miss a real drift rather than raise a false one.** In practice this means an empty result ("no drift found") is always an acceptable answer; a disagreement you could only surface by guessing or by running the code must NOT be reported, and one that needs the doc paraphrased to see is disqualified from **high** severity (reportable at most as medium/low, not silenced).
 
 > Reconstructed intent (confidence: high) — inferred from the docstring and rubric text: the conservatism exists to protect reviewer trust; loosening it "trades trust for noise."
 
@@ -34,14 +34,10 @@ The module exposes a single constant string, `DRIFT_RUBRIC`, that instructs a te
 
 **Conservatism / prefer false negatives.** The reviewer must NOT flag:
 - stylistic differences or trivial restatements;
-- a mismatch that survives only under the reviewer's own paraphrase (restatement is not drift);
 - missing-but-implied behaviour where a doc could plausibly be silent (silence is not drift);
 - a doc describing a broader system of which this file is only one part (scope is not drift);
 - code comments that disagree with each other (only code-vs-doc counts);
 - drift verifiable only by RUNNING the code.
-
-**Quote before flagging.** The doc sentence goes into `evidence` in full, as written, and the contradiction is checked against that quote rather than against a summary of it. A mismatch that appears only after a word the doc does not contain has been added — *exactly, only, always, never, all, any* — or after a scoping clause has been dropped is the reviewer contradicting their own restatement, and is not reported at any severity.
-> **Why:** the rubric already disqualified a paraphrase-dependent mismatch from **high** severity, which demoted such a finding to medium rather than silencing it. Demotion still spends the reader's attention on a claim the doc does not make, and a doc that lists three things has not said "exactly three".
 
 > **Why:** The rubric is tuned to protect trust — a false positive costs more than a missed low-severity issue. An empty findings list is explicitly valid.
 
@@ -83,5 +79,3 @@ The module exposes a single constant string, `DRIFT_RUBRIC`, that instructs a te
 | AC-4 | A code↔doc mismatch is only detectable by executing the code | The rubric is applied | No finding is produced. |
 | AC-5 | No real mismatches exist in the pair | The rubric is applied | Output is exactly `{"findings": []}`. |
 | AC-6 | A function is renamed but still behaves identically to its doc description | The rubric is applied | This qualifies as at most **medium**, never high. |
-| AC-7 | A doc lists three items without a quantifier and the code has a fourth | The rubric is applied | No finding is produced — "exactly three" is the reviewer's addition (restatement is not drift). |
-| AC-8 | A doc states a rule for one named branch and the code differs on another branch | The rubric is applied | No finding is produced; the doc scoped the rule and the universal reading is the reviewer's. |

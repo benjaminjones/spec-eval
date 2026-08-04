@@ -52,18 +52,10 @@ A finding = the code does X but the doc/spec claims Y (or vice versa). Severity 
   example, a field in code missing from a spec table, mechanism described differently.
 - **low** — cosmetic / trivially-fixable wording.
 
-**Before flagging, quote the doc sentence in full**, as written, and check the contradiction against that
-quote rather than against your summary of it. If the mismatch only appears once you have added a word the doc
-does not contain — *exactly, only, always, never, all, any* — or dropped a clause that scopes it, then you
-contradicted your own restatement: **restatement is not drift**. A doc that lists three things has not said
-"exactly three"; a rule stated for one named branch has not been asserted for every call.
-
-**Do NOT flag:** stylistic differences; trivial restatements;
-a mismatch that survives only under your paraphrase (**restatement is not drift**);
-missing-but-implied behaviour where a doc could plausibly be silent (**silence is not drift**);
-a doc describing a **broader system** of which this file is one part (**scope is not drift**);
-comments inside code that disagree with each other (only code-vs-doc);
-drift you can only verify by **running** the code.
+**Do NOT flag:** stylistic differences; trivial restatements; missing-but-implied behaviour where a doc could
+plausibly be silent (**silence is not drift**); a doc describing a **broader system** of which this file is one
+part (**scope is not drift**); comments inside code that disagree with each other (only code-vs-doc); drift you
+can only verify by **running** the code.
 
 **Prefer false negatives over false positives.** An empty result ("✓ in agreement") is a perfectly valid answer.
 
