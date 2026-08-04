@@ -8,7 +8,11 @@ from . import providers
 
 
 def drift_load(r):
-    return sum(1 for f in r["findings"] if f["severity"] in ("high", "medium"))
+    """High+medium findings that stand. A finding withdrawn by the verification pass stays in the record
+    but is not counted — a withdrawal is itself a reviewable claim, so it is shown rather than deleted."""
+    return sum(1 for f in r["findings"]
+               if f["severity"] in ("high", "medium")
+               and f.get("verification", {}).get("verdict", "upheld") != "withdrawn")
 
 
 def _bar(v, width=20):
@@ -70,8 +74,16 @@ def write_markdown(results, repo, model, out_path, include_fingerprint=True):
         if r.get("truncated"):
             lines.append(f"- ⚠ *partial view ({'; '.join(r['truncated'])}) — findings may be incomplete*")
         for f in r["findings"]:
+            v = f.get("verification") or {}
+            gone = v.get("verdict") == "withdrawn"
             ref = f" (`{f.get('code_ref') or '?'}` vs `{f.get('doc_ref') or '?'}`)" if f.get("code_ref") or f.get("doc_ref") else ""
-            lines.append(f"- **[{f['severity']}]** {f['summary']}{ref}")
+            mark = f"~~**[{f['severity']}]** {f['summary']}~~" if gone else f"**[{f['severity']}]** {f['summary']}"
+            lines.append(f"- {mark}{ref}")
+            if gone:
+                lines.append(f"    - *withdrawn on verification — {v.get('ground')}:* {v.get('why', '')}")
+                if v.get("doc_quote"):
+                    lines.append(f"    - *the doc says:* “{v['doc_quote']}”")
+                continue          # a withdrawn finding keeps its claim and its ground, not its fix
             if f.get("evidence"):
                 lines.append(_evidence_block(f["evidence"]))
             if f.get("suggestion"):
