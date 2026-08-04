@@ -24,6 +24,7 @@ LOAD_BEARING = [
     "MEASURABLE GUARANTEE",
     "silence is not drift",
     "scope is not drift",
+    "restatement is not drift",
     "false negatives",
 ]
 
