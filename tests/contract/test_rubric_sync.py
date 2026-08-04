@@ -133,14 +133,15 @@ def test_rubric_triggers_on_the_exact_block_marker_the_scanner_emits():
 # --- architecture diagram: ARCH_DIAGRAM_RUBRIC <-> spec-authoring SKILL.md + OVERVIEW-template.md ---
 
 # The load-bearing phrases every Architecture (data flow) copy must carry: the section heading, the mermaid
-# marker, the two subsection names (the invocation/data-flow split), the two provenance labels a sequence
-# entry must wear, and the inferred-edge honesty (the diagrams' analogue of System context's 'capability in
-# the code, not proof of runtime traffic').
+# marker, the two subsection names (the invocation/data-flow split), the fact that their order is fixed, the
+# two provenance labels a sequence entry must wear, and the inferred-edge honesty (the diagrams' analogue of
+# System context's 'capability in the code, not proof of runtime traffic').
 DIAGRAM_LOAD_BEARING = [
     "## Architecture (data flow)",
     "mermaid",
     "How it is invoked",
     "Data flow",
+    "in this order",
     "scanner-verified entry point",
     "not scanner-detected",
     "scanner-derived",
@@ -155,6 +156,19 @@ def test_diagram_phrases_shared_across_rubric_skill_and_template():
         assert phrase in ARCH_DIAGRAM_RUBRIC, f"authoring.py ARCH_DIAGRAM_RUBRIC lost the diagram phrase: {phrase!r}"
         assert phrase in skill, f"spec-authoring SKILL.md lost the diagram phrase: {phrase!r}"
         assert phrase in template, f"OVERVIEW-template.md lost the diagram phrase: {phrase!r}"
+
+
+def test_the_invocation_diagram_precedes_the_data_flow_diagram_in_every_copy():
+    """'in this order' is a phrase until something checks the order. Each copy must introduce
+    '### How it is invoked' BEFORE '### Data flow' — a reader meets how the project is run before what moves
+    through it, whether the page came from the CLI, the skill, or the template."""
+    copies = (("ARCH_DIAGRAM_RUBRIC", ARCH_DIAGRAM_RUBRIC),
+              ("spec-authoring SKILL.md", open(AUTHORING_SKILL_PATH).read()),
+              ("OVERVIEW-template.md", open(OVERVIEW_TEMPLATE_PATH).read()))
+    for name, text in copies:
+        invoked, data_flow = text.find("### How it is invoked"), text.find("### Data flow")
+        assert invoked >= 0 and data_flow >= 0, f"{name} lost one of the two diagram subsections"
+        assert invoked < data_flow, f"{name} introduces the data-flow diagram before the invocation diagram"
 
 
 def test_the_provenance_caveat_is_one_sentence_byte_for_byte():

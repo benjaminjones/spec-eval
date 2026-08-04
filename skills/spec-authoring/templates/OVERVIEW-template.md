@@ -14,6 +14,8 @@ Written so a newcomer understands the point before opening any spec.>
 <!-- If reverse-engineered: > Reconstructed intent (confidence: …) — inferred from the code, not stated by the author. -->
 
 ## Architecture (data flow)  *(repo overview only — per-directory READMEs omit this)*
+<!-- The two diagrams go in this order: "How it is invoked" first, "Data flow" second — how the project is run,
+     then what moves through it. -->
 
 ### How it is invoked
 ```mermaid
@@ -60,6 +62,9 @@ flowchart LR
 *(For internal component diagrams and stateful flows, see the relevant module spec's §3 Behavior.)*
 
 ## System context  *(the observed external seams — what `<project>` talks to)*
+<!-- Scan first, then fill: run `spec-eval context <path>` (or sweep the code for SDK/driver imports, connection-string
+     schemes, literal URLs, endpoint-shaped env vars, and web-framework imports). Leaving this section out is
+     what a scan that found nothing looks like — not a way to skip the scan. -->
 | External system | Direction | What flows | Evidence |
 |---|---|---|---|
 | <AWS S3> | <outbound (infra)> | <domain-level payload, e.g. report artifacts> | <`src/store.py:41`> |

@@ -65,6 +65,16 @@ def test_colocated_spec_path_claim_matches_spec_path_for():
         "spec-check skill dropped the co-located default pairing"
 
 
+def test_the_seam_scan_command_matches_the_cli_subcommand():
+    """The spec-authoring skill and the OVERVIEW template both send the author to `spec-eval context` before
+    writing System context; a renamed subcommand would leave them naming a command that does not exist."""
+    assert 'sub.add_parser("context"' in _read("spec_eval/cli.py"), \
+        "the context subcommand was renamed/moved — update the seam-scan step in the skill + OVERVIEW template"
+    for doc in ("skills/spec-authoring/SKILL.md", "skills/spec-authoring/templates/OVERVIEW-template.md"):
+        assert "spec-eval context" in _read(doc), \
+            f"{doc} no longer names the scan command the System context section is built from"
+
+
 def test_spec_health_home_is_spec_reports():
     """SPEC-HEALTH.md has ONE home: spec-reports/, beside the reports it rolls up. The standing receipt file
     must live there, and every doc that names it must use that path — a root copy or a bare link is drift."""
