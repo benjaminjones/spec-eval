@@ -83,6 +83,13 @@ stands. Withdrawing on general doubt makes this a second opinion rather than a c
 **Report a withdrawn finding, struck through, with its ground and the doc line** — do not delete it. A
 withdrawal is a claim in its own right and the reader should be able to disagree with it.
 
+**This pass is weaker here than in the CLI, and you should say so.** The `--verify` flag sends each finding to
+a reader with no memory of raising it. In a chat session you are checking your own findings, and a reader that
+has talked itself into something tends to stay talked into it. So: re-read the doc for real rather than
+consulting your memory of it, and treat a finding you cannot bring yourself to withdraw with suspicion rather
+than as confirmed. For findings that matter, a **fresh session** doing only this pass is the stronger check —
+the same reason authoring and checking belong in separate sessions.
+
 ## Honesty (the load-bearing part)
 Report only **real, defensible** disagreements, with the evidence quoted. If you are unsure a finding is real,
 **stay quiet** rather than over-flag — a noisy check gets ignored, which is worse than no check. This is a

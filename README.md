@@ -126,6 +126,7 @@ and follow it to check specs for: {{TARGET = ./  (a file, a folder, or the whole
 Before checking, echo TARGET and the report setting back in one message — with its full option list
 from the comment, so I can pick in my reply — and wait for my OK:
   - run both passes, in order: 1) coverage (which files have no spec), 2) drift (do the specs match the code)
+  - double-check:  no   # no | yes (re-read each spec and drop findings it doesn't actually support)
   - reports:  chat only   # chat only (results land in the chat) | save (also save the results to spec-reports/)
 Check one folder at a time so a small-context agent doesn't run out of tokens.
 ```
