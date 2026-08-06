@@ -59,6 +59,37 @@ can only verify by **running** the code.
 
 **Prefer false negatives over false positives.** An empty result ("✓ in agreement") is a perfectly valid answer.
 
+## Second pass — check a finding against the doc before reporting it
+
+For each finding you are about to report, re-read the document and ask one question: **does the doc actually
+assert that, as written?** Check against the document, not against your own summary of it — the summary is the
+thing being checked.
+
+**Withdraw** a finding only on one of four named grounds, and only quoting a line that is there:
+- **not-asserted** — the line the finding cites does not carry the claim at the strength needed: a quantifier
+  it lacks (*exactly, only, always, never, all, any*), or a clause it has that the finding dropped.
+- **stated-elsewhere** — the same doc states the rule correctly in another passage, commonly a contract table
+  below the narrative.
+- **not-normative** — the graded sentence is rationale or commentary, not a claim about behaviour.
+- **scoped** — the doc scoped the statement to a named case the finding applies outside of.
+
+Each ground is settled by quoting **one line that exists**. Never argue that a document does *not* contain
+something — quoting a line that omits a property does not show the property is absent, and a document may state
+it in several places.
+
+**Uphold otherwise, and uphold when unsure.** A finding you cannot withdraw on a named ground with a quote
+stands. Withdrawing on general doubt makes this a second opinion rather than a check.
+
+**Report a withdrawn finding, struck through, with its ground and the doc line** — do not delete it. A
+withdrawal is a claim in its own right and the reader should be able to disagree with it.
+
+**This pass is weaker here than in the CLI, and you should say so.** The `--verify` flag sends each finding to
+a reader with no memory of raising it. In a chat session you are checking your own findings, and a reader that
+has talked itself into something tends to stay talked into it. So: re-read the doc for real rather than
+consulting your memory of it, and treat a finding you cannot bring yourself to withdraw with suspicion rather
+than as confirmed. For findings that matter, a **fresh session** doing only this pass is the stronger check —
+the same reason authoring and checking belong in separate sessions.
+
 ## Honesty (the load-bearing part)
 Report only **real, defensible** disagreements, with the evidence quoted. If you are unsure a finding is real,
 **stay quiet** rather than over-flag — a noisy check gets ignored, which is worse than no check. This is a

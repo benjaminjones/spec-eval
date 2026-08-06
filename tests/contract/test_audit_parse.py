@@ -26,6 +26,34 @@ def test_parse_findings_tolerates_literal_newlines_in_strings():
     resp = '{"findings": [{"severity": "high", "summary": "x", "evidence": "line one\nline two"}]}'
     out = audit.parse_findings(resp)
     assert len(out) == 1 and out[0]["summary"] == "x"
+    assert out[0]["evidence"] == "line one\nline two"
+
+
+def test_parse_findings_keeps_the_evidence_the_rubric_asked_for():
+    """The rubric requires `evidence` ("quote the conflicting code and doc snippets") and the FAQ tells
+    a reader to check a finding against it, so dropping it makes a documented instruction unfollowable —
+    and leaves nothing to re-check a claim against."""
+    resp = ('{"findings": [{"severity": "high", "summary": "x", "code_ref": "a.py:L3",'
+            ' "doc_ref": "a.md:L9", "evidence": "code: n = 8 / doc: defaults to 4", "suggestion": "fix"}]}')
+    out = audit.parse_findings(resp)
+    assert out[0]["evidence"] == "code: n = 8 / doc: defaults to 4"
+
+
+def test_parse_findings_missing_evidence_is_empty_not_absent():
+    """A model that omits the key must still produce a finding of the declared shape, so a consumer can
+    read `evidence` unconditionally."""
+    out = audit.parse_findings('{"findings": [{"severity": "low", "summary": "x"}]}')
+    assert out[0]["evidence"] == ""
+
+
+def test_unparsed_fallback_carries_the_same_key_set():
+    """The regex fallback used to emit a two-key finding while the parsed path emitted six. Any consumer
+    indexing a field on a finding would raise on exactly the responses that are already going wrong."""
+    parsed = audit.parse_findings('{"findings": [{"severity": "high", "summary": "x"}]}')
+    fallback = audit.parse_findings('garbled ... "severity": "high" ... not json')
+    assert len(fallback) == 1
+    assert set(fallback[0]) == set(parsed[0])
+    assert fallback[0]["evidence"] == "" and fallback[0]["code_ref"] is None
 
 
 def test_parse_findings_skips_bracey_prose_before_the_json():

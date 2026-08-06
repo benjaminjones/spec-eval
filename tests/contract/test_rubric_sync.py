@@ -35,6 +35,20 @@ def test_drift_rubric_and_spec_check_skill_share_the_load_bearing_phrases():
         assert phrase in skill, f"skills/spec-check/SKILL.md lost the principle: {phrase!r}"
 
 
+VERIFY_GROUNDS = ["not-asserted", "stated-elsewhere", "not-normative", "scoped"]
+
+
+def test_verify_grounds_are_shared_by_the_module_and_the_skill():
+    """The four withdrawal grounds are the safety property of the second pass — a ground that exists in one
+    copy and not the other means one path can delete a finding the other would keep."""
+    from spec_eval.verify import GROUNDS, VERIFY_RUBRIC
+    skill = open(SKILL_PATH).read()
+    assert GROUNDS == set(VERIFY_GROUNDS)
+    for g in VERIFY_GROUNDS:
+        assert g in VERIFY_RUBRIC, f"verify rubric lost the ground: {g!r}"
+        assert g in skill, f"skills/spec-check/SKILL.md lost the ground: {g!r}"
+
+
 def test_both_rubrics_carry_the_sync_pointer():
     """Each copy names the other, so an editor landing in either file learns the sync rule."""
     import spec_eval.rubric as rubric_mod

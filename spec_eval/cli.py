@@ -68,7 +68,12 @@ def main(argv=None):
         p.add_argument("--fingerprint", action=argparse.BooleanOptionalAction, default=True,
                        help="include the markdown unicode-bar fingerprint (default: on)")
 
-    model_args(sub.add_parser("audit", help="DRIFT: do the pairs CONTRADICT their specs? (needs a model)"))
+    _audit = sub.add_parser("audit", help="DRIFT: do the pairs CONTRADICT their specs? (needs a model)")
+    model_args(_audit)
+    _audit.add_argument("--verify", action="store_true",
+                        help="second pass: re-read each doc and withdraw findings it does not actually "
+                             "assert. One extra model call per pair that produced findings. Off by default "
+                             "— it costs roughly a third again in calls and its benefit is unmeasured.")
     model_args(sub.add_parser("sufficiency", help="SUFFICIENCY: how completely do the specs capture the code's "
                                                   "behavior? (needs a model)"))
 
@@ -131,10 +136,18 @@ def main(argv=None):
             args.repo, cfg = _file_scope(args.repo, cfg)
         os.makedirs(args.out, exist_ok=True)
         results = audit.audit_repo(args.repo, cfg, args.model)
+        if args.verify:
+            from . import verify as verify_mod
+            results = verify_mod.verify_repo(args.repo, cfg, results, args.model)
         json.dump(results, open(os.path.join(args.out, "findings.json"), "w"), indent=2)
         total = report.write_markdown(results, args.repo, args.model, os.path.join(args.out, "report.md"), args.fingerprint)
         audited = sum(1 for r in results if not r.get("skipped"))
         print(f"{total} high/medium drift finding(s) across {audited}/{len(results)} audited pair(s).")
+        withdrawn = sum(1 for r in results for f in r["findings"]
+                        if f.get("verification", {}).get("verdict") == "withdrawn")
+        if withdrawn:
+            print(f"{withdrawn} finding(s) withdrawn on verification — listed in report.md with the "
+                  f"ground and the doc line, and not counted above.")
         truncated = sum(1 for r in results if r.get("truncated"))
         if truncated:
             print(f"⚠ {truncated} pair(s) graded on a partial view (input cap or reply token cap) — "

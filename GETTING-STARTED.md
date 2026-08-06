@@ -188,3 +188,6 @@ opinion".)
 - **`claude-code` errors** — the bridge needs the Claude Code CLI installed and logged in (`claude` on your PATH).
 - **Costs** — `coverage` and `context` are always free; the AI commands print exact token/call counts. Estimating spend:
   [FAQ → "How much does a run cost?"](FAQ.md#how-much-does-a-run-cost).
+- **"Is this finding real?"** — add `--verify` and a second AI pass throws out findings your spec doesn't
+  actually support. It only removes findings, never adds any. Costs one extra call per file that had findings:
+  [FAQ → "Not sure a finding is real?"](FAQ.md#not-sure-a-finding-is-real-double-check-it-with---verify).

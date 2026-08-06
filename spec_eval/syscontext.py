@@ -409,7 +409,7 @@ def scan(repo, config):
         rec["via"].add(via)
         rec["evidence_total"] += 1
         d = os.path.dirname(rel)                   # cap per DIRECTORY: per-dir scoping must always find the
-        if sum(1 for e in rec["evidence"]          # sites of a dir that observed the system (INV-6)
+        if sum(1 for e in rec["evidence"]          # sites of a dir that observed the system (INV-5)
                if os.path.dirname(e["file"]) == d) < EVIDENCE_CAP:
             rec["evidence"].append({"file": rel, "line": lineno, "match": line.strip()[:LINE_CAP]})
 

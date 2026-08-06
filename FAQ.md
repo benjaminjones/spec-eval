@@ -126,6 +126,10 @@ The cost shape: **one model call per pair** (per spec-worthy file, or per config
 its file's size, up to a hard per-file ceiling set by the input caps — adjustable with a `caps:` block in a
 config (see [`configs/spec-eval.example.yml`](configs/spec-eval.example.yml)).
 
+**`audit --verify` adds calls, but not one per pair.** The second pass only runs on pairs that actually
+produced findings, so a clean pair costs nothing extra. If a quarter of your pairs have findings, expect about
+a quarter more calls.
+
 > [!IMPORTANT]
 > **The figures below are rough estimates, not quotes — verify fully before relying on them.** They assume
 > July 2026 list prices, and model prices, tokenizers, and discounts change often. Check your provider's
@@ -386,6 +390,43 @@ sections where behavior, defaults, and contracts live will produce specs that ca
 > [!TIP]
 > After switching templates, re-generate one pilot folder and compare its `sufficiency` trend against the old
 > template before rolling out.
+
+### Not sure a finding is real? Double-check it with `--verify`
+
+Think of `audit` as a metal detector: it beeps wherever it thinks the spec and the code disagree. Not every
+beep is worth digging up.
+
+`--verify` is the second look before you start digging:
+
+```bash
+spec-eval audit . --verify
+```
+
+It sends each finding back to a fresh AI reader with the whole spec, and asks one question: **does the spec
+actually say the thing this finding says it says?** If not, the finding is thrown out.
+
+**Why doesn't `audit` just get it right the first time?** Because it is doing a harder job. The first pass
+holds your code and your spec side by side and hunts for anywhere they disagree. The second pass has one job
+instead — read the spec, and check whether it really says the thing the finding claims.
+
+We tried telling the first pass to be more careful. It obeyed, and nothing changed — a reader that has talked
+itself into something stays talked into it. It takes a *second* reader, not the first one asked twice.
+
+A finding can only be thrown out for one of four reasons, and the reader has to quote the line that proves it:
+
+- the spec line the finding points at doesn't actually claim that
+- the spec says the right thing somewhere else, further down
+- the sentence was explaining *why*, not promising what the code does
+- the spec was talking about a different case
+
+Anything else stays. If the reader isn't sure, it stays.
+
+**Use it when you're about to act on the findings** — before a release, or before editing a spec you didn't
+write. **Skip it for a quick look around**, because it costs one extra AI call for each file that had findings.
+
+Thrown-out findings don't disappear. They show up crossed out, with the reason and the spec line, so you can
+disagree. And it can only ever *remove* findings — it never finds new ones. So a clean report after `--verify`
+means the same thing a clean report always means: nothing was found this run.
 
 ### How accurate are the scores (and the fingerprint)?
 

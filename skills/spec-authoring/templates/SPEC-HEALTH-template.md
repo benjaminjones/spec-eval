@@ -14,6 +14,9 @@
 audit_sha: <pinned commit>          # dashboard is known-stale the instant code moves past this
 audit_date: <YYYY-MM-DD>
 detector: <provider:model>
+verified: false                     # true when the run used `audit --verify`; the drift counts below then
+                                    # EXCLUDE findings the second pass withdrew, so the number means
+                                    # something different and a reader has to know which
 rollup:
   avg_sufficiency: 0.0
   total_high_drift: 0
@@ -31,7 +34,9 @@ modules:
 ## Fingerprint  *(the standing scorecard — one markdown row per module)*
 **Coverage** — <N>/<M> spec-worthy modules covered.
 
-**Drift**  *(high+med findings verbatim from `findings.json` — click-to-verify, not "trust me")*
+**Drift**  *(high+med findings verbatim from `findings.json` — click-to-verify, not "trust me". If `verified:`
+is true, findings the second pass withdrew are not counted here; list them separately rather than dropping
+them, since a withdrawal is a judgement a reader may disagree with.)*
 
 | Module | Sev | Summary | code_ref | doc_ref | fix |
 |---|---|---|---|---|---|

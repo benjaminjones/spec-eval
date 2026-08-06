@@ -8,7 +8,11 @@ from . import providers
 
 
 def drift_load(r):
-    return sum(1 for f in r["findings"] if f["severity"] in ("high", "medium"))
+    """High+medium findings that stand. A finding withdrawn by the verification pass stays in the record
+    but is not counted — a withdrawal is itself a reviewable claim, so it is shown rather than deleted."""
+    return sum(1 for f in r["findings"]
+               if f["severity"] in ("high", "medium")
+               and f.get("verification", {}).get("verdict", "upheld") != "withdrawn")
 
 
 def _bar(v, width=20):
@@ -42,6 +46,17 @@ def drift_fingerprint(results):
     return "\n".join(lines) + "\n"
 
 
+def _evidence_block(evidence):
+    """The quoted code/doc snippets a finding rests on, rendered as an indented fenced block.
+
+    The rubric asks for `evidence` precisely so a reader can check a finding instead of taking it on
+    trust, and the FAQ tells them to read it — so it has to reach the report. Fenced because the content
+    is source, and indented four spaces so a multi-line quote stays inside its list item instead of
+    ending the list. A fence inside the evidence would close ours early, so backticks are stripped."""
+    body = "\n".join("    " + ln for ln in str(evidence).replace("```", "'''").split("\n"))
+    return "    - *evidence:*\n\n    ```\n" + body + "\n    ```\n"
+
+
 def write_markdown(results, repo, model, out_path, include_fingerprint=True):
     name = os.path.basename(os.path.abspath(repo))
     total = sum(drift_load(r) for r in results if not r.get("skipped"))
@@ -59,8 +74,18 @@ def write_markdown(results, repo, model, out_path, include_fingerprint=True):
         if r.get("truncated"):
             lines.append(f"- ⚠ *partial view ({'; '.join(r['truncated'])}) — findings may be incomplete*")
         for f in r["findings"]:
+            v = f.get("verification") or {}
+            gone = v.get("verdict") == "withdrawn"
             ref = f" (`{f.get('code_ref') or '?'}` vs `{f.get('doc_ref') or '?'}`)" if f.get("code_ref") or f.get("doc_ref") else ""
-            lines.append(f"- **[{f['severity']}]** {f['summary']}{ref}")
+            mark = f"~~**[{f['severity']}]** {f['summary']}~~" if gone else f"**[{f['severity']}]** {f['summary']}"
+            lines.append(f"- {mark}{ref}")
+            if gone:
+                lines.append(f"    - *withdrawn on verification — {v.get('ground')}:* {v.get('why', '')}")
+                if v.get("doc_quote"):
+                    lines.append(f"    - *the doc says:* “{v['doc_quote']}”")
+                continue          # a withdrawn finding keeps its claim and its ground, not its fix
+            if f.get("evidence"):
+                lines.append(_evidence_block(f["evidence"]))
             if f.get("suggestion"):
                 lines.append(f"    - *fix:* {f['suggestion']}")
         lines.append("")
