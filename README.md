@@ -213,7 +213,8 @@ Three scores, three simple ideas:
 
 - **coverage** = spec files you *have* ÷ spec files you *need* → a percent. Just counting, **no AI**.
   *(9 of 10 code files have a spec → 90%.)*
-- **drift** = the number of spots where the spec and the code flat-out disagree. **`0` = they match.**
+- **drift** = the number of spots where the AI reader *found* the spec and the code flat-out disagreeing.
+  **`0` means it found nothing this run — not that there is nothing to find.**
 - **sufficiency** = how much of what the code does is actually written in the spec, from **`0` to `1`**.
   *(`1.0` = it's all there; `0.1` = almost none of it is.)*
 
@@ -242,9 +243,25 @@ the pair against a fixed rubric — one model call per pair. Two things follow f
 Each run writes a short report to `spec-reports/` (a `.md` you read, a `.json` for tools):
 
 - **coverage** — the % of your code that has a spec, and which files don't. *(live example: [coverage.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/coverage.md))*
-- **drift** — each place a spec and the code disagree, with a suggested fix. `0` is clean. *(live example: [report.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/report.md))*
+- **drift** — each place the AI reader found a spec and the code disagreeing: the code line and the spec line it quoted, plus a suggested fix. `0` means this run found nothing. *(live example: [report.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/report.md))*
 - **sufficiency** — a `0`–`1` score per spec (worst first), listing what's missing with a searchable code pointer
   (`file.py (function)`). `1.0` = the grader found nothing missing — guidance, not a guarantee. *(live example: [sufficiency.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/sufficiency.md))*
+
+> [!IMPORTANT]
+> **A finding can be wrong.** The AI reader sometimes reports a clash that isn't really there. That is why every
+> finding quotes the code line and the spec line it rests on — read the quote before you change anything. If the
+> quote doesn't back up the finding, the finding is the mistake. Leave your spec alone.
+
+**Not sure about the findings? Double-check them.** Add `--verify` and a second AI pass re-reads your spec and
+throws out findings the spec doesn't actually support:
+
+```bash
+spec-eval audit . --verify
+```
+
+It only ever *removes* findings, never adds any, so it can make the report shorter but never longer. Thrown-out
+findings still show up — crossed out, with the reason and the spec line — so you can disagree with it. It costs
+one extra AI call per file that had findings, which is why it's off unless you ask.
 
 The three examples are **spec-eval grading itself**, rolled up in [SPEC-HEALTH.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md).
 
