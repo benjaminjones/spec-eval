@@ -409,9 +409,8 @@ actually say the thing this finding says it says?** If not, the finding is throw
 holds your code and your spec side by side and hunts for anywhere they disagree. The second pass has one job
 instead — read the spec, and check whether it really says the thing the finding claims.
 
-We tried the easier fix first: telling the first pass to be more careful. It followed the instruction and it
-did not help. A reader that has already talked itself into something tends to stay talked into it. What
-changes the answer is asking a *second* reader, not asking the first one twice.
+We tried telling the first pass to be more careful. It obeyed, and nothing changed — a reader that has talked
+itself into something stays talked into it. It takes a *second* reader, not the first one asked twice.
 
 A finding can only be thrown out for one of four reasons, and the reader has to quote the line that proves it:
 

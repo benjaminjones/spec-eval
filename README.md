@@ -263,8 +263,8 @@ It only ever *removes* findings, never adds any, so it can make the report short
 findings still show up — crossed out, with the reason and the spec line — so you can disagree with it. It costs
 one extra AI call per file that had findings, which is why it's off unless you ask.
 
-*Why a second pass rather than a more careful first one? Because a reader that has already talked itself into
-something tends to stay talked into it — [the longer answer is in the FAQ](FAQ.md#not-sure-a-finding-is-real-double-check-it-with---verify).*
+*Why a second pass and not a more careful first one? A reader that has talked itself into something stays
+talked into it — [longer answer in the FAQ](FAQ.md#not-sure-a-finding-is-real-double-check-it-with---verify).*
 
 The three examples are **spec-eval grading itself**, rolled up in [SPEC-HEALTH.md](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md).
 
