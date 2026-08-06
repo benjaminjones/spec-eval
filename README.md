@@ -214,7 +214,7 @@ Three scores, three simple ideas:
 - **coverage** = spec files you *have* ÷ spec files you *need* → a percent. Just counting, **no AI**.
   *(9 of 10 code files have a spec → 90%.)*
 - **drift** = the number of spots where the AI reader *found* the spec and the code flat-out disagreeing.
-  **`0` means it found nothing this run — not that there is nothing to find.**
+  **`0` means it found nothing this run. It is not proof that your spec and code agree.**
 - **sufficiency** = how much of what the code does is actually written in the spec, from **`0` to `1`**.
   *(`1.0` = it's all there; `0.1` = almost none of it is.)*
 
