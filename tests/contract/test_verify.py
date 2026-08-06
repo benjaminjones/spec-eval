@@ -6,6 +6,8 @@ without reducing findings, and a claim two blind readers judged a false positive
 six under both rubric versions. These tests pin the properties that make a second pass safe to add — it can
 only remove a finding on a named ground, and it can never remove one silently.
 """
+import json
+
 from spec_eval import report, verify
 
 
@@ -113,3 +115,29 @@ def test_a_not_asserted_withdrawal_quoting_text_that_is_nowhere_is_rejected():
          "doc_quote": "a sentence this document does not contain", "why": "not asserted"}
     out = verify.check_not_asserted(finding, v, doc)
     assert out["verdict"] == "upheld" and "does not appear" in out["why"]
+
+
+def test_a_crashing_verifier_does_not_cost_the_audit(tmp_path, monkeypatch, capsys):
+    """The second pass runs between a completed audit and the write of its results, so a failure there used
+    to discard every pair already paid for — a transient 529 on the verify call threw away eleven audited
+    pairs. verify's contract is that an unusable verifier is a no-op; a crashing one has to be one too."""
+    from spec_eval import cli
+
+    findings = [{"label": "p", "code_files": 1, "doc_files": 1,
+                 "findings": [{"severity": "high", "summary": "real drift", "evidence": "e",
+                               "suggestion": "fix", "code_ref": "a.py:L1", "doc_ref": "a.md:L2"}]}]
+    monkeypatch.setattr(cli.audit, "audit_repo", lambda *a, **k: findings)
+    monkeypatch.setattr(cli, "_load_keys", lambda *a, **k: None)
+
+    def boom(*a, **k):
+        raise RuntimeError("API Error: 529 Overloaded")
+    import spec_eval.verify as verify_mod
+    monkeypatch.setattr(verify_mod, "verify_repo", boom)
+
+    out = tmp_path / "reports"
+    cli.main(["audit", str(tmp_path), "--model", "x", "--verify", "--out", str(out)])
+
+    written = json.loads((out / "findings.json").read_text())
+    assert written[0]["findings"][0]["summary"] == "real drift"   # the audit survived
+    assert (out / "report.md").exists()
+    assert "verification failed" in capsys.readouterr().out       # and the user is told why

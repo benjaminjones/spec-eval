@@ -51,6 +51,17 @@ def _diagram_target(repo):
     return None
 
 
+def _write_audit(results, args):
+    """Persist findings + report. Called after the audit, and again after a successful verification.
+
+    The optional second pass runs between a completed audit and the only write of its results, so a failure
+    there — a transient 529, a malformed reply — discarded every pair the audit had already paid for.
+    verify's own contract is that an unusable verifier is a no-op; a crashing one has to be a no-op too."""
+    json.dump(results, open(os.path.join(args.out, "findings.json"), "w"), indent=2)
+    report.write_markdown(results, args.repo, args.model,
+                          os.path.join(args.out, "report.md"), args.fingerprint)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="spec-eval",
                                  description="Portable spec coverage + drift + sufficiency + authoring.")
@@ -136,11 +147,17 @@ def main(argv=None):
             args.repo, cfg = _file_scope(args.repo, cfg)
         os.makedirs(args.out, exist_ok=True)
         results = audit.audit_repo(args.repo, cfg, args.model)
+        _write_audit(results, args)                            # bank the audit BEFORE the optional second pass
         if args.verify:
             from . import verify as verify_mod
-            results = verify_mod.verify_repo(args.repo, cfg, results, args.model)
-        json.dump(results, open(os.path.join(args.out, "findings.json"), "w"), indent=2)
-        total = report.write_markdown(results, args.repo, args.model, os.path.join(args.out, "report.md"), args.fingerprint)
+            try:
+                results = verify_mod.verify_repo(args.repo, cfg, results, args.model)
+            except Exception as e:                             # a second pass that dies must not cost the audit
+                print(f"⚠ verification failed — keeping the unverified findings: {e}")
+                args.verify = False
+            else:
+                _write_audit(results, args)
+        total = sum(report.drift_load(r) for r in results if not r.get("skipped"))
         audited = sum(1 for r in results if not r.get("skipped"))
         print(f"{total} high/medium drift finding(s) across {audited}/{len(results)} audited pair(s).")
         withdrawn = sum(1 for r in results for f in r["findings"]
