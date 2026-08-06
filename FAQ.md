@@ -393,8 +393,8 @@ sections where behavior, defaults, and contracts live will produce specs that ca
 
 ### Not sure a finding is real? Double-check it with `--verify`
 
-Think of `audit` as a metal detector. You sweep it over your project and it beeps. Most beeps are coins. Some
-are bottle caps.
+Think of `audit` as a metal detector: it beeps wherever it thinks the spec and the code disagree. Not every
+beep is worth digging up.
 
 `--verify` is the second look before you start digging:
 
