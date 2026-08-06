@@ -405,6 +405,14 @@ spec-eval audit . --verify
 It sends each finding back to a fresh AI reader with the whole spec, and asks one question: **does the spec
 actually say the thing this finding says it says?** If not, the finding is thrown out.
 
+**Why doesn't `audit` just get it right the first time?** Because it is doing a harder job. The first pass
+holds your code and your spec side by side and hunts for anywhere they disagree. The second pass has one job
+instead — read the spec, and check whether it really says the thing the finding claims.
+
+We tried the easier fix first: telling the first pass to be more careful. It followed the instruction and it
+did not help. A reader that has already talked itself into something tends to stay talked into it. What
+changes the answer is asking a *second* reader, not asking the first one twice.
+
 A finding can only be thrown out for one of four reasons, and the reader has to quote the line that proves it:
 
 - the spec line the finding points at doesn't actually claim that
