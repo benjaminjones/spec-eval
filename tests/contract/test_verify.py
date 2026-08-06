@@ -102,3 +102,14 @@ def test_the_position_check_does_not_touch_the_other_grounds():
     v = {"verdict": "withdrawn", "ground": "stated-elsewhere",
          "doc_quote": "elsewhere the rule is stated correctly", "why": "AC-1 gets it right"}
     assert verify.check_not_asserted(finding, v, doc)["verdict"] == "withdrawn"
+
+
+def test_a_not_asserted_withdrawal_quoting_text_that_is_nowhere_is_rejected():
+    """A quote found nowhere in the document is stronger evidence of fabrication than a misplaced one, and
+    was the weaker check: an earlier version rejected only a misplaced quote, so a wholly invented one passed."""
+    doc = "\n".join([f"line {i}" for i in range(1, 60)])
+    finding = {"doc_ref": "model.md:L50", "summary": "x"}
+    v = {"verdict": "withdrawn", "ground": "not-asserted",
+         "doc_quote": "a sentence this document does not contain", "why": "not asserted"}
+    out = verify.check_not_asserted(finding, v, doc)
+    assert out["verdict"] == "upheld" and "does not appear" in out["why"]

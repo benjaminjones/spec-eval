@@ -110,6 +110,10 @@ def check_not_asserted(finding, verdict, doc, window=3):
     while line 50 was an invariant row asserting the very property at issue. The quote existed, so a
     does-this-text-appear check passed it; only its POSITION falsifies it.
 
+    Two ways a quote fails: it is nowhere in the document at all, or it is somewhere other than the line the
+    finding cited. The first is the stronger signal and was the weaker check — an earlier version only rejected
+    a misplaced quote, so a wholly invented one passed.
+
     Applies to `not-asserted` alone. The other grounds are claims about the document as a whole — a rule
     stated elsewhere is by definition not at the cited line — so a position check would reject them wrongly."""
     if verdict.get("verdict") != "withdrawn" or verdict.get("ground") != "not-asserted":
@@ -120,7 +124,10 @@ def check_not_asserted(finding, verdict, doc, window=3):
         return verdict                      # nothing to check against; leave the model's call alone
     lines = doc.split("\n")
     hits = [i + 1 for i, ln in enumerate(lines) if quote and quote in ln]
-    if hits and not any(abs(h - want) <= window for h in hits):
+    if not hits:
+        return {"verdict": "upheld", "ground": None, "doc_quote": quote,
+                "why": "withdrawal rejected: the quoted line does not appear in the document"}
+    if not any(abs(h - want) <= window for h in hits):
         return {"verdict": "upheld", "ground": None, "doc_quote": quote,
                 "why": f"withdrawal rejected: the quoted line is at {hits[0]}, not the cited {want}"}
     return verdict
