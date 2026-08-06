@@ -126,6 +126,10 @@ The cost shape: **one model call per pair** (per spec-worthy file, or per config
 its file's size, up to a hard per-file ceiling set by the input caps — adjustable with a `caps:` block in a
 config (see [`configs/spec-eval.example.yml`](configs/spec-eval.example.yml)).
 
+**`audit --verify` adds calls, but not one per pair.** The second pass only runs on pairs that actually
+produced findings, so a clean pair costs nothing extra. If a quarter of your pairs have findings, expect about
+a quarter more calls.
+
 > [!IMPORTANT]
 > **The figures below are rough estimates, not quotes — verify fully before relying on them.** They assume
 > July 2026 list prices, and model prices, tokenizers, and discounts change often. Check your provider's

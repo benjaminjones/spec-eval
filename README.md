@@ -223,7 +223,7 @@ Those three are **per spec**. The repo's one **sufficiency** score is just their
 the total count across specs.)*
 
 `coverage` is pure counting. The other two need an **AI reader**: it reads each spec next to its code and grades
-the pair against a fixed rubric — one model call per pair. Two things follow from that:
+the pair against a fixed rubric — one model call per pair (`audit --verify` adds one more, but only for pairs that had findings). Two things follow from that:
 
 > [!NOTE]
 > AI scores **wobble**: the same spec might get 0.78 one run and 0.72 the next, like two teachers grading the same
