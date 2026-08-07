@@ -11,8 +11,14 @@
 
 ## Pipeline contract  *(machine-written/parsed; field names + types are FROZEN — changes need a changelog entry)*
 ```yaml
-audit_sha: <pinned commit>          # dashboard is known-stale the instant code moves past this
-audit_date: <YYYY-MM-DD>
+# One SHA PER COMMAND. The three checks are separate runs and the tree can move between them, so a single
+# pinned commit cannot say where each number came from. Attributing a measurement to a commit it was not
+# taken at is the failure this file exists to prevent. Use `null` for a command not run this cycle — the
+# field stays visible so a reader sees the number is missing rather than assumed.
+coverage_sha: <commit `coverage` ran at>   | null
+audit_sha: <commit `audit` ran at>         | null   # dashboard is known-stale once code moves past these
+sufficiency_sha: <commit `sufficiency` ran at> | null
+audit_date: <YYYY-MM-DD>            # the audit's date; if the three runs span days, say so in the verdict
 detector: <provider:model>
 verified: false                     # true when the run used `audit --verify`; the drift counts below then
                                     # EXCLUDE findings the second pass withdrew, so the number means
