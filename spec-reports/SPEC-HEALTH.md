@@ -21,9 +21,12 @@ reports sit beside this file.
 > so a withdrawal quoting text absent from the document survived on exactly the findings that named no line to
 > check against, contradicting its own INV-4. **It was found in code one day old and fixed the same day:**
 > the `audit` ran at `7f711da`, the fix is `1a44a72`.
-> *Provenance:* the two commands ran at different commits — `audit` at `7f711da` (08:24), `sufficiency` at
-> `1a44a72` (20:07), with the fix in between. `1a44a72` touches `verify.py`, `verify.md` and its tests only, so
-> the `verify` row's 0.79 is the only score that could have moved; the drift findings are all from `7f711da`.
+> *Provenance — the three numbers were measured at three commits, not one.* `coverage` ran at `0ceeff6`
+> (00:42), `audit` at `7f711da` (08:24), `sufficiency` at `1a44a72` (20:07), with the `verify` fix landing
+> between the last two. `1a44a72` touches `verify.py`, `verify.md` and their tests only, so the `verify` row's
+> 0.79 is the one score that gap could have moved; every drift finding is from `7f711da`. Coverage is file
+> counting rather than a judgement, so its commit is the least load-bearing of the three. `0ceeff6` is a
+> pre-squash commit and is not reachable from `main` — the run log keeps the SHA the run actually saw.
 > **The second pass withdrew 7 findings and all 7 hold up on inspection.** Five were `stated-elsewhere` — a
 > loose narrative sentence graded against a contract table that states the rule correctly a few lines below.
 > One was `not-asserted`: a three-item list read as exhaustive when the line never says "only". One was
@@ -38,7 +41,8 @@ reports sit beside this file.
 
 ## Pipeline contract  *(machine-written; field names + types FROZEN)*
 ```yaml
-audit_sha: 7f711da
+audit_sha: 7f711da                  # the AUDIT only — `coverage` ran at 0ceeff6 and `sufficiency` at
+                                    # 1a44a72; the contract has one SHA field, so see Provenance above
 audit_date: 2026-08-06
 detector: claude-code
 verified: true

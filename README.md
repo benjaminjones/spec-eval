@@ -164,7 +164,7 @@ Install once, then add `--model claude-code` to any `(uses AI)` command — **sp
 `claude` CLI you're already logged into (no key; your `ANTHROPIC_API_KEY` is hidden from the call, so it can't
 accidentally bill the paid API). The same commands, in the same order as the list above:
 ```bash
-pip install spec-eval                                     # or, from a clone:  pip install -e .
+pip install spec-eval                                     # needs Python 3.9+; or, from a clone:  pip install -e .
 spec-eval coverage    ./your-project                      # free — no AI, no key
 spec-eval context     ./your-project                      # free — no AI, no key
 spec-eval generate    ./your-project --model claude-code
