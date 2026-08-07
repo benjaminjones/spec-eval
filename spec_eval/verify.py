@@ -118,16 +118,20 @@ def check_not_asserted(finding, verdict, doc, window=3):
     stated elsewhere is by definition not at the cited line — so a position check would reject them wrongly."""
     if verdict.get("verdict") != "withdrawn" or verdict.get("ground") != "not-asserted":
         return verdict
-    want = _cited_line(finding.get("doc_ref"))
     quote = (verdict.get("doc_quote") or "").strip()
-    if want is None or not quote:
-        return verdict                      # nothing to check against; leave the model's call alone
+    if not quote:
+        return {"verdict": "upheld", "ground": None, "doc_quote": "",
+                "why": "withdrawal rejected: no doc line was quoted"}
+    # PRESENCE is checked whether or not the finding cited a line — a `doc_ref` of null is a shape the drift
+    # rubric explicitly permits, and skipping the check for those let an invented quote through on exactly the
+    # findings that named no line to check against. Only the WINDOW comparison needs a cited line.
+    want = _cited_line(finding.get("doc_ref"))
     lines = doc.split("\n")
-    hits = [i + 1 for i, ln in enumerate(lines) if quote and quote in ln]
+    hits = [i + 1 for i, ln in enumerate(lines) if quote in ln]
     if not hits:
         return {"verdict": "upheld", "ground": None, "doc_quote": quote,
                 "why": "withdrawal rejected: the quoted line does not appear in the document"}
-    if not any(abs(h - want) <= window for h in hits):
+    if want is not None and not any(abs(h - want) <= window for h in hits):
         return {"verdict": "upheld", "ground": None, "doc_quote": quote,
                 "why": f"withdrawal rejected: the quoted line is at {hits[0]}, not the cited {want}"}
     return verdict

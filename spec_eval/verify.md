@@ -32,7 +32,7 @@ Two properties make the pass safe to add, and both are failure-direction choices
 - **An unusable verifier is a no-op.** A response that is empty, unparseable, or missing an index leaves those findings upheld. Silently deleting real findings is the one harm this pass could do that the audit alone cannot, so every degradation path resolves toward keeping findings.
 - **A withdrawn finding is kept and uncounted, never deleted.** It renders struck through with its ground and the document line that settles it. A withdrawal is a claim in its own right and stays reviewable.
 
-A `not-asserted` withdrawal is additionally checked **without a model**: the quoted line must appear in the document at all, and within a small window of the line the finding cited. A quote found nowhere is rejected outright — a wholly invented quote is stronger evidence of fabrication than a misplaced one. The check applies to that ground alone — `stated-elsewhere` quotes a line that is by definition *not* the cited one, so the same check would reject every correct use of it.
+A `not-asserted` withdrawal is additionally checked **without a model**: the quoted line must appear in the document at all, and — when the finding cited a line — within a small window of it. Presence is checked either way, because a finding's `doc_ref` may be null and those are exactly the withdrawals with no line to check a position against. A quote found nowhere is rejected outright — a wholly invented quote is stronger evidence of fabrication than a misplaced one. The check applies to that ground alone — `stated-elsewhere` quotes a line that is by definition *not* the cited one, so the same check would reject every correct use of it.
 
 ## 4. Contracts
 
@@ -47,7 +47,7 @@ Verdict shape: `{verdict: "upheld"|"withdrawn", ground: <one of four>|null, doc_
 | INV-1 | A verdict is `withdrawn` only if its `ground` is one of the four named grounds; any other value yields `upheld`. |
 | INV-2 | `parse_verdicts(resp, n)` returns exactly `n` verdicts for any input, including empty or unparseable text. |
 | INV-3 | A finding with no parseable verdict, or an out-of-range index, is `upheld`. |
-| INV-4 | A `not-asserted` withdrawal whose quote is absent from the document, or found only outside the window around the cited line, is converted to `upheld`. |
+| INV-4 | A `not-asserted` withdrawal whose quote is empty, absent from the document, or found only outside the window around a cited line, is converted to `upheld`. Presence is checked whether or not a line was cited; the window only when one was. |
 | INV-5 | The position check is applied to `not-asserted` alone and never alters a verdict on another ground. |
 | INV-6 | A withdrawn finding is retained in the results and excluded from the drift count. |
 
@@ -64,6 +64,7 @@ Verdict shape: `{verdict: "upheld"|"withdrawn", ground: <one of four>|null, doc_
 | AC-7 | One upheld and one withdrawn high-severity finding on a pair | rendered | The drift count is 1; the withdrawn finding appears struck through with its ground and doc line, and proposes no fix. |
 | AC-8 | A pair whose findings list is empty | verified | No model call is made and the pair is returned unchanged. |
 | AC-9 | A `not-asserted` withdrawal quoting text that appears nowhere in the document | checked | Converted to `upheld`, with the why naming the absent quote. |
+| AC-10 | The same withdrawal where the finding's `doc_ref` is null or carries no line number | checked | Still converted to `upheld` — presence does not depend on a cited line. |
 
 ## 5. Open questions / Out of scope
 

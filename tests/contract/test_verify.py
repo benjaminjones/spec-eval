@@ -141,3 +141,29 @@ def test_a_crashing_verifier_does_not_cost_the_audit(tmp_path, monkeypatch, caps
     assert written[0]["findings"][0]["summary"] == "real drift"   # the audit survived
     assert (out / "report.md").exists()
     assert "verification failed" in capsys.readouterr().out       # and the user is told why
+
+
+def test_presence_is_checked_even_when_the_finding_cited_no_line():
+    """`doc_ref` may be null — the drift rubric's own output schema says so. The check used to short-circuit
+    on a missing line number and never reach the absent-quote branch, so an invented quote survived on
+    exactly the findings that named no line to check it against."""
+    doc = "\n".join([f"line {i}" for i in range(1, 40)])
+    for ref in (None, "model.md", "model.md:no-line"):
+        v = {"verdict": "withdrawn", "ground": "not-asserted",
+             "doc_quote": "text this document does not contain", "why": "not asserted"}
+        out = verify.check_not_asserted({"doc_ref": ref, "summary": "x"}, v, doc)
+        assert out["verdict"] == "upheld", f"invented quote survived with doc_ref={ref!r}"
+
+
+def test_a_present_quote_survives_when_no_line_was_cited():
+    """Without a cited line there is nothing to compare a position against, so presence is the whole test."""
+    doc = "the table lists three sites\nmore text"
+    v = {"verdict": "withdrawn", "ground": "not-asserted",
+         "doc_quote": "the table lists three sites", "why": "no 'exactly' on this line"}
+    assert verify.check_not_asserted({"doc_ref": None}, v, doc)["verdict"] == "withdrawn"
+
+
+def test_a_withdrawal_with_no_quote_at_all_is_rejected():
+    v = {"verdict": "withdrawn", "ground": "not-asserted", "doc_quote": "", "why": "x"}
+    out = verify.check_not_asserted({"doc_ref": "a.md:L1"}, v, "line one")
+    assert out["verdict"] == "upheld" and "no doc line was quoted" in out["why"]
