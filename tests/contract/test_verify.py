@@ -6,6 +6,8 @@ without reducing findings, and a claim two blind readers judged a false positive
 six under both rubric versions. These tests pin the properties that make a second pass safe to add — it can
 only remove a finding on a named ground, and it can never remove one silently.
 """
+import json
+
 from spec_eval import report, verify
 
 
@@ -113,3 +115,55 @@ def test_a_not_asserted_withdrawal_quoting_text_that_is_nowhere_is_rejected():
          "doc_quote": "a sentence this document does not contain", "why": "not asserted"}
     out = verify.check_not_asserted(finding, v, doc)
     assert out["verdict"] == "upheld" and "does not appear" in out["why"]
+
+
+def test_a_crashing_verifier_does_not_cost_the_audit(tmp_path, monkeypatch, capsys):
+    """The second pass runs between a completed audit and the write of its results, so a failure there used
+    to discard every pair already paid for — a transient 529 on the verify call threw away eleven audited
+    pairs. verify's contract is that an unusable verifier is a no-op; a crashing one has to be one too."""
+    from spec_eval import cli
+
+    findings = [{"label": "p", "code_files": 1, "doc_files": 1,
+                 "findings": [{"severity": "high", "summary": "real drift", "evidence": "e",
+                               "suggestion": "fix", "code_ref": "a.py:L1", "doc_ref": "a.md:L2"}]}]
+    monkeypatch.setattr(cli.audit, "audit_repo", lambda *a, **k: findings)
+    monkeypatch.setattr(cli, "_load_keys", lambda *a, **k: None)
+
+    def boom(*a, **k):
+        raise RuntimeError("API Error: 529 Overloaded")
+    import spec_eval.verify as verify_mod
+    monkeypatch.setattr(verify_mod, "verify_repo", boom)
+
+    out = tmp_path / "reports"
+    cli.main(["audit", str(tmp_path), "--model", "x", "--verify", "--out", str(out)])
+
+    written = json.loads((out / "findings.json").read_text())
+    assert written[0]["findings"][0]["summary"] == "real drift"   # the audit survived
+    assert (out / "report.md").exists()
+    assert "verification failed" in capsys.readouterr().out       # and the user is told why
+
+
+def test_presence_is_checked_even_when_the_finding_cited_no_line():
+    """`doc_ref` may be null — the drift rubric's own output schema says so. The check used to short-circuit
+    on a missing line number and never reach the absent-quote branch, so an invented quote survived on
+    exactly the findings that named no line to check it against."""
+    doc = "\n".join([f"line {i}" for i in range(1, 40)])
+    for ref in (None, "model.md", "model.md:no-line"):
+        v = {"verdict": "withdrawn", "ground": "not-asserted",
+             "doc_quote": "text this document does not contain", "why": "not asserted"}
+        out = verify.check_not_asserted({"doc_ref": ref, "summary": "x"}, v, doc)
+        assert out["verdict"] == "upheld", f"invented quote survived with doc_ref={ref!r}"
+
+
+def test_a_present_quote_survives_when_no_line_was_cited():
+    """Without a cited line there is nothing to compare a position against, so presence is the whole test."""
+    doc = "the table lists three sites\nmore text"
+    v = {"verdict": "withdrawn", "ground": "not-asserted",
+         "doc_quote": "the table lists three sites", "why": "no 'exactly' on this line"}
+    assert verify.check_not_asserted({"doc_ref": None}, v, doc)["verdict"] == "withdrawn"
+
+
+def test_a_withdrawal_with_no_quote_at_all_is_rejected():
+    v = {"verdict": "withdrawn", "ground": "not-asserted", "doc_quote": "", "why": "x"}
+    out = verify.check_not_asserted({"doc_ref": "a.md:L1"}, v, "line one")
+    assert out["verdict"] == "upheld" and "no doc line was quoted" in out["why"]
