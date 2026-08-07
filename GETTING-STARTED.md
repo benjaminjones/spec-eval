@@ -29,7 +29,7 @@ its code. Full definitions: [How the scores are made](README.md#how-the-scores-a
 > check your specs. This tutorial sticks to the terminal (that's where the report files come from); the chat
 > path lives in [README → "Run via prompt chat"](README.md#run-via-prompt-chat-no-setup).
 
-Staying in the terminal? Install once:
+Staying in the terminal? You need **Python 3.9 or newer** — check with `python3 -V`. Then install once:
 
 ```bash
 pip install spec-eval          # once it's on PyPI; until then, from a clone:  pip install -e .
