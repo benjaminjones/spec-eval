@@ -11,43 +11,109 @@ authored by `spec-eval generate` and graded by its own `audit` / `sufficiency` c
 reports sit beside this file.
 
 ## Verdict
-> **Coverage 100%** (10/10 modules) · **drift 0** high/medium · **sufficiency 0.88** avg (1.0 = no gaps found — an
-> indicator, not a guarantee) as of 2026-07-27, detector **`claude-code`**. The system-context work (PRs #11–#14)
-> added the 10th module, `syscontext`, and its drift-check surface.
-> **This was the most active self-audit cycle yet: the `audit` caught 6 real drifts across three runs (4 → 2 → 1),
-> every one a doc-accuracy fix** — the `syscontext` `_tables_digest` completeness (found by *both* the adversarial
-> code review and the dogfood — the matching + gating regexes that also shape the key set), the `cli --check`
-> documentation, `audit`/`authoring`/`rubric` over-claims, and a §1 "four → five evidence classes" miscount — plus
-> the one fixable `[major]` (the `OVERVIEW.md` freshness stamp, undocumented). All fixed; a clean re-measure @
-> `e573694` confirms **drift 0 across all 10 pairs**.
-> **By design (the one remaining [major]):** the `authoring` rubric is *summarized*, not restated (the spec's own
-> don't-restate discipline; the full text lives in `authoring.py`, is mirrored in the skill, and is pinned by
-> `test_rubric_sync`) — it wobbles `[major]`↔`[minor]` between runs. `syscontext`'s ~100-entry detection tables
-> are likewise *described*, not enumerated (graded `[minor]` this run).
-> **Detector note:** 0.91 → 0.88 avg is the new `syscontext` module plus the drift-check surface adding behavior
-> to capture, not regression; the remaining gaps are the usual unpinned-constant / print-format detail, each with
-> a searchable `file.py (symbol)` pointer.
+> **Coverage 100%** (11/11 modules) · **drift 8** high/medium · **sufficiency 0.86** avg (1.0 = no gaps found —
+> an indicator, not a guarantee) as of 2026-08-06, detector **`claude-code`**, **verified** (`audit --verify`).
+> The 11th module, `verify`, is the opt-in second pass added this cycle.
+> **Drift is 8, not 0, and that is the honest reading rather than a regression.** The previous receipt measured
+> a tree that has since gained a module, a persisted `evidence` field, a withdrawn-finding render and a changed
+> drift-load definition. Eight of the ten upheld findings are doc-accuracy gaps of the usual kind; the one
+> `high` is real and was fixed at `1a44a72` — `verify`'s presence check read the cited line first and returned
+> early when there was none, so a withdrawal quoting text absent from the document survived on exactly the
+> findings that named no line to check against, contradicting its own INV-4.
+> **The second pass withdrew 7 findings and all 7 hold up on inspection.** Five were `stated-elsewhere` — a
+> loose narrative sentence graded against a contract table that states the rule correctly a few lines below.
+> One was `not-asserted`: a three-item list read as exhaustive when the line never says "only". One was
+> `not-normative`: a `**Why:**` rationale sentence graded as a promise about behaviour. Those three grounds are
+> the whole of what this cycle's withdrawals rested on.
+> **Read the drift number with `verified: true` in mind.** It excludes the 7 withdrawals, so it is not
+> comparable to a number from a run without the flag. The withdrawn findings are listed in `report.md` with
+> their ground and the doc line, struck through rather than deleted.
+> **By design (unchanged):** the `authoring` rubric is *summarized*, not restated — the spec's own
+> don't-restate discipline, with the full text in `authoring.py`, mirrored in the skill, pinned by
+> `test_rubric_sync`. `syscontext`'s detection tables are likewise *described*, not enumerated.
 
 ## Pipeline contract  *(machine-written; field names + types FROZEN)*
 ```yaml
-audit_date: 2026-07-27
+audit_sha: 1a44a72
+audit_date: 2026-08-06
 detector: claude-code
-rollup: {coverage_pct: 100, avg_sufficiency: 0.88, total_high_drift: 0, modules_covered: 10, modules_total: 10}
+verified: true
+rollup:
+  avg_sufficiency: 0.86
+  total_high_drift: 8
+  modules_covered: 11
+  modules_total: 11
 modules:
-  - {name: authoring,   sufficiency: 0.80, drift_high: 0, drift_med: 0}
-  - {name: audit,       sufficiency: 0.83, drift_high: 0, drift_med: 0}
-  - {name: syscontext,  sufficiency: 0.85, drift_high: 0, drift_med: 0}
-  - {name: cli,         sufficiency: 0.86, drift_high: 0, drift_med: 0}
-  - {name: report,      sufficiency: 0.88, drift_high: 0, drift_med: 0}
-  - {name: coverage,    sufficiency: 0.90, drift_high: 0, drift_med: 0}
-  - {name: providers,   sufficiency: 0.90, drift_high: 0, drift_med: 0}
-  - {name: rubric,      sufficiency: 0.90, drift_high: 0, drift_med: 0}
-  - {name: sufficiency, sufficiency: 0.90, drift_high: 0, drift_med: 0}
-  - {name: runlog,      sufficiency: 0.93, drift_high: 0, drift_med: 0}
+  - name: audit
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 1
+    drift_low: 0
+    sufficiency: 0.85
+  - name: authoring
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 2
+    drift_low: 0
+    sufficiency: 0.72
+  - name: cli
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 0
+    drift_low: 1
+    sufficiency: 0.86
+  - name: coverage
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 1
+    drift_low: 1
+    sufficiency: 0.88
+  - name: providers
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 0
+    drift_low: 0
+    sufficiency: 0.87
+  - name: report
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 0
+    drift_low: 0
+    sufficiency: 0.84
+  - name: rubric
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 0
+    drift_low: 0
+    sufficiency: 0.93
+  - name: runlog
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 0
+    drift_low: 0
+    sufficiency: 0.92
+  - name: sufficiency
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 1
+    drift_low: 0
+    sufficiency: 0.88
+  - name: syscontext
+    coverage_status: spec-worthy
+    drift_high: 0
+    drift_med: 2
+    drift_low: 0
+    sufficiency: 0.87
+  - name: verify
+    coverage_status: spec-worthy
+    drift_high: 1
+    drift_med: 0
+    drift_low: 0
+    sufficiency: 0.79
 ```
 
 ## Fingerprint  *(markdown unicode bars — diffable; the full run sits beside this file)*
-> **detector `claude-code` · 2026-07-27.** A different model or date can move these bars — check the
+> **detector `claude-code` · 2026-08-06, `--verify`.** A different model or date can move these bars — check the
 > run history below before reading a change as real.
 
 | Module | Spec completeness | Sufficiency | Drift |
@@ -93,3 +159,4 @@ Every gap carries a searchable `file.py (symbol)` pointer.
 | 2026-07-15 | claude-code | 100% | 0.86 | authoring 0.78 | 0 / 0 | `906a202` | **detector switch to `claude-code`** (stricter than opus): caught **5 real pre-existing drifts** opus scored clean (fixed) + **2 major sufficiency gaps** (closed); minGPT example removed. One [major] remains by design (authoring rubric summarized, not restated). |
 | 2026-07-21 | claude-code | 100% | 0.91 | authoring 0.87 | 0 / 0 | `fc67265` | prompt-chat release (#6–#8): `overview_min_files` true minimum + recorded skips, SPEC-HEALTH moved into `spec-reports/`, README prompt blocks + standing prompts. Audit clean **incl. the changed `authoring` pair**; former [major] (rubric summarized, by design) now graded [minor]; 0.86→0.91 same detector = wobble + the sync work landing more semantics in the specs. |
 | 2026-07-27 | claude-code | 100% | 0.91→0.88 | authoring 0.80 | 0 / 0 | `e573694` | **system-context feature + drift check (#11–#14)** → new 10th module `syscontext`. The audit **caught 6 real drifts across three runs (4 → 2 → 1)** — all doc-accuracy fixes incl. the `_tables_digest` completeness (found by review **and** dogfood — the matching + gating regexes), `cli --check` docs, `audit`/`authoring`/`rubric` over-claims, and a §1 four→five miscount — and **closed the one fixable [major]** (OVERVIEW.md stamp undocumented). Clean re-measure confirms 0/0. 0.91→0.88 = the new module + drift-check surface, not regression; `syscontext` table sampling joins the `authoring` rubric as a by-design [major]↔[minor] wobble. |
+| 2026-08-06 | claude-code | 100% | 0.88→0.86 | verify 0.79 | 1 / 7 | `1a44a72` | **evidence field + opt-in second pass (#25)** → new 11th module `verify`; first run with `--verify`, so the drift count excludes 7 withdrawals and is not comparable to the rows above. Drift 0→8 after a week that added a module, a persisted `evidence` field and a changed drift-load definition. The one **high** is real and was fixed at `1a44a72`: `verify`'s presence check returned early when a finding cited no line, so an invented quote survived on exactly the withdrawals with no line to check against — contradicting its own INV-4. **All 7 withdrawals hold up on inspection** — 5 `stated-elsewhere` (loose narrative, correct contract table below it), 1 `not-asserted` (a three-item list read as exhaustive), 1 `not-normative` (a `**Why:**` clause graded as a promise). |

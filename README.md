@@ -299,7 +299,7 @@ so put both keys in one `.env` and each run picks up the one it needs. (Want one
 ## Proof it works
 
 - **spec-eval specs itself** — every module in [`spec_eval/`](https://github.com/benjaminjones/spec-eval/tree/main/spec_eval/) has its own spec:
-  **coverage 100% · drift 0 · sufficiency ≈0.88** ([receipt](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md) — the exact, dated score).
+  **coverage 100% · drift 8 · sufficiency ≈0.86** ([receipt](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md) — the exact, dated score, and which model made it). Coverage is plain counting, so 100% is exact. Drift is what one AI reader found on one day; the receipt lists each finding so you can check it yourself.
 
 ## More
 
