@@ -21,7 +21,8 @@ reports sit beside this file.
 > so a withdrawal quoting text absent from the document survived on exactly the findings that named no line to
 > check against, contradicting its own INV-4. **It was found in code under eight hours old and fixed the same
 > day:** `verify.py` landed at 00:33 in `7d4c0b7`, the `audit` ran at 08:24 on `7f711da`, the fix is `1a44a72`.
-> *Provenance — the three numbers were measured at three commits, not one.* `coverage` ran at `0ceeff6`
+> *Provenance — the three numbers were measured at three commits, not one, which the contract now records
+> field by field.* `coverage` ran at `0ceeff6`
 > (00:42), `audit` at `7f711da` (08:24), `sufficiency` at `1a44a72` (20:07), with the `verify` fix landing
 > between the last two. `1a44a72` changes no source outside `verify.py`, `verify.md` and their tests — its
 > other three files are this run's own `spec-reports/` output — so the `verify` row's 0.79 is the one score
@@ -47,8 +48,9 @@ reports sit beside this file.
 
 ## Pipeline contract  *(machine-written; field names + types FROZEN)*
 ```yaml
-audit_sha: 7f711da                  # the AUDIT only — `coverage` ran at 0ceeff6 and `sufficiency` at
-                                    # 1a44a72; the contract has one SHA field, so see Provenance above
+coverage_sha: 0ceeff6
+audit_sha: 7f711da
+sufficiency_sha: 1a44a72
 audit_date: 2026-08-06
 detector: claude-code
 verified: true
@@ -186,4 +188,4 @@ Every gap carries a searchable `file.py (symbol)` pointer.
 | 2026-07-15 | claude-code | 100% | 0.86 | authoring 0.78 | 0 / 0 | `906a202` | **detector switch to `claude-code`** (stricter than opus): caught **5 real pre-existing drifts** opus scored clean (fixed) + **2 major sufficiency gaps** (closed); minGPT example removed. One [major] remains by design (authoring rubric summarized, not restated). |
 | 2026-07-21 | claude-code | 100% | 0.91 | authoring 0.87 | 0 / 0 | `fc67265` | prompt-chat release (#6–#8): `overview_min_files` true minimum + recorded skips, SPEC-HEALTH moved into `spec-reports/`, README prompt blocks + standing prompts. Audit clean **incl. the changed `authoring` pair**; former [major] (rubric summarized, by design) now graded [minor]; 0.86→0.91 same detector = wobble + the sync work landing more semantics in the specs. |
 | 2026-07-27 | claude-code | 100% | 0.91→0.88 | authoring 0.80 | 0 / 0 | `e573694` | **system-context feature + drift check (#11–#14)** → new 10th module `syscontext`. The audit **caught 6 real drifts across three runs (4 → 2 → 1)** — all doc-accuracy fixes incl. the `_tables_digest` completeness (found by review **and** dogfood — the matching + gating regexes), `cli --check` docs, `audit`/`authoring`/`rubric` over-claims, and a §1 four→five miscount — and **closed the one fixable [major]** (OVERVIEW.md stamp undocumented). Clean re-measure confirms 0/0. 0.91→0.88 = the new module + drift-check surface, not regression; `syscontext` table sampling joins the `authoring` rubric as a by-design [major]↔[minor] wobble. |
-| 2026-08-06 | claude-code | 100% | 0.88→0.86 | verify 0.79 | 1 / 7 | `0ceeff6` · `7f711da` · `1a44a72` | **evidence field + opt-in second pass (#25)** → new 11th module `verify`; first run with `--verify`, so the drift count excludes 7 withdrawals and is not comparable to the rows above. Drift 0→8 after a week that added a module, a persisted `evidence` field and a changed drift-load definition. One SHA per measurement: coverage · audit · sufficiency. The one **high** is real, found in code under eight hours old and fixed the same day at `1a44a72`: `verify`'s presence check returned early when a finding cited no line, so an invented quote survived on exactly the withdrawals with no line to check against — contradicting its own INV-4. **All 7 withdrawals hold up on inspection** — 5 `stated-elsewhere` (a loose sentence or table row against a correct passage elsewhere in the same doc), 1 `not-asserted` (a three-item list read as exhaustive), 1 `not-normative` (a `**Why:**` clause graded as a promise). Unverified the row would read 12 / 0. |
+| 2026-08-06 | claude-code | 100% | 0.88→0.86 | verify 0.79 | 1 / 7 | `0ceeff6` · `7f711da` · `1a44a72` | **evidence field + opt-in second pass (#25)** → new 11th module `verify`; first run with `--verify`, so the drift count excludes 7 withdrawals and is not comparable to the rows above. Drift 0→8 after a week that added a module, a persisted `evidence` field and a changed drift-load definition. One SHA per measurement: coverage · audit · sufficiency. The one **high** is real, found in code under eight hours old and fixed the same day at `1a44a72`: `verify`'s presence check returned early when a finding cited no line, so an invented quote survived on exactly the withdrawals with no line to check against — contradicting its own INV-4. **All 7 withdrawals hold up on inspection** — 5 `stated-elsewhere` (a loose sentence or table row against a correct passage elsewhere in the same doc), 1 `not-asserted` (a three-item list read as exhaustive), 1 `not-normative` (a `**Why:**` clause graded as a promise). Unverified the row would read 12 / 0. **Contract change (frozen fields):** `audit_sha` became one SHA per measuring command — `coverage_sha`, `audit_sha`, `sufficiency_sha` — because this run's three numbers came from three commits and one field could not say which. `null` means that command did not run. Pinned to the template by `test_health_contract_sync`. |
