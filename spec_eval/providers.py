@@ -48,6 +48,29 @@ def _track(u_in, u_out, truncated=False):
     LAST["truncated"] = bool(truncated)
 
 
+def _bridge_error(stdout, stderr):
+    """The CLI's own message, not the first 400 bytes of its telemetry.
+
+    `--output-format json` returns an envelope whose `result` field carries the reason and whose `usage`
+    block precedes it. Truncating the head of that envelope reliably cuts the only part worth reading —
+    a failed run reported zero tokens, zero duration and no cause, because the cause came after the counts.
+    Pull the named fields when the payload parses; fall back to raw text when it does not."""
+    import json
+    for blob in (stdout, stderr):
+        if not (blob or "").strip():
+            continue
+        try:
+            d = json.loads(blob)
+        except ValueError:
+            continue
+        for key in ("result", "error", "message"):
+            v = d.get(key)
+            if isinstance(v, str) and v.strip():
+                return v.strip()[:600]
+        return json.dumps({k: v for k, v in d.items() if k != "usage"})[:600]
+    return ((stderr or stdout) or "").strip()[:600] or "no output"
+
+
 def _gen_claude_code(model, system, user):
     """Bridge to the Claude Code CLI (`claude -p`): runs on the CLI's own login — a Claude subscription — so NO
     API key is needed. ANTHROPIC_API_KEY is stripped from the child environment so a stray key (e.g. auto-loaded
@@ -68,10 +91,10 @@ def _gen_claude_code(model, system, user):
         cmd += ["--model", model]
     r = subprocess.run(cmd, input=user, capture_output=True, text=True, env=env, timeout=600)
     if r.returncode != 0:
-        raise RuntimeError(f"`claude -p` failed (exit {r.returncode}): {(r.stderr or r.stdout).strip()[:400]}")
+        raise RuntimeError(f"`claude -p` failed (exit {r.returncode}): {_bridge_error(r.stdout, r.stderr)}")
     d = json.loads(r.stdout)                                   # {"result": text, "usage": {...}, "is_error": bool, ...}
     if d.get("is_error") or "result" not in d:
-        raise RuntimeError(f"`claude -p` returned an error envelope: {r.stdout[:400]}")
+        raise RuntimeError(f"`claude -p` returned an error envelope: {_bridge_error(r.stdout, r.stderr)}")
     u = d.get("usage") or {}
     u_in = ((u.get("input_tokens") or 0) + (u.get("cache_creation_input_tokens") or 0)
             + (u.get("cache_read_input_tokens") or 0))         # the CLI reports cached input separately; sum = tokens actually processed

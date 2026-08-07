@@ -1,6 +1,6 @@
 {
   "pct": 100.0,
-  "spec_worthy": 10,
+  "spec_worthy": 11,
   "covered": [
     "spec_eval/audit.py",
     "spec_eval/authoring.py",
@@ -11,24 +11,30 @@
     "spec_eval/rubric.py",
     "spec_eval/runlog.py",
     "spec_eval/sufficiency.py",
-    "spec_eval/syscontext.py"
+    "spec_eval/syscontext.py",
+    "spec_eval/verify.py"
   ],
   "uncovered": [],
   "orphans": [],
   "excluded": {
     "test": [
       "tests/acceptance/test_ac_commands.py",
+      "tests/acceptance/test_ac_diagram.py",
       "tests/acceptance/test_ac_file_scope.py",
       "tests/acceptance/test_ac_layouts.py",
       "tests/acceptance/test_ac_orphans.py",
       "tests/conftest.py",
+      "tests/contract/test_artifact_hygiene.py",
       "tests/contract/test_audit_parse.py",
       "tests/contract/test_authoring_output.py",
       "tests/contract/test_caps_sync.py",
       "tests/contract/test_coverage.py",
+      "tests/contract/test_diagram.py",
       "tests/contract/test_overview_context.py",
+      "tests/contract/test_overview_sections_sync.py",
       "tests/contract/test_prompt_snippets_sync.py",
       "tests/contract/test_providers.py",
+      "tests/contract/test_python_floor.py",
       "tests/contract/test_report.py",
       "tests/contract/test_rubric_sync.py",
       "tests/contract/test_runlog.py",
@@ -36,6 +42,8 @@
       "tests/contract/test_synthesis_recursion.py",
       "tests/contract/test_syscontext.py",
       "tests/contract/test_truncation.py",
+      "tests/contract/test_trust_signals.py",
+      "tests/contract/test_verify.py",
       "tests/doubles/fake_provider.py",
       "tests/manual/run_trigger_eval.py",
       "tests/system/test_e2e_smoke.py"
@@ -43,6 +51,29 @@
     "glue": [
       "spec_eval/__init__.py",
       "spec_eval/__main__.py"
+    ],
+    "tooling": [
+      ".github/scripts/check_artifact_hygiene.py"
     ]
-  }
+  },
+  "unmodeled": [
+    {
+      "dir": "skills",
+      "files": 3,
+      "sample": [
+        "skills/spec-authoring/templates/OVERVIEW-template.md",
+        "skills/spec-authoring/templates/SPEC-HEALTH-template.md",
+        "skills/spec-authoring/templates/spec-template.md"
+      ]
+    },
+    {
+      "dir": "spec-reports",
+      "files": 3,
+      "sample": [
+        "spec-reports/coverage.md",
+        "spec-reports/report.md",
+        "spec-reports/sufficiency.md"
+      ]
+    }
+  ]
 }
