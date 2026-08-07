@@ -214,14 +214,15 @@ Three scores, three simple ideas:
 
 - **coverage** = spec files you *have* ÷ spec files you *need* → a percent. Just counting, **no AI**.
   *(9 of 10 code files have a spec → 90%.)*
-- **drift** = the number of spots where the AI reader *found* the spec and the code flat-out disagreeing.
+- **drift** = the spots where the AI reader *found* the spec and the code flat-out disagreeing. The number
+  counts the ones it marked **high or medium** — small ones are still listed, just not counted.
   **`0` means it found nothing this run. It is not proof that your spec and code agree.**
 - **sufficiency** = how much of what the code does is actually written in the spec, from **`0` to `1`**.
   *(`1.0` = it's all there; `0.1` = almost none of it is.)*
 
 Those three are **per spec**. The repo's one **sufficiency** score is just their **average** — each spec's
-`0`–`1`, added up and divided by how many specs were scored. *(coverage is already one repo-wide `%`; drift is
-the total count across specs.)*
+`0`–`1`, added up and divided by how many specs were scored. *(coverage is already one repo-wide `%`; drift
+adds up the high and medium ones across specs — and with `--verify`, only the ones that survived the check.)*
 
 `coverage` is pure counting. The other two need an **AI reader**: it reads each spec next to its code and grades
 the pair against a fixed rubric — one model call per pair (`audit --verify` adds one more, but only for pairs that had findings). Two things follow from that:
@@ -260,8 +261,9 @@ throws out findings the spec doesn't actually support:
 spec-eval audit . --verify
 ```
 
-It only ever *removes* findings, never adds any, so it can make the report shorter but never longer. Thrown-out
-findings still show up — crossed out, with the reason and the spec line — so you can disagree with it. It costs
+It only ever *removes* findings, never adds any, so the list of findings that stand can get shorter but never
+longer. Thrown-out ones still show up — crossed out, with the reason and the spec line — so you can disagree
+with it. It costs
 one extra AI call per file that had findings, which is why it's off unless you ask.
 
 *Why a second pass and not a more careful first one? A reader that has talked itself into something stays
@@ -298,8 +300,8 @@ so put both keys in one `.env` and each run picks up the one it needs. (Want one
 
 ## Proof it works
 
-- **spec-eval specs itself** — every module in [`spec_eval/`](https://github.com/benjaminjones/spec-eval/tree/main/spec_eval/) has its own spec:
-  **coverage 100% · drift 8 · sufficiency ≈0.86** ([receipt](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md) — the exact, dated score, and which model made it). Coverage is plain counting, so 100% is exact. Drift is what one AI reader found on one day; the receipt lists each finding so you can check it yourself.
+- **spec-eval specs itself** — every module in [`spec_eval/`](https://github.com/benjaminjones/spec-eval/tree/main/spec_eval/) that needs a spec has one (11 of 11; two plumbing files are left out, and the receipt says which):
+  **coverage 100% · drift 8 · sufficiency ≈0.86** ([receipt](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/SPEC-HEALTH.md) — the exact, dated score, and which model made it). Coverage is plain counting, so 100% is exact. Drift is what one AI reader found on one day — 17 raised, 7 thrown out by a second pass, 8 serious ones left standing. The [drift report](https://github.com/benjaminjones/spec-eval/blob/main/spec-reports/report.md) beside the receipt lists every one of them, so you can check it yourself.
 
 ## More
 
