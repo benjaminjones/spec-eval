@@ -1,7 +1,7 @@
 """spec-eval — portable code↔doc drift audit + fingerprint."""
 import sys
 
-__version__ = "0.2.2"   # THE single source of version truth; pyproject.toml reads this via dynamic version
+__version__ = "0.3.0"   # THE single source of version truth; pyproject.toml reads this via dynamic version
 
 MIN_PYTHON = (3, 9)     # KEEP IN SYNC: pyproject.toml's `requires-python`; tests/contract/test_python_floor.py pins them
 
