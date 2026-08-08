@@ -64,13 +64,30 @@ whole scan; a per-dir overview receives only the evidence sitting directly in it
 observes nothing (or nothing in that directory), no block is passed and the section is omitted entirely** — an
 overview can never carry an invented system-context row.
 
-**Freshness stamp.** When the repo `OVERVIEW.md` renders a System context section (an evidence block was
-present), an invisible `<!-- system-context-fingerprint: <digest> -->` comment (`syscontext.stamp_comment`) is
-appended to the file, recording the scan the section came from. A later `spec-eval context --check` reads it
-back to flag an overview whose systems have drifted from the code. The per-dir `README.md` overviews are not
-stamped.
+**Freshness stamps.** A repo `OVERVIEW.md` ends in invisible HTML-comment receipts, one per claim it makes
+about the code, written on **different conditions**:
+- `<!-- system-context-fingerprint: <digest> -->` (`syscontext.stamp_comment`) is appended **only when the
+  scan produced an evidence block** — it records the scan a System context section was rendered from, so it is
+  written exactly when there is a section to vouch for.
+- `<!-- architecture-fingerprint: <digest> -->` (`syscontext.architecture_stamp_comment`, over that scan, the
+  entry-point scan, and `module_set`) is appended to **every** repo `OVERVIEW.md` the generator writes, and
+  appended **last**, so it is the file's final line. **Why unconditional:** it binds the entry points and the
+  module set, which exist whether or not the repo talks to anything outside itself — gating it on system
+  evidence would leave the diagram unbacked on exactly the repos that observe no external system.
 
-**On-demand architecture diagrams.** `diagram_block` builds just the repo's Architecture section body — an invocation sequenceDiagram (scanner-verified entry points, provenance-noted) plus a pure data-flow pipeline ending at the observed external systems — for the `diagram` subcommand, reusing the same synthesis engine with a diagram-only rubric. It reads existing specs and derives any **missing** module intent in memory via the shared `_module_intent` (never writing a spec), so a diagram touches nothing. The **diagram itself is always a model call**: `diagram` avoids the per-module authoring calls a fully-specced repo doesn't need, not the synthesis call that draws the picture. Its output keeps the ```mermaid fence (`_synthesize` skips the outer-fence strip when `unfence=False`).
+Both receipts sit behind the same two guards as the document itself: a target skipped as already-present is
+neither re-authored nor re-stamped, and a reply refused as a non-document is neither written nor stamped. The
+per-dir `README.md` overviews get neither. A later `spec-eval context --check` reads the receipts back to warn
+that an overview's systems, or its diagram, have drifted from the code; the digest inputs and the staleness
+rules are `syscontext`'s.
+
+**On-demand architecture diagrams.** `diagram_block` builds just the repo's Architecture section body — an invocation sequenceDiagram (scanner-verified entry points, provenance-noted) plus a pure data-flow pipeline terminating in the user-facing result the invocation diagram shows the User receiving — for the `diagram` subcommand, reusing the same synthesis engine with a diagram-only rubric. It reads existing specs and derives any **missing** module intent in memory via the shared `_module_intent` (never writing a spec), so a diagram touches nothing. The **diagram itself is always a model call**: `diagram` avoids the per-module authoring calls a fully-specced repo doesn't need, not the synthesis call that draws the picture. Its output keeps the ```mermaid fence (`_synthesize` skips the outer-fence strip when `unfence=False`).
+
+**What the Architecture section renders.** One call produces two Mermaid diagrams in a fixed order: `### How it is invoked` — a `sequenceDiagram` of the primary end-to-end workflow (for a multi-stage pipeline the whole run path, not just its first step), each invocation carrying the provenance note its evidence earns — then `### Data flow`, a `flowchart LR` of the producer→consumer pipeline **only**: sources left, outputs right, no CLI/config/loader nodes, because invocation lives in the first diagram. Two rules bind the pair: the invocation diagram is **omitted entirely** when the scan observed no entry point and the module intents document none (never rendered empty), and the data-flow diagram spans the pipeline end to end and **terminates in the same user-facing result the invocation diagram shows** — an intermediate artifact a later stage consumes to make that result is not the ending. External systems appear only at the boundary, on dashed edges, sourced only from the `OBSERVED SYSTEM EVIDENCE` block. The section closes with `ARCH_CAVEAT` verbatim — one single-sourced sentence stating provenance and nothing else.
+
+**Staying inside the budget is a fold, and every fold is disclosed.** Over the node/edge budget, detail is folded **upstream only**, in a fixed order: merge same-role sibling sources or artifacts into one node, then merge an artifact into its sole producer, then drop nodes on no source-to-output path. The stage producing the user's result is never folded, and labels are never shrunk to fit. Each folded fact is stated in a **separate one-line note under the diagram** — never folded into the provenance caveat, which carries provenance and nothing else.
+
+**Rendering rules are instructions, not gates.** The participant, message, node, edge and subgraph budgets are carried in `ARCH_DIAGRAM_RUBRIC` and addressed to the model — not restated here, and pinned against the skill and the template by `test_rubric_sync`. Nothing in the code counts participants, messages, nodes, edges, or subgraphs, so an over-budget diagram is written exactly as returned — no error, no truncation, no note. The three machine-checked things on this path are narrower: provenance labels are held to the scan (INV-13), intents over the reduce cap are sliced and the shortfall noted (INV-10), and `diagram --write` refuses a reply carrying no ```mermaid fence (`cli`). **Why:** which detail to fold is a judgement about the pipeline, so a counter could reject a diagram but not draw a better one.
 
 A diagram is drawn in **one pass** (`single_pass`). **Why:** the multi-pass reduce feeds a rubric's own output back through that rubric, which is coherent for prose but not for a picture — intermediate passes would render partial diagrams that never saw the scanner evidence (it reaches only the final call), and the final pass would draw a diagram of diagrams. Over the cap, every module intent is instead sliced to an equal share so all of them still reach the one call, and the shortfall is reported in the returned note alongside a reply cut off at the token cap.
 
@@ -127,6 +144,9 @@ Semantic shapes:
 | INV-13 | A `scanner-verified entry point (file:line)` note survives only when that exact `file:line` is in the entry-point scan's observed set; every other one is rewritten to `conventional invocation (per the module intents, not scanner-detected)` and counted in the `note`. An empty scan therefore leaves no verified label anywhere in the artifact. |
 | INV-14 | Every relative link in an authored overview resolves from the document's own directory, or is reported in the `note`. A link resolvable from the repo root but not the document is rewritten; a link resolvable from neither is left byte-identical. |
 | INV-15 | Markdown that appeared or changed on disk during a run without being a declared target is reported with status `stray`, and is never deleted or modified. |
+| INV-16 | `ARCH_DIAGRAM_RUBRIC` is embedded in exactly two rubrics — `REPO_OVERVIEW_RUBRIC`, and `ARCH_DIAGRAM_ONLY_RUBRIC` (the same text plus an instruction to emit only the two `###` subsections and the closing caveat, no section heading and no other prose). `DIR_OVERVIEW_RUBRIC` never carries it, so a per-dir `README.md` can never emit a diagram. Every copy of the instruction — the constant, `templates/OVERVIEW-template.md`, and the skill — introduces `### How it is invoked` before `### Data flow` and closes with `ARCH_CAVEAT` byte-identical. |
+| INV-17 | No diagram rendering budget is enforced in code: nothing counts participants, messages, nodes, edges, or subgraphs, and a synthesis reply exceeding one is returned and written unchanged — never rejected, truncated, or noted. The only shortfalls reported on this path are sliced intents, a reply cut off at the token cap, and the downgraded-label count. |
+| INV-18 | Every repo `OVERVIEW.md` the generator writes ends with an `architecture-fingerprint` receipt — appended unconditionally, unlike the evidence-gated `system-context-fingerprint` beside it, and appended last, so the receipts are the document's footer and the architecture one is the final line. A target skipped as already-present (INV-5) and a reply refused as a non-document (INV-12) receive neither. |
 
 ### Acceptance criteria (*Given / When / Then*)
 
@@ -149,3 +169,5 @@ Semantic shapes:
 | AC-16 | `OVERVIEW.md` at `src/a/`, link written as `(src/a/list.md)`, that file exists | `generate_repo` runs | the written link is `(list.md)` and the repair count appears in the note. |
 | AC-17 | an overview links `(SPEC-HEALTH.md)` and no such file exists | `generate_repo` runs | the link is left byte-identical and reported as broken in the note. |
 | AC-18 | the provider writes `specs/catalog-show.md` itself during a run targeting `src/a/` | `generate_repo` runs | a record `{spec: "specs/catalog-show.md", status: "stray"}` is returned and the file is untouched. |
+| AC-19 | the model returns a data-flow diagram of 20 nodes and 30 edges | `diagram_block` runs | the block is returned byte-identical and no note mentions a budget — rendering budgets are rubric instructions, not code checks. |
+| AC-20 | `overview: repo`, code with no observable external systems | `generate_repo` runs | the written `OVERVIEW.md` ends with an `<!-- architecture-fingerprint: … -->` receipt and carries no `system-context-fingerprint`. |
