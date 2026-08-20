@@ -159,7 +159,12 @@ def main(argv=None):
                 _write_audit(results, args)
         total = sum(report.drift_load(r) for r in results if not r.get("skipped"))
         audited = sum(1 for r in results if not r.get("skipped"))
-        print(f"{total} high/medium drift finding(s) across {audited}/{len(results)} audited pair(s).")
+        graded = sum(1 for r in results if not r.get("skipped") and not report.not_graded(r))
+        if graded != audited:   # an ungraded pair leaves the denominator rather than reading as clean
+            print(f"{total} high/medium drift finding(s) across {graded} graded pair(s) "
+                  f"({audited} attempted, {len(results)} total).")
+        else:
+            print(f"{total} high/medium drift finding(s) across {audited}/{len(results)} audited pair(s).")
         withdrawn = sum(1 for r in results for f in r["findings"]
                         if f.get("verification", {}).get("verdict") == "withdrawn")
         if withdrawn:
@@ -173,7 +178,8 @@ def main(argv=None):
         print(f"{providers.USAGE['calls']} model call(s), "
               f"{providers.USAGE['in']:,} in + {providers.USAGE['out']:,} out tokens")
         runlog.append_run(args.out, args.repo, "audit", args.model,
-                          {"high_med_drift": total, "pairs_audited": audited, "pairs_truncated": truncated,
+                          {"high_med_drift": total, "pairs_audited": audited, "pairs_graded": graded,
+                           "pairs_truncated": truncated,
                            "per_module": {r["label"]: report.drift_load(r) for r in results if not r.get("skipped")}})
 
     elif args.cmd == "sufficiency":
