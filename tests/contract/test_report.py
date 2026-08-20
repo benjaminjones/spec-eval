@@ -29,6 +29,22 @@ def test_fingerprints_empty_on_no_data():
     assert report.drift_fingerprint([]) == ""
 
 
+def test_a_reply_capped_pair_with_no_findings_reads_not_graded_not_clean(tmp_path):
+    """#26 — 0 findings and no verdict are different states. A reply cap that produced nothing means the
+    model never graded the pair, so `clean` would be a false reading and the pair leaves the denominator.
+    An INPUT cap is the over-fire guard: the model graded what it was shown, so it stays `✓ clean`."""
+    out = tmp_path / "r.md"
+    report.write_markdown(
+        [{"label": "ungraded", "findings": [], "truncated": ["reply hit the token cap"]},
+         {"label": "input-capped", "findings": [], "truncated": ["code input capped at ~64,000 chars"]}],
+        ".", "m", str(out))
+    text = out.read_text()
+    assert "## ungraded — ⚠ not graded" in text, "a pair that produced no verdict must not read as clean"
+    assert "| `ungraded` | ⚠ not graded |" in text, "the fingerprint row is the second thing a reader scans"
+    assert "across 1 graded pair(s) (2 attempted)" in text, "an ungraded pair leaves the denominator"
+    assert "## input-capped — ✓ clean" in text, "an input cap means the model graded what it saw"
+
+
 def test_reports_render_the_partial_view_flag(tmp_path):
     """A pair carrying `truncated` notes shows a partial-view warning in both reports."""
     drift = [{"label": "p", "findings": [], "truncated": ["code input capped at ~11,000 chars"]}]

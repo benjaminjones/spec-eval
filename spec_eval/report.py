@@ -15,6 +15,17 @@ def drift_load(r):
                and f.get("verification", {}).get("verdict", "upheld") != "withdrawn")
 
 
+def not_graded(r):
+    """True when the model never produced a verdict for this pair, so `clean` would be a false reading.
+
+    Narrow on purpose: only a REPLY cap with an empty findings list qualifies. An INPUT cap means the
+    model graded what it was shown, and a reply cap that still yielded findings produced a verdict that
+    may merely be short. `0` and `not graded` are different states and only one is safe to act on."""
+    return (not r.get("skipped")
+            and not r["findings"]
+            and "reply hit the token cap" in (r.get("truncated") or []))
+
+
 def _bar(v, width=20):
     """Unicode bar for a 0..1 value (full block = filled, light shade = empty)."""
     v = max(0.0, min(1.0, float(v)))
@@ -42,7 +53,8 @@ def drift_fingerprint(results):
     lines = ["", "### Drift fingerprint", "", "| Pair | High+med findings |", "|---|---|"]
     for r in rs:
         n = drift_load(r)
-        lines.append(f"| `{r['label']}` | {'✓ clean' if n == 0 else f'⚠ {n}'} |")
+        cell = "⚠ not graded" if not_graded(r) else ("✓ clean" if n == 0 else f"⚠ {n}")
+        lines.append(f"| `{r['label']}` | {cell} |")
     return "\n".join(lines) + "\n"
 
 
@@ -61,16 +73,22 @@ def write_markdown(results, repo, model, out_path, include_fingerprint=True):
     name = os.path.basename(os.path.abspath(repo))
     total = sum(drift_load(r) for r in results if not r.get("skipped"))
     audited = [r for r in results if not r.get("skipped")]
+    graded = [r for r in audited if not not_graded(r)]
+    # An ungraded pair is excluded from the denominator rather than counted as a clean one. The
+    # "(N attempted)" clause appears only when the two differ, so an ordinary run reads as before.
+    denom = (f"{len(graded)} graded pair(s) ({len(audited)} attempted)"
+             if len(graded) != len(audited) else f"{len(audited)} audited pair(s)")
     lines = [f"# Drift report — `{name}`",
              f"detector: `{model}` · {len(audited)}/{len(results)} pairs audited · "
              f"{providers.USAGE['calls']} model call(s)", "",
-             f"**{total} high/medium drift finding(s) across {len(audited)} audited pair(s).**", ""]
+             f"**{total} high/medium drift finding(s) across {denom}.**", ""]
     for r in results:
         if r.get("skipped"):
             lines += [f"## {r['label']} — _skipped: {r['skipped']}_", ""]
             continue
         n = drift_load(r)
-        lines.append(f"## {r['label']} — {'✓ clean' if n == 0 else f'⚠ {n} drift'}")
+        verdict = "⚠ not graded" if not_graded(r) else ("✓ clean" if n == 0 else f"⚠ {n} drift")
+        lines.append(f"## {r['label']} — {verdict}")
         if r.get("truncated"):
             lines.append(f"- ⚠ *partial view ({'; '.join(r['truncated'])}) — findings may be incomplete*")
         for f in r["findings"]:
