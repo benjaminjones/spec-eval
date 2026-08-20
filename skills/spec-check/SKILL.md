@@ -45,8 +45,8 @@ setup**. For hands-off CI or a cross-vendor second opinion, pair it with a dedic
      `tests/contract/test_rubric_sync.py` asserts the load-bearing phrases match. -->
 ## The agreement rubric (apply strictly)
 A finding = the code does X but the doc/spec claims Y (or vice versa). Severity is **reserved**:
-- **high** — the doc states a MEASURABLE GUARANTEE the code breaks: a numeric value/threshold/default that
-  disagrees with code, an explicit signature, a named event/message, a CLI flag default, or a violated
+- **high** — the doc states a MEASURABLE GUARANTEE the code breaks: an explicit signature, a named
+  event/message, or a violated
   invariant/acceptance criterion. If you must paraphrase the doc to see the violation, it is **not** high.
 - **medium** — misleading but not load-bearing: a renamed function that still does the same thing, a stale
   example, a field in code missing from a spec table, mechanism described differently.

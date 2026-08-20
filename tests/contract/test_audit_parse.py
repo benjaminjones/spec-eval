@@ -64,3 +64,17 @@ def test_parse_findings_skips_bracey_prose_before_the_json():
             '```json\n{"findings": [{"severity": "medium", "summary": "contract names preview, code uses note"}]}\n```')
     out = audit.parse_findings(resp)
     assert len(out) == 1 and out[0]["severity"] == "medium" and "preview" in out[0]["summary"]
+
+
+def test_the_finding_class_survives_parsing_and_unknown_values_are_conservative():
+    """#37 — before this field existed, a finding carrying an unrecognised severity was dropped silently by
+    the parser. The class field must not repeat that: it is normalised rather than trusted, and anything
+    unrecognised or absent reads as `drift`, so a finding is counted unless it is explicitly `stale`."""
+    kept = audit.parse_findings('{"findings":[{"severity":"high","class":"stale","summary":"x"}]}')
+    assert kept[0]["class"] == "stale"
+    bogus = audit.parse_findings('{"findings":[{"severity":"high","class":"nonsense","summary":"x"}]}')
+    assert bogus[0]["class"] == "drift", "an unrecognised class must not travel into the counts"
+    absent = audit.parse_findings('{"findings":[{"severity":"high","summary":"x"}]}')
+    assert absent[0]["class"] == "drift"
+    fallback = audit.parse_findings('not json at all "severity": "high" trailing')
+    assert fallback[0]["class"] == "drift", "the fallback path carries the same key set"

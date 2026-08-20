@@ -9,9 +9,15 @@ from . import providers
 
 def drift_load(r):
     """High+medium findings that stand. A finding withdrawn by the verification pass stays in the record
-    but is not counted — a withdrawal is itself a reviewable claim, so it is shown rather than deleted."""
+    but is not counted — a withdrawal is itself a reviewable claim, so it is shown rather than deleted.
+
+    A `stale` finding is also shown and not counted. It reports an outdated declarative value, not a broken
+    guarantee: a value like a default or a threshold defines a term rather than constraining behaviour, so
+    there is nothing for the code to violate. Counting it as drift is a category error, and it is the one
+    this counter existed to make. Absent class reads as `drift`, so pre-existing records count as before."""
     return sum(1 for f in r["findings"]
                if f["severity"] in ("high", "medium")
+               and f.get("class", "drift") != "stale"
                and f.get("verification", {}).get("verdict", "upheld") != "withdrawn")
 
 
@@ -95,7 +101,11 @@ def write_markdown(results, repo, model, out_path, include_fingerprint=True):
             v = f.get("verification") or {}
             gone = v.get("verdict") == "withdrawn"
             ref = f" (`{f.get('code_ref') or '?'}` vs `{f.get('doc_ref') or '?'}`)" if f.get("code_ref") or f.get("doc_ref") else ""
-            mark = f"~~**[{f['severity']}]** {f['summary']}~~" if gone else f"**[{f['severity']}]** {f['summary']}"
+            # A stale finding carries its class in the label, so a reader triaging the report can see at a
+            # glance that it is an outdated value rather than a violated guarantee — different fix, different
+            # urgency. Severity is kept beside it: it still says how misleading the stale value is.
+            tag = f"stale · {f['severity']}" if f.get("class") == "stale" else f["severity"]
+            mark = f"~~**[{tag}]** {f['summary']}~~" if gone else f"**[{tag}]** {f['summary']}"
             lines.append(f"- {mark}{ref}")
             if gone:
                 lines.append(f"    - *withdrawn on verification — {v.get('ground')}:* {v.get('why', '')}")
