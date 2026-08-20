@@ -13,7 +13,7 @@ The audit asks *does the code contradict the doc?* This module asks a different 
 | **Verdict** | Per finding: `{verdict, ground, doc_quote, why}`, where `verdict` ∈ {`upheld`, `withdrawn`}. |
 | **Ground** | The named reason a finding was withdrawn, from a closed set of four. A withdrawal without a ground from that set is not a withdrawal. |
 | **not-asserted** | The line the finding *itself cites* does not carry the claim at the strength the finding needs — a quantifier the line lacks, or a clause it has that the finding dropped. |
-| **stated-elsewhere** | The same document states the rule correctly in another passage, commonly a contract table below the narrative being graded. |
+| **stated-elsewhere** | The same document states the rule correctly in another passage — commonly a contract or acceptance-criteria table and the narrative that qualifies it, in **either** direction (the table row read without the narrative, or the narrative read without the table). One passage is loose; the document is not wrong. |
 | **not-normative** | The graded sentence is rationale or commentary, not a claim about behaviour. |
 | **scoped** | The document scoped its statement to a named case, and the finding applies it to a case the document excluded. |
 | **Upheld set** | The findings that survive verification, and every finding when the pass did not run. Only these are counted. |

@@ -69,6 +69,7 @@ thing being checked.
 - **not-asserted** — the line the finding cites does not carry the claim at the strength needed: a quantifier
   it lacks (*exactly, only, always, never, all, any*), or a clause it has that the finding dropped.
 - **stated-elsewhere** — the same doc states the rule correctly in another passage, commonly a contract table
+  and the narrative that qualifies it, in **either** direction
   below the narrative.
 - **not-normative** — the graded sentence is rationale or commentary, not a claim about behaviour.
 - **scoped** — the doc scoped the statement to a named case the finding applies outside of.
