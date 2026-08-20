@@ -27,7 +27,8 @@ Severity is RESERVED — be strict; the tier is set by the DOC's claim:
 Do NOT flag: stylistic differences; trivial restatements; missing-but-implied behaviour where a doc could
 plausibly be silent (silence is not drift); a doc describing a BROADER system of which this file is only one
 part (scope is not drift); comments inside code that disagree with each other (only code-vs-doc); drift you
-can only verify by RUNNING the code.
+can only verify by RUNNING the code; a clause that explains WHY rather than states WHAT, which you can delete
+without changing anything the document requires (rationale is not a claim).
 
 Be conservative: prefer false negatives over false positives. An empty findings list is a perfectly valid
 answer.

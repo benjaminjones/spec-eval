@@ -55,7 +55,8 @@ A finding = the code does X but the doc/spec claims Y (or vice versa). Severity 
 **Do NOT flag:** stylistic differences; trivial restatements; missing-but-implied behaviour where a doc could
 plausibly be silent (**silence is not drift**); a doc describing a **broader system** of which this file is one
 part (**scope is not drift**); comments inside code that disagree with each other (only code-vs-doc); drift you
-can only verify by **running** the code.
+can only verify by **running** the code; a clause that explains **why** rather than states **what**, which you can
+delete without changing anything the document requires (**rationale is not a claim**).
 
 **Prefer false negatives over false positives.** An empty result ("✓ in agreement") is a perfectly valid answer.
 
