@@ -13,6 +13,13 @@ CLASSES = {"drift", "stale"}   # WHAT KIND of disagreement, orthogonal to severi
 REVIEW_MAX_TOKENS = 3000   # output-token budget for the two review checks (drift + sufficiency): each emits a
                            # JSON list (findings / gaps) that is unparseable if cut mid-list — sufficiency reads
                            # THIS constant so the "same budget" coupling is structural, not a comment.
+RATIONALE_MARKERS = ("**Why",)   # line-leading literal prefixes marking a non-normative rationale clause.
+                                 # This is the deterministic half of "rationale is not a claim": the rubric asks
+                                 # a model not to flag these, which measured 60% -> 20% at p=0.17 and is not
+                                 # established; masking them before the call removes the class by construction.
+                                 # Literal prefix, not a pattern, so what counts as rationale stays declarable
+                                 # rather than judged. The default covers this tool's own authoring convention
+                                 # ("**Why:**" and "**Why <clause>:**"); other repos declare their own.
 CODE_CAP, DOC_CAP = 64000, 28000   # char caps per side (bound cost; directional). CODE_CAP=64k covers p99 of a
                                    # broad real-world corpus (~20k tokens, under the ~50k onset where long-context
                                    # accuracy measurably degrades); DOC_CAP=28k is p95 of real design docs.
@@ -97,6 +104,36 @@ def caps_from(config):
     return int(c.get("code", CODE_CAP)), int(c.get("docs", DOC_CAP))
 
 
+def rationale_markers_from(config):
+    """The line-leading prefixes that mark a rationale clause, config-overridable: `rationale_markers: [...]`.
+
+    An empty list disables masking entirely, which is the escape hatch for a repo whose docs use `**Why` to
+    state a requirement rather than to explain one."""
+    v = (config or {}).get("rationale_markers")
+    return RATIONALE_MARKERS if v is None else tuple(v)
+
+
+def mask_rationale(text, markers=RATIONALE_MARKERS):
+    """Blank every line whose stripped form starts with one of `markers`. Returns (text, lines_masked).
+
+    **One line out per line in.** Findings cite a document line (`doc_ref: file:Lxx`), so deleting lines would
+    silently shift every reference below the cut. The line is emptied, not removed.
+
+    Blank rather than a placeholder: a marker like "[rationale omitted]" is itself text the model can read and
+    remark on, and the drift rubric has no use for knowing something was withheld. The count is surfaced to the
+    USER instead, on the pair record."""
+    if not markers:
+        return text, 0
+    out, n = [], 0
+    for line in text.split("\n"):
+        if line.lstrip().startswith(markers):
+            out.append("")
+            n += 1
+        else:
+            out.append(line)
+    return "\n".join(out), n
+
+
 def truncation_notes(code_capped, doc_capped, code_cap=CODE_CAP, doc_cap=DOC_CAP):
     """The pair-level partial-view notes shared by audit and sufficiency: the two input caps, plus whether the
     model's REPLY was cut off at the token cap (read from the call just made)."""
@@ -107,14 +144,20 @@ def truncation_notes(code_capped, doc_capped, code_cap=CODE_CAP, doc_cap=DOC_CAP
     return notes
 
 
-def audit_pair(repo, pair, model, code_cap=CODE_CAP, doc_cap=DOC_CAP):
+def audit_pair(repo, pair, model, code_cap=CODE_CAP, doc_cap=DOC_CAP, markers=RATIONALE_MARKERS):
     code, nc, code_capped = _read_globs(repo, pair.get("code", []), code_cap)
     doc, nd, doc_capped = _read_globs(repo, pair.get("docs", []), doc_cap)
     if nc == 0 or nd == 0:
         return {"label": pair["label"], "skipped": f"no files matched (code={nc}, docs={nd})", "findings": []}
+    # Masked HERE rather than in `_read_globs`, which `verify` and `sufficiency` also call. `verify` checks a
+    # withdrawal's quote against the document and must see the real one — a `not-normative` withdrawal quotes
+    # exactly the line this masks, so filtering there would reject every correct use of that ground.
+    doc, masked = mask_rationale(doc, markers)
     user = f"# Drift review: {pair['label']}\n\n## Code\n```\n{code}\n```\n\n## Docs / spec\n{doc}\n"
     findings = parse_findings(providers.gen(model, DRIFT_RUBRIC, user, max_tokens=REVIEW_MAX_TOKENS))   # headroom: a truncated findings list is unparseable
     rec = {"label": pair["label"], "code_files": nc, "doc_files": nd, "findings": findings}
+    if masked:
+        rec["rationale_masked"] = masked
     notes = truncation_notes(code_capped, doc_capped, code_cap, doc_cap)
     if notes:
         rec["truncated"] = notes
@@ -125,4 +168,5 @@ def audit_repo(repo, config, model):
     from . import coverage as coverage_mod
     pairs = config.get("pairs") or coverage_mod.infer_pairs(repo, config)   # co-located specs need no pairs.yml
     code_cap, doc_cap = caps_from(config)
-    return [audit_pair(repo, p, model, code_cap, doc_cap) for p in pairs]
+    markers = rationale_markers_from(config)
+    return [audit_pair(repo, p, model, code_cap, doc_cap, markers) for p in pairs]

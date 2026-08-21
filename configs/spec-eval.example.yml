@@ -17,6 +17,16 @@ exclude: []          # extra globs to treat as NOT spec-worthy, e.g. ["**/migrat
 #   of design docs. Anything over a cap is truncated AND flagged in the report ("partial
 #   view"), never silently. Raise for very large files (e.g. C/C++ modules); lower to
 #   tighten a cost ceiling.
+# rationale_markers — line-leading prefixes that mark a NON-NORMATIVE rationale clause. Lines
+#   starting with one are emptied before the drift call, so the reviewer never sees them and cannot
+#   flag them. Emptied in place, never deleted, so finding line numbers stay correct. Applies to
+#   `audit` only — `verify` needs the real document to check a withdrawal's quote.
+#   Default is ["**Why"], this tool's own authoring convention. Declare your own, or set [] to
+#   switch masking off if your docs use "**Why" to state a requirement rather than explain one.
+# rationale_markers:
+#   - "**Why"
+#   - "**Rationale:**"
+
 # caps:
 #   code: 64000      # caps.code — chars of code per pair (audit / sufficiency / generate)
 #   docs: 28000      # caps.docs — chars of docs per pair (audit / sufficiency)
