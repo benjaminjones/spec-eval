@@ -97,6 +97,11 @@ def write_markdown(results, repo, model, out_path, include_fingerprint=True):
         lines.append(f"## {r['label']} — {verdict}")
         if r.get("truncated"):
             lines.append(f"- ⚠ *partial view ({'; '.join(r['truncated'])}) — findings may be incomplete*")
+        if r.get("rationale_masked"):
+            # Deliberate, not a limitation — so it reads as a note rather than the ⚠ a partial view carries.
+            # Surfaced because the reader is entitled to know what the model was not shown.
+            lines.append(f"- *{r['rationale_masked']} rationale line(s) masked before review — "
+                         f"non-normative clauses are not shown to the model*")
         for f in r["findings"]:
             v = f.get("verification") or {}
             gone = v.get("verdict") == "withdrawn"

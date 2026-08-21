@@ -13,7 +13,8 @@ The module is deliberately **portable**: the repository being audited is always 
 | Term | Meaning (bounds / units) |
 |------|--------------------------|
 | Repo | Filesystem path to the repository under audit; base for all glob resolution. |
-| Config | A YAML or JSON document of shape `{pairs: [...][, caps: {code, docs}]}`. |
+| Config | A YAML or JSON document of shape `{pairs: [...][, caps: {code, docs}][, rationale_markers: [...]]}`. |
+| **Rationale line** | A document line whose stripped form starts with a configured `rationale_markers` prefix (default `**Why`, covering this tool's own `**Why:**` and `**Why <clause>:**` authoring convention). Non-normative by construction, so it is **masked before the drift call** — emptied in place, never deleted. |
 | Pair | One audit unit: `{label, code: [globs], docs: [globs]}`. |
 | Label | Human name identifying a pair in the output. |
 | Code side | Concatenated text of files matched by a pair's `code` globs, capped at the code cap (`caps.code`, default **64 000 chars**). |
@@ -30,6 +31,10 @@ The module is deliberately **portable**: the repository being audited is always 
 
 **Pair discovery.** When auditing a repo, the configured `pairs` list is used directly. If it is absent or empty, pairs are **inferred** from the repo via the coverage module.
 > **Why:** repositories that keep specs co-located with code need no explicit `pairs.yml` — the pairing can be derived.
+
+**Rationale masking (docs side, drift only).** After assembly and before the model call, every rationale line in the docs side is replaced by an empty line. **One line out per line in** — findings cite `doc_ref: file:Lxx`, so deleting a line would silently shift every reference below it. The line is blanked rather than replaced with a placeholder, because a placeholder is itself text the model can read and remark on. The count is recorded on the pair as `rationale_masked` and rendered for the reader; it is **not** a `truncated` note, because it is deliberate rather than a limit. Masking applies to `audit` **only**: `verify` checks a withdrawal's quote against the document and a `not-normative` withdrawal quotes exactly these lines, so masking there would reject every correct use of that ground. `sufficiency` is likewise unmasked. Setting `rationale_markers: []` disables masking.
+
+> **Why:** the rubric's `rationale is not a claim` instruction asks a model to decline these; masking removes them by construction. The instruction was measured over 20 runs and moved the class rate from 6/10 to 2/10 at p = 0.17 — directionally right, not established. The two are complementary: masking covers docs carrying a declared marker, the instruction covers everything else.
 
 **Side assembly (code / docs).** For each side, the pair's globs are resolved against the repo path (recursive globbing enabled) **in config order**; each glob's own matches are sorted, and the per-glob results are concatenated (so the assembled order is globally sorted only when a side lists a single glob). Each readable, non-empty regular file is emitted as a `### <relative-path>` header followed by its contents; sections are joined with blank lines. Unreadable files are skipped silently. The assembled text is truncated to its side's cap (config-overridable via `caps:`; defaults **64 000** for code, **28 000** for docs), appending a `...[truncated]` marker when truncation occurs; the reader also returns a per-side `capped` flag so the cut is surfaced to the USER (the marker only tells the model).
 > **Why:** the caps bound per-request cost and are directional — code is given more room than docs.
@@ -77,6 +82,8 @@ Semantic shapes:
 | AC-10 | Model returns a finding with `"evidence": "code: n = 8 / doc: defaults to 4"` | parsed | The finding's `evidence` holds that string verbatim; a finding omitting the key gets `evidence=""`. |
 | AC-5 | Code side assembles to 80 000 chars of matched content | audited | Sent code text is 64 000 chars plus a trailing `...[truncated]` marker. |
 | AC-8 | Code side exceeds its cap, or the model reply stops at the token cap | audited | Result carries `truncated` notes naming each cut (e.g. "code input capped …", "reply hit the token cap"). |
+| AC-10 | A docs file contains `**Why:** …` on its own line | `audit_pair` runs | The line is empty in the payload sent to the model, the document's line count is unchanged, and the pair record carries `rationale_masked: 1`. |
+| AC-11 | Config sets `rationale_markers: []` | `audit_pair` runs | No line is masked and no `rationale_masked` key is set. |
 | AC-9 | Config sets `caps: {code: 100}` | audited | The code side is capped at 100 chars and the pair's `truncated` note names ~100, not the default. |
 | AC-6 | Config path ends in `.yaml` | loaded | Parsed as YAML; a `.json` (or other) path parsed as JSON. |
 | AC-7 | Config has no `pairs` key | audited | Pairs are inferred via the coverage module and audited. |
