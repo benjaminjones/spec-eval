@@ -35,7 +35,7 @@ setup**. For hands-off CI or a cross-vendor second opinion, pair it with a dedic
    it. If a code file has **no** governing spec yet, say so — missing-spec is itself a coverage finding (decide
    whether it needs one).
 2. **Apply the rubric below** to each (code, spec) pair — strictly, one pair at a time.
-3. **Report** a short table per pair: `severity · summary · code ref · doc ref · suggested fix`, then a one-line
+3. **Report** a short table per pair: `severity · class · summary · code ref · doc ref · suggested fix`, then a one-line
    verdict (✓ in agreement / ⚠ N findings). Quote the conflicting code + doc as evidence. The fix can go
    **either direction** — update the spec to match the code, or the code to match the spec — whichever is the
    intended behaviour. When you're co-authoring both, that's a call you make on the spot.
@@ -46,11 +46,19 @@ setup**. For hands-off CI or a cross-vendor second opinion, pair it with a dedic
 ## The agreement rubric (apply strictly)
 A finding = the code does X but the doc/spec claims Y (or vice versa). Severity is **reserved**:
 - **high** — the doc states a MEASURABLE GUARANTEE the code breaks: an explicit signature, a named
-  event/message, or a violated
-  invariant/acceptance criterion. If you must paraphrase the doc to see the violation, it is **not** high.
+  event/message, or a violated invariant/acceptance criterion. If you must paraphrase the doc to see the
+  violation, it is **not** high.
 - **medium** — misleading but not load-bearing: a renamed function that still does the same thing, a stale
   example, a field in code missing from a spec table, mechanism described differently.
 - **low** — cosmetic / trivially-fixable wording.
+
+**Class is separate from severity**, and says what KIND of disagreement it is:
+- **drift** *(the default)* — the doc states a guarantee about BEHAVIOUR and the code does not honour it.
+- **stale** — the doc states a declarative VALUE — a default, a threshold, a constant, a CLI flag default — and
+  the code carries a different one. A value like this defines a term; it does not constrain what the code
+  must do, so it cannot be violated, only outdated. **Report it, and do not report it as a broken guarantee**
+  — a stale finding is shown but not counted as drift. Severity on a stale finding says how misleading the outdated value is, not how
+  urgent a breach is.
 
 **Do NOT flag:** stylistic differences; trivial restatements; missing-but-implied behaviour where a doc could
 plausibly be silent (**silence is not drift**); a doc describing a **broader system** of which this file is one
@@ -128,7 +136,7 @@ By default this check reports **in the chat**. If the user asks to **save** or *
 durable, reviewable receipts — the same files the `spec-eval` CLI produces:
 
 - `spec-reports/coverage.md` — which spec-worthy code files have a governing spec, and which don't.
-- `spec-reports/report.md` — the drift findings (per pair: `severity · summary · code ref · doc ref · fix`),
+- `spec-reports/report.md` — the drift findings (per pair: `severity · class · summary · code ref · doc ref · fix`),
   with the conflicting code and doc quoted as evidence.
 - `spec-reports/sufficiency.md` *(only if the user also wants a completeness score)* — a `0.0–1.0` score per
   pair answering *"could a developer rebuild this behavior from the spec alone?"*, worst pair first, listing the

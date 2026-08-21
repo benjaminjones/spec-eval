@@ -24,6 +24,12 @@ LOAD_BEARING = [
     "MEASURABLE GUARANTEE",
     "silence is not drift",
     "rationale is not a claim",
+    # #42 shipped the `class` field in DRIFT_RUBRIC and did NOT mirror it into the skill, which is the copy an
+    # agent loads in-session — so an agent following the skill would not have emitted it. These two phrases are
+    # pinned because a bare "stale"/"drift" would not have caught it: both words already appear in each file for
+    # unrelated reasons, so the pin has to be a phrase only the class section contains.
+    "is separate from severity",
+    "cannot be violated, only outdated",
     "scope is not drift",
     "false negatives",
 ]
