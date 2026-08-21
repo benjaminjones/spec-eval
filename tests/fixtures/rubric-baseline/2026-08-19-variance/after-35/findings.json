@@ -1,0 +1,23 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "low",
+        "summary": "The Definitions-table row for UNMODELED states the qualifying rule as \"no code sibling\", but the code excludes markdown by whole-directory test (any candidate code file in the same directory), so a `.md` with no same-stem sibling that sits beside other code is never unmodeled.",
+        "code_ref": "spec_eval/coverage.py:L115-L120",
+        "doc_ref": "spec_eval/coverage.md:L22",
+        "evidence": "doc \u00a72: \"| UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc. Reported, never scored. |\"  vs code: \"code_dirs = {os.path.dirname(rel) for rel in candidate} ... for md in mds: d = os.path.dirname(md); if d in code_dirs: continue  # sits beside code\". The doc's own \u00a73 (\"A file qualifies when it sits in a directory holding no candidate code\") and INV-8 (\"Every path in `unmodeled` sits in a directory holding no candidate code file\") state the code's actual rule; only the glossary row disagrees. Consequence: `src/notes.md` in a directory containing `src/model.py` has no code sibling, so the table's rule would make it UNMODELED, while the code routes it to the orphan heuristic instead.",
+        "suggestion": "Reword the table row to match \u00a73/INV-8: \"\u2026that same-stem pairing cannot reach \u2014 sits in a directory holding no candidate code, not a conventional doc.\"",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The glossary row is a loose one-line gloss, but the document states the code's actual whole-directory rule normatively in \u00a73 (\"A file qualifies when it sits in a directory holding no candidate code\") and in the invariant table as INV-8, so the document is not wrong."
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,37 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "high",
+        "summary": "INV-8 claims no file can be both `unmodeled` and paired, but `unmodeled_markdown` never consults the config's pair `docs` globs, so an explicitly pair-declared spec in a docs-only directory is still reported as unmodeled.",
+        "code_ref": "coverage.py:L117",
+        "doc_ref": "coverage.md:\u00a74 Invariants, INV-8",
+        "evidence": "Doc INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" (with \u00a72 defining Pair as `{label, code[], docs[]}` \u2014 links code globs to spec doc(s)). Code: `def unmodeled_markdown(repo, candidate, mds, user_excludes)` filters only on `if d in code_dirs: continue`, `if classify_exclude(md, user_excludes) == \"user\": continue`, and the CONVENTIONAL_DOC_STEMS check \u2014 it receives no `config`/`pairs` at all. Contrast the orphan path, which does build `pair_docs` and skips `if md in pair_docs: continue`. So `pairs: [{code: [\"src/**/*.py\"], docs: [\"spec/functional/FR-*.md\"]}]` (the doc's own motivating requirement-id spec tree) yields files that are simultaneously paired and listed under `unmodeled`.",
+        "suggestion": "Either pass `pair_docs` into `unmodeled_markdown` and skip pair-declared docs (mirroring the orphan check), or restate INV-8 to drop the \"so no file is ever both unmodeled and paired\" clause and say only that unmodeled paths sit in directories with no candidate code.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The cited invariant itself carries the universal claim (\"no file is ever both unmodeled and paired\") in a normative invariants table, and `unmodeled_markdown` receives no config/pairs, so a pair-declared doc in a docs-only tree is reported as unmodeled while being paired."
+        }
+      },
+      {
+        "severity": "medium",
+        "summary": "The doc gives an agent skill's `SKILL.md` as a canonical example of markdown surfaced by the unmodeled report, but `SKILL.md` is in CONVENTIONAL_DOC_STEMS and is therefore always filtered out of the groups and counts.",
+        "code_ref": "coverage.py:L123",
+        "doc_ref": "coverage.md:\u00a73 Unmodeled markdown detection",
+        "evidence": "Doc: \"two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).\" Code: `CONVENTIONAL_DOC_STEMS = {\"readme\", \u2026, \"skill\", \u2026}` and `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue  # README/CHANGELOG/\u2026 are docs, not an unmodeled corpus`. A `skills/foo/SKILL.md` plus two reference files therefore counts as 2 files and falls below `UNMODELED_MIN_FILES = 3`, reporting nothing.",
+        "suggestion": "Either drop `\"skill\"` from CONVENTIONAL_DOC_STEMS for the unmodeled path (keeping it for the orphan path), or amend the doc to say the group is detected via a skill's *reference* files, since `SKILL.md` itself is treated as a conventional doc and never counted.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-normative",
+          "doc_quote": "**Why:** two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).",
+          "why": "The `SKILL.md` mention sits in explicit \"Why:\" rationale explaining what kinds of writing pairing cannot see, not a claim that `SKILL.md` itself is surfaced; the normative sentence above it says a file qualifies only if it \"is not a conventional doc name\", and AC-4 uses `skills/*/reference.md`."
+        }
+      }
+    ]
+  }
+]

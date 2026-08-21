@@ -1,0 +1,37 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "The doc names an agent skill's `SKILL.md` as a body of writing the unmodeled report surfaces, but `unmodeled_markdown` filters it out because the stem `skill` is in `CONVENTIONAL_DOC_STEMS`.",
+        "code_ref": "spec_eval/coverage.py:L123",
+        "doc_ref": "spec_eval/coverage.md:L64",
+        "evidence": "doc (coverage.md:64): \"two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references) \u2026 Naming the groups keeps the number honest\"  ||  code (coverage.py:53-55): `CONVENTIONAL_DOC_STEMS = {..., \"skill\", ...}` and (coverage.py:123-124) `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue  # README/CHANGELOG/\u2026 are docs, not an unmodeled corpus`. A `skills/` tree of three `SKILL.md` files therefore yields `unmodeled == []`, never mentioning the corpus the doc says is reported.",
+        "suggestion": "Either drop `\"skill\"` from `CONVENTIONAL_DOC_STEMS` for the unmodeled pass (keeping it only for the orphan pass), or amend coverage.md \u00a7Unmodeled to say that `SKILL.md` itself is filtered as a conventional doc name and only its reference files count toward a group.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-normative",
+          "doc_quote": "**Why:** two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).",
+          "why": "The cited line (L64) is the section's \"**Why:**\" rationale explaining the motivation for the feature, not a normative claim about which files the report emits; the normative rule on L63 (\"is not a conventional doc name\") and AC-4 (`skills/*/reference.md`) match the code."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The Definitions table defines UNMODELED by \"no code sibling\", while the code excludes any markdown whose whole directory contains candidate code.",
+        "code_ref": "spec_eval/coverage.py:L119",
+        "doc_ref": "spec_eval/coverage.md:L22",
+        "evidence": "doc (coverage.md:22): \"UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc.\"  ||  code (coverage.py:115-120): `code_dirs = {os.path.dirname(rel) for rel in candidate}` \u2026 `if d in code_dirs: continue`. So `notes/a.md` in a directory that also holds `notes/b.py` has no code sibling yet is never unmodeled \u2014 \u00a73 (L63) states the real rule (\"sits in a directory holding no candidate code\").",
+        "suggestion": "Reword the table row to match \u00a73: \"markdown in a directory that holds no candidate code file, not a conventional doc\".",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The loose Definitions gloss on L22 is stated correctly elsewhere in the same doc \u2014 \u00a73 L63 (\"sits in a directory holding no candidate code\") and INV-8 \u2014 which match the code exactly."
+        }
+      }
+    ]
+  }
+]
