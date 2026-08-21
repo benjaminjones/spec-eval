@@ -405,6 +405,21 @@ spec-eval audit . --verify
 It sends each finding back to a fresh AI reader with the whole spec, and asks one question: **does the spec
 actually say the thing this finding says it says?** If not, the finding is thrown out.
 
+**One case where `--verify` is not optional: documents that state a rule twice.** A Contracts or
+Definitions **table** gives the short form and a narrative section gives the qualified one. The first pass is
+shown one pair at a time and grades the passage in front of it, so it can flag a table row that the narrative
+a few paragraphs away already qualifies — or the reverse. The document is not wrong; the passage read in
+isolation is.
+
+That is what `stated-elsewhere` exists for, and it is the ground that does the most work: in the run recorded
+under `spec-reports/`, **five of seven withdrawals** were `stated-elsewhere`. If your spec states rules at two
+resolutions, treat `--verify` as part of the command rather than an extra.
+
+**Why not just teach the first pass to check the rest of the document?** Because the two produce different
+artifacts. A rubric rule would *suppress* the finding and leave no record. A verify withdrawal keeps it,
+struck through, with its ground and the document line that settles it — so you can see what was dismissed and
+disagree. Making the report auditable is worth more here than making it shorter.
+
 **Why doesn't `audit` just get it right the first time?** Because it is doing a harder job. The first pass
 holds your code and your spec side by side and hunts for anywhere they disagree. The second pass has one job
 instead — read the spec, and check whether it really says the thing the finding claims.

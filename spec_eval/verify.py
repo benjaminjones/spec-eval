@@ -52,7 +52,9 @@ and a document may state the same property in several places.
   "exactly three". If the property appears anywhere else in the document in the strength the finding needs,
   this ground does NOT apply and the finding stands.
 - stated-elsewhere: the same doc states the rule correctly in another passage — commonly a contract or
-  acceptance-criteria table below the narrative. The narrative is loose; the document is not wrong.
+  acceptance-criteria table and the narrative that qualifies it, in EITHER direction: the table row read
+  without the narrative, or the narrative read without the table. One passage is loose; the document is not
+  wrong.
 - not-normative: the graded sentence is rationale, motivation or commentary ("Why:" text, an aside about why a
   choice was made), not a claim about what the code does.
 - scoped: the doc scoped its statement to a named case, and the finding applies it to a case the doc excluded.
