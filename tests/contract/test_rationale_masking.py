@@ -4,7 +4,6 @@ The drift rubric asks a model not to flag a rationale clause. Measured over 20 r
 from 6/10 to 2/10 at p=0.17 — directionally right, not established (see
 `tests/fixtures/rubric-baseline/PRE-REGISTRATION-rationale-rule.md`). Masking the clause before the call removes
 the class by construction instead, which is checkable here with no model and no variance."""
-import os
 
 from spec_eval import audit
 
