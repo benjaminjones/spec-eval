@@ -1,0 +1,65 @@
+{
+  "schema": 2,
+  "scanner": {
+    "version": "0.3.0",
+    "tables_digest": "db2e26940c8b6587"
+  },
+  "repo": "spec-eval",
+  "files_scanned": 14,
+  "unscanned": {},
+  "entries": [
+    {
+      "system": "Anthropic API",
+      "kind": "application",
+      "direction": "outbound",
+      "via": [
+        "sdk"
+      ],
+      "evidence": [
+        {
+          "file": "spec_eval/providers.py",
+          "line": 111,
+          "match": "import anthropic"
+        }
+      ],
+      "evidence_total": 1
+    },
+    {
+      "system": "Google Gemini API",
+      "kind": "application",
+      "direction": "outbound",
+      "via": [
+        "sdk"
+      ],
+      "evidence": [
+        {
+          "file": "spec_eval/providers.py",
+          "line": 129,
+          "match": "from google import genai"
+        },
+        {
+          "file": "spec_eval/providers.py",
+          "line": 130,
+          "match": "from google.genai import types"
+        }
+      ],
+      "evidence_total": 2
+    },
+    {
+      "system": "OpenAI API",
+      "kind": "application",
+      "direction": "outbound",
+      "via": [
+        "sdk"
+      ],
+      "evidence": [
+        {
+          "file": "spec_eval/providers.py",
+          "line": 121,
+          "match": "from openai import OpenAI"
+        }
+      ],
+      "evidence_total": 1
+    }
+  ]
+}
