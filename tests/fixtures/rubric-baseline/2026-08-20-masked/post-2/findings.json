@@ -1,0 +1,25 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "INV-8 guarantees no file is ever both `unmodeled` and paired, but `unmodeled_markdown` never consults `config[\"pairs\"]` docs globs, so a doc explicitly declared in a pair that lives in a docs-only directory is still reported as unmodeled.",
+        "code_ref": "coverage.py:unmodeled_markdown (L119-L128, the per-md filter loop)",
+        "doc_ref": "coverage.md:INV-8",
+        "evidence": "Doc INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" (with \u00a72 defining Pair as `{label, code[], docs[]}` \u2014 a config pair). Code filters only on three conditions: `if d in code_dirs: continue` / `if classify_exclude(md, user_excludes) == \"user\": continue` / `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue` \u2014 there is no `if md in pair_docs: continue`, unlike the orphan pass which does build `pair_docs` and skips them (`if md in pair_docs: continue  # explicitly paired \u2014 governed, wherever its code is`). Given `pairs: [{code: [\"src/a.py\"], docs: [\"spec/a-spec.md\"]}]` and three `.md` files under `spec/`, `spec/a-spec.md` is both pair-declared and returned inside the `{dir: \"spec\", files: 3}` unmodeled group.",
+        "suggestion": "Either pass the already-computed `pair_docs` set into `unmodeled_markdown` and skip members of it (mirroring the orphan pass), or restate INV-8/\u00a73 to say unmodeled only excludes same-stem co-located pairing and may include config-pair-declared docs.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The cited invariant line states the universal guarantee verbatim (\"no file is ever both unmodeled and paired\") in a table of rules that must always hold, and with \u00a72 defining Pair as `{label, code[], docs[]}` the config-pair reading is the doc's own vocabulary; the \u00a73 narrative listing the three filter conditions is silent on pair docs rather than stating the guarantee correctly, so no named withdrawal ground applies."
+        }
+      }
+    ],
+    "rationale_masked": 10
+  }
+]
