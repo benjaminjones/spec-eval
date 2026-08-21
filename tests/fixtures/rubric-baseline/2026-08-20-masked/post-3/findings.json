@@ -1,0 +1,25 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "`unmodeled_markdown` never filters out docs declared by a config pair, so a pair-declared spec living in a docs-only directory is reported as \"markdown pairing cannot reach\" \u2014 contradicting INV-8's claim that no file is ever both unmodeled and paired.",
+        "code_ref": "coverage.py:unmodeled_markdown (the filter loop \u2014 only `d in code_dirs`, `classify_exclude(...)=='user'`, and CONVENTIONAL_DOC_STEMS are skipped; `pair_docs` is never consulted)",
+        "doc_ref": "coverage.md:\u00a74 Invariants, INV-8",
+        "evidence": "Doc INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" (with \u00a72 defining Pair as `{label, code[], docs[]}` \u2014 links code globs to spec doc(s)). Code, `unmodeled_markdown`: `for md in mds: d = os.path.dirname(md); if d in code_dirs: continue; if classify_exclude(md, user_excludes) == \"user\": continue; if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue; ... groups.setdefault(top, []).append(md)` \u2014 no `pair_docs` check, unlike the orphan pass which does `if md in pair_docs: continue  # explicitly paired \u2014 governed, wherever its code is`. With `pairs: [{label: x, code: ['src/x.py'], docs: ['docs/x.md']}]` and three markdown files under `docs/`, `docs/x.md` is both explicitly paired and reported in `unmodeled`.",
+        "suggestion": "Either pass the pair-declared doc set into `unmodeled_markdown` and `continue` on `md in pair_docs` (mirroring the orphan pass), or reword INV-8 to state only the directory condition and scope the pairing clause to same-stem pairing, e.g. \"\u2026so no file is ever both unmodeled and same-stem paired; explicitly pair-declared docs may still appear.\"",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The invariants table asserts the unqualified mutual exclusion (\"no file is ever both unmodeled and paired\") using the doc's own \u00a72 definition of Pair as `{label, code[], docs[]}`, and no other passage states a corrected version of that rule, so the pair-declared-doc-in-a-docs-only-directory case contradicts the doc as written."
+        }
+      }
+    ],
+    "rationale_masked": 10
+  }
+]

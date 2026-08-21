@@ -1,0 +1,40 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "INV-8 guarantees no file is ever both `unmodeled` and paired, but `unmodeled_markdown` never consults `config[\"pairs\"]`, so a doc explicitly declared in a pair's `docs` glob is still reported as unmodeled.",
+        "code_ref": "coverage.py:L119 (unmodeled_markdown filter loop)",
+        "doc_ref": "coverage.md:\u00a74 Invariants, INV-8",
+        "evidence": "Doc INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" Doc \u00a72 defines Pair as \"`{label, code[], docs[]}` \u2014 links code globs to spec doc(s).\" Code (`unmodeled_markdown`) filters on only three conditions: `if d in code_dirs: continue`, `if classify_exclude(md, user_excludes) == \"user\": continue`, `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue` \u2014 no `pair_docs` check, unlike orphan detection which does have `if md in pair_docs: continue  # explicitly paired \u2014 governed, wherever its code is`.",
+        "suggestion": "Pass the computed `pair_docs` set into `unmodeled_markdown` and skip any md in it (mirroring the orphan rule), or reword INV-8 to claim only same-stem pairing (\"no file is ever both unmodeled and co-located-paired\").",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The cited invariant line itself carries the full guarantee (\"no file is ever both unmodeled and paired\"), and no other passage states that pairing guarantee correctly \u2014 \u00a73's three-condition list neither makes nor corrects the pairing claim, so the document does assert it as written."
+        }
+      },
+      {
+        "severity": "low",
+        "class": "drift",
+        "summary": "The Definitions table says a markdown file is unmodeled when it has \"no code sibling\", but the code's actual test is that its whole directory holds no candidate code file.",
+        "code_ref": "coverage.py:L119",
+        "doc_ref": "coverage.md:\u00a72 Definitions, UNMODELED row",
+        "evidence": "Doc \u00a72: \"UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc.\" Code: `code_dirs = {os.path.dirname(rel) for rel in candidate}` \u2026 `if d in code_dirs: continue  # sits beside code \u2014 the pairing model already sees it`. So `src/notes-a.md`, `src/notes-b.md`, `src/notes-c.md` next to a single `src/app.py` have no code siblings yet are never reported as unmodeled. (Doc \u00a73 states the directory-level rule correctly.)",
+        "suggestion": "Change the \u00a72 row to match \u00a73: \"\u2026sits in a directory holding no candidate code file, and is not a conventional doc.\"",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.",
+          "why": "\u00a73 \"Unmodeled markdown detection\" states the directory-level rule correctly; the Definitions-table gloss \"no code sibling\" is the loose shorthand of the same rule, so the document is not wrong."
+        }
+      }
+    ],
+    "rationale_masked": 10
+  }
+]

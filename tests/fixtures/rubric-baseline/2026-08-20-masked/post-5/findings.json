@@ -1,0 +1,25 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "INV-8 claims no file can be both `unmodeled` and paired, but `unmodeled_markdown` never filters out docs declared by a config pair's `docs` glob (unlike orphan detection, which does).",
+        "code_ref": "coverage.py:unmodeled_markdown",
+        "doc_ref": "coverage.md:\u00a74 INV-8",
+        "evidence": "Doc INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" (with \u00a72: \"Pair | `{label, code[], docs[]}` \u2014 links code globs to spec doc(s)\"). Code `unmodeled_markdown` filters only on `if d in code_dirs: continue`, `classify_exclude(md, user_excludes) == \"user\"`, and `CONVENTIONAL_DOC_STEMS`; there is no `pair_docs` check, whereas the orphan pass explicitly has `if md in pair_docs: continue`. Verified: config `pairs=[{code:['src/a.py'], docs:['spec/*.md']}]` over a repo with `src/a.py` + `spec/FR-1..3.md` returns `covered: ['src/a.py']` and `unmodeled: [{dir:'spec', files:3, ...}]` \u2014 the same three files are both pair-declared docs and reported as unmodeled.",
+        "suggestion": "Either pass `pair_docs` into `unmodeled_markdown` and skip pair-declared docs (mirroring the orphan pass), or reword INV-8 to drop the \"so no file is ever both unmodeled and paired\" clause and state only the directory-has-no-candidate-code rule that the code actually enforces.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.",
+          "why": "The \u00a73 \"Unmodeled markdown detection\" narrative states the qualification rule exactly as the code implements it (three conditions, no pair-docs filter), so INV-8's trailing \"so no file is ever both unmodeled and paired\" is a loose restatement of the same-stem pairing model (\"Markdown that same-stem pairing cannot reach\"), not a separate contradicted claim about config pairs."
+        }
+      }
+    ],
+    "rationale_masked": 10
+  }
+]

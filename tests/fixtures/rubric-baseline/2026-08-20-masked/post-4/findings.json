@@ -1,0 +1,9 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [],
+    "rationale_masked": 10
+  }
+]
