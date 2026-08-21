@@ -79,3 +79,69 @@ reinterpret this table.
 - **The 4/5 untreated rate carries its own interval.** At n=5 the 95% Wilson interval on 4/5 spans
   roughly [38%, 96%]. The point estimate is not the finding; the design's ability to separate 4/5
   from 0/5 is.
+
+---
+
+# RESULT — recorded 2026-08-19, after the treated arm was run
+
+**k = 1 of 5.** Runs retained in `2026-08-19-treated/`.
+
+| Run | `not-normative` withdrawal | Total findings |
+|---|---|---|
+| tx-1 | **yes** — §3 "Unmodeled markdown detection" | 3 |
+| tx-2 | no | 2 |
+| tx-3 | no | 2 |
+| tx-4 | no | 1 |
+| tx-5 | no | 1 |
+
+| Arm | Rate | Total findings per run | Mean |
+|---|---|---|---|
+| Untreated (`main`) | **4/5** | 2, 2, 2, 2, 1 | 1.8 |
+| Treated (PR #40) | **1/5** | 3, 2, 2, 1, 1 | 1.8 |
+
+## Disposition under the pre-registered rule
+
+k = 1 falls in the **0 or 1** band. The rule, fixed before the arm was run, says **merge #40**. That
+is the disposition, and it is not revisited below.
+
+## The over-suppression control passes
+
+Mean total findings is **identical across arms (1.8)** and no treated run returned zero. The rule is
+not suppressing findings wholesale — the `not-normative` class thinned from 4/5 to 1/5 while total
+volume held constant. Treated runs also surfaced upheld findings the untreated arm never produced
+(`L101` in tx-2 and tx-3), and `stated-elsewhere` withdrawals persisted (tx-1, tx-4, tx-5). The
+reduction is selective, which is what the change was supposed to do.
+
+## A defect in this pre-registration, recorded rather than acted on
+
+**The merge band is looser than the significance the limits section implied.** Fisher's exact,
+two-sided, 5 per arm:
+
+| Comparison | p |
+|---|---|
+| 4/5 vs 0/5 | 0.048 |
+| **4/5 vs 1/5 — observed** | **0.206** |
+| 4/5 vs 2/5 | 0.524 |
+
+The limits section quoted p for 0/5 and for 2/5 and **skipped the 1/5 case, which is the one that
+occurred**. Setting the merge band at "0 or 1" therefore admitted an outcome that is not
+statistically significant. That is an error in the design, made before the data existed.
+
+It is recorded, not corrected. Moving the threshold after seeing k is precisely the failure this
+document exists to prevent, and the rule stands as written. **The merge is licensed by the
+pre-registered rule, not by statistical significance**, and any downstream claim must say so.
+
+## What would settle it
+
+If the underlying rates really are 80% and 20%, the same effect reaches p < 0.05 at **7 runs per
+arm** (6/7 vs 1/7, p = 0.029) and is comfortable at **10 per arm** (8/10 vs 2/10, p = 0.023). Two
+more runs per arm would move this from rule-following to evidence. Free on `claude-code`, and the
+untreated arm would need re-running alongside so the detector stays constant.
+
+## What may be claimed from this
+
+- That the instruction **changed first-pass behaviour on this pair**, directionally and with the
+  over-suppression control holding.
+- **Not** that the effect is statistically established (p = 0.21).
+- **Not** anything about the tool's drift precision, which remains unmeasured.
+- **Not** a rate. One pair, n=5 per arm, one detector, one afternoon.
