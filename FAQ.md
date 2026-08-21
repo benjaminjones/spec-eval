@@ -312,8 +312,10 @@ Each check watches a different kind of change:
 
 | You change… | What notices |
 |---|---|
-| a value in the spec so it disagrees with the code | `audit` — a numeric/signature/default clash is a **high** drift finding |
+| a **signature**, event name or invariant in the spec so the code breaks it | `audit` — a **high** drift finding |
+| a **declarative value** — a default, threshold or constant — so it disagrees with the code | `audit` — reported as **stale**, not drift. See below. |
 | the spec's wording (same meaning) | nothing — style isn't drift |
+| a **`**Why:**` rationale line** | nothing — it is masked before the reviewer sees it. See below. |
 | **delete** a claim from the spec | `sufficiency` — that behavior becomes a gap. `audit` stays quiet: *silence is not drift* |
 | the code, so the spec is now wrong | `audit` — same drift, found from the other side |
 | **add** new behavior to the code | `sufficiency` — the spec now omits it |
@@ -322,6 +324,45 @@ Each check watches a different kind of change:
 
 Nothing "syncs" automatically: the checks **report**, and *you* decide which side to fix — update the spec, or
 fix the code. `generate` only fills *missing* specs; it never edits existing ones.
+
+### What does `[stale · high]` mean in a report?
+
+A finding carries a **class** as well as a severity, and the two answer different questions:
+
+- **drift** *(the default)* — the spec states a guarantee about *behaviour* and the code doesn't honour it.
+- **stale** — the spec states a *value* (a default, a threshold, a constant, a CLI flag default) and the code
+  carries a different one.
+
+A value like that **defines a term** rather than constraining what the code must do, so it can't be *violated* —
+only outdated. Drift says *the code broke a promise*; stale says *the document was accurate and the world moved*.
+Different fixes, different urgency.
+
+**A stale finding is shown but not counted** in the `N high/medium drift finding(s)` headline. Its severity still
+tells you how misleading the outdated value is — `[stale · high]` is a badly misleading stale value, not an
+emergency.
+
+### Why aren't my `**Why:**` lines ever flagged?
+
+Because the reviewer never sees them. A line explaining *why* a rule exists asserts nothing the code can break,
+so a finding against it has nothing to be true or false about.
+
+`audit` **masks** those lines before the model call — emptied in place, so your spec's line numbers (and every
+`doc_ref` that cites them) stay correct. The pair's report says how many were masked. Configure it in a config
+file:
+
+```yaml
+rationale_markers:      # default: ["**Why"]
+  - "**Why"
+  - "**Rationale:**"
+```
+
+Set `rationale_markers: []` to switch masking off — the escape hatch if your docs use those words to *state* a
+requirement rather than explain one. Masking applies to `audit` only: `--verify` needs the real document to check
+a withdrawal's quote against it.
+
+**This closes a loop with `generate`.** The authoring rubric deliberately writes selective one-line `**Why:**`
+rationale into the specs it produces — so the tool authors a marker its own reviewer then skips. That's by
+design: the rationale is there for *you*, and excluded from grading because it makes no checkable claim.
 
 ### How do I prevent orphaned specs?
 
