@@ -145,3 +145,60 @@ untreated arm would need re-running alongside so the detector stays constant.
 - **Not** that the effect is statistically established (p = 0.21).
 - **Not** anything about the tool's drift precision, which remains unmeasured.
 - **Not** a rate. One pair, n=5 per arm, one detector, one afternoon.
+
+---
+
+# AMENDMENT — extension to n=10 per arm, registered 2026-08-19 before any extension run
+
+The n=5 result above is final and unchanged. This amendment registers an **extension**, and it
+carries two acknowledged statistical costs that are stated here rather than discovered later.
+
+## Cost 1 — this is optional stopping
+
+The decision to collect more data was made **after seeing k=1**. Peeking at an interim result and
+then extending inflates the Type I error rate relative to an experiment whose n was fixed in
+advance. A pooled p-value from this design is therefore **optimistic** and is not equivalent to the
+same p-value from a fresh experiment.
+
+Mitigations, all binding:
+
+- **n is fixed now at 10 per arm** (5 already collected + 5 more). All 10 extension runs are made
+  regardless of how the first few look. No further interim looks, no further extensions.
+- **Both arms are re-run in the same session, interleaved** — untreated, treated, untreated,
+  treated — so that any detector drift during the session is distributed across arms instead of
+  confounded with arm. Blocking one arm then the other would put drift and treatment in the same
+  place.
+- The pooled result is reported **with this caveat attached**, every time.
+
+## Cost 2 — the original n=7 target was chosen badly
+
+The first extension proposal was n=7 per arm, selected by computing p across candidate n and taking
+the smallest one that crossed 0.05. **Choosing a stopping point because it produces significance is
+p-hacking**, whatever the intent. It is replaced here by n=10 — a round pre-committed target, chosen
+before the extension data exists and not tuned to a threshold.
+
+## What is analysed, and how
+
+Two analyses, both pre-specified:
+
+| Analysis | Basis | Role |
+|---|---|---|
+| **Replication** | The 5 new runs per arm, alone | Descriptive. Reported first, before pooling. |
+| **Pooled** | All 10 per arm, Fisher's exact, two-sided, α = 0.05 | Primary — carrying the optional-stopping caveat. |
+
+## Decision rule — fixed before the extension runs
+
+This rule can **upgrade the justification for merging, or reverse it. It cannot manufacture a merge
+that the original rule did not already license.**
+
+| Pooled outcome | Reading | Action |
+|---|---|---|
+| p < 0.05 **and** treated rate < untreated rate | Effect established at this n, subject to the caveat above | **Merge #40** on evidence. State the caveat in the PR. |
+| p ≥ 0.05 | Effect **not** established | **Merge #40 on the original n=5 rule only**, and say so explicitly. #36-option-1 and #37 do **not** get to assume rubric wording works. |
+| treated rate ≥ untreated rate | Direction reversed | **Withdraw the merge and close #40.** Reshape the family as pre-model filters. |
+
+## The over-suppression control carries forward
+
+Mean total findings per run is compared across arms as before. **Any extension run returning zero
+findings is reported prominently**, regardless of what the primary analysis says — a rule that
+silences a pair entirely is a worse outcome than one that changes nothing.
