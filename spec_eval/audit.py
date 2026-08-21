@@ -7,6 +7,9 @@ from .rubric import DRIFT_RUBRIC
 from . import providers
 
 SEV = {"high": 3, "medium": 2, "low": 1}
+CLASSES = {"drift", "stale"}   # WHAT KIND of disagreement, orthogonal to severity. A stale finding is an
+                               # outdated declarative value, not a broken guarantee, so it is reported but
+                               # not counted as drift. Unknown values normalise to "drift" (conservative).
 REVIEW_MAX_TOKENS = 3000   # output-token budget for the two review checks (drift + sufficiency): each emits a
                            # JSON list (findings / gaps) that is unparseable if cut mid-list — sufficiency reads
                            # THIS constant so the "same budget" coupling is structural, not a comment.
@@ -67,7 +70,12 @@ def parse_findings(resp):
             for f in d.get("findings", []):
                 s = str(f.get("severity", "")).lower()
                 if s in SEV:
-                    out.append({"severity": s, "summary": str(f.get("summary", "")),
+                    # `class` is normalised here rather than trusted: an unrecognised value would otherwise
+                    # travel into the report and the counts. Anything unknown reads as drift, which is the
+                    # conservative default — a finding is counted unless it is explicitly declared stale.
+                    cls = str(f.get("class", "") or "").lower()
+                    out.append({"severity": s, "class": cls if cls in CLASSES else "drift",
+                                "summary": str(f.get("summary", "")),
                                 "code_ref": f.get("code_ref"), "doc_ref": f.get("doc_ref"),
                                 "evidence": str(f.get("evidence", "")),
                                 "suggestion": f.get("suggestion", "")})
@@ -75,7 +83,7 @@ def parse_findings(resp):
         except Exception:
             pass
     for s in re.findall(r'"severity"\s*:\s*"(high|medium|low)"', resp, re.I):
-        out.append({"severity": s.lower(),                                        # same key set as the parsed path:
+        out.append({"severity": s.lower(), "class": "drift",                      # same key set as the parsed path:
                     "summary": "(unparsed finding — the response was not valid JSON; re-run this pair to get detail)",
                     "code_ref": None, "doc_ref": None, "evidence": "", "suggestion": ""})
     return out
