@@ -1,0 +1,37 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "The doc says an agent skill's `SKILL.md` is part of the unmodeled-markdown corpus that gets reported, but `\"skill\"` is in `CONVENTIONAL_DOC_STEMS`, so `SKILL.md` is filtered out of the group count and sample entirely.",
+        "code_ref": "spec_eval/coverage.py:L55",
+        "doc_ref": "spec_eval/coverage.md:L64",
+        "evidence": "doc (coverage.md:64): \"two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references)\" \u2026 code: `CONVENTIONAL_DOC_STEMS = {..., \"code_of_conduct\", \"skill\", \"todo\", ...}` and in `unmodeled_markdown`: `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue  # README/CHANGELOG/\u2026 are docs, not an unmodeled corpus`. A `skills/foo/` tree of `SKILL.md` + 2 reference files therefore reports `files: 2` and falls below `UNMODELED_MIN_FILES = 3`, so it is not reported at all.",
+        "suggestion": "Either state in \u00a73 (and in the orphan section's list of conventional doc names) that `SKILL.md` is treated as a conventional doc and is excluded from unmodeled groups \u2014 reporting only its reference files \u2014 or drop `\"skill\"` from `CONVENTIONAL_DOC_STEMS` for the unmodeled path while keeping it for orphan suppression.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-normative",
+          "doc_quote": "**Why:** two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).",
+          "why": "The cited line 64 is explicitly \"Why:\" rationale for the feature's existence, not a claim about what is reported; the normative rule on line 63 (\"is not a conventional doc name\") and AC-4 (which uses `skills/*/reference.md`) describe the behavior."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The Definitions table defines UNMODELED by \"no code sibling\", but the code's predicate is the stronger \"sits in a directory containing no candidate code file\" (as \u00a73 and INV-8 correctly state).",
+        "code_ref": "spec_eval/coverage.py:L119",
+        "doc_ref": "spec_eval/coverage.md:L22",
+        "evidence": "doc (coverage.md:22): \"| UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc. |\" \u2026 code: `code_dirs = {os.path.dirname(rel) for rel in candidate}` / `if d in code_dirs: continue  # sits beside code \u2014 the pairing model already sees it`. A `docs/` dir holding one `.py` file makes every `.md` in it ineligible even though none has a same-stem code sibling.",
+        "suggestion": "Reword the table row to \"sits in a directory that holds no candidate code file, and is not a conventional doc\" so it matches \u00a73 and INV-8.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The finding itself concedes \u00a73 (\"it sits in a directory holding no candidate code\") and INV-8 state the stronger directory-level predicate correctly, so the loose Definitions-table gloss does not make the document wrong."
+        }
+      }
+    ]
+  }
+]

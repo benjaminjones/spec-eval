@@ -1,0 +1,51 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "The doc uses an agent skill's `SKILL.md` as the canonical example of markdown the unmodeled detector surfaces, but the code filters every `SKILL.md` out as a conventional doc stem, so such a corpus is never reported.",
+        "code_ref": "coverage.py:L53 (CONVENTIONAL_DOC_STEMS) / unmodeled_markdown conventional-doc filter",
+        "doc_ref": "coverage.md:\u00a73 \"Unmodeled markdown detection\"",
+        "evidence": "doc: \"two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references)\" and the stated rule \"A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name\" (the doc's enumeration of conventional names is \"README, OVERVIEW, CHANGELOG, LICENSE, SPEC-HEALTH, and the agent-instruction files CLAUDE.md / AGENTS.md / GEMINI.md\" \u2014 no `SKILL`). code: `CONVENTIONAL_DOC_STEMS = {\"readme\", ..., \"skill\", ...}` and in `unmodeled_markdown`: `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue  # README/CHANGELOG/\u2026 are docs, not an unmodeled corpus`",
+        "suggestion": "Either exempt `SKILL.md` from the conventional-doc filter inside `unmodeled_markdown` (keeping it conventional only for orphan detection), or amend the doc to state that `SKILL.md` itself is treated as a conventional doc and only its non-conventional reference files are counted (as AC-4 already assumes with `skills/*/reference.md`).",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-normative",
+          "doc_quote": "**Why:** two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).",
+          "why": "The only line naming `SKILL.md` in \u00a73 is the \"Why:\" rationale explaining what same-stem pairing cannot see, not a claim about which files the detector reports; \u00a73's normative rule (\"is not a conventional doc name\") matches the code, and the doc's conventional-name enumeration is open-ended (\"/ \u2026\")."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The Definitions table gates UNMODELED on \"no code sibling\", but the code gates it on the whole directory containing no candidate code file (\u00a73 states this correctly).",
+        "code_ref": "coverage.py:unmodeled_markdown (`if d in code_dirs: continue`)",
+        "doc_ref": "coverage.md:\u00a72 Definitions, UNMODELED row",
+        "evidence": "doc \u00a72: \"UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc.\" code: `code_dirs = {os.path.dirname(rel) for rel in candidate}` \u2026 `if d in code_dirs: continue  # sits beside code \u2014 the pairing model already sees it`. Failure case: a directory holding `a.py` plus `x.md`, `y.md`, `z.md` (none with a same-stem code file) yields `unmodeled == []` (they become orphan candidates), though the \u00a72 wording predicts a 3-file unmodeled group.",
+        "suggestion": "Reword the \u00a72 row to match \u00a73: \"markdown in a directory that holds no candidate code file \u2026\".",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.",
+          "why": "\u00a73 and INV-8 (\"Every path in `unmodeled` sits in a directory holding no candidate code file\") state the directory-level gate exactly as the code implements it, so the loose \u00a72 table row does not make the document wrong."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The module docstring describes a `.py`-only candidate universe and a pairs-only definition of COVERED, contradicting the spec's polyglot `code_ext` default and its three coverage routes.",
+        "code_ref": "coverage.py:L4-L5 (module docstring)",
+        "doc_ref": "coverage.md:\u00a72 Definitions, `code_ext` row; \u00a73 \"Determining coverage\"",
+        "evidence": "code docstring: \"COVERED   = files matched by any pair's `code` globs in the config.\" / \"CANDIDATE = repo code files (.py) minus the EXCLUDES taxonomy\"; doc: \"Default: `.py .ts .tsx .js .jsx .mjs .cjs .go .rs .java .rb .kt .kts .swift .php .cs`\" and \"COVERED | A code file matched by any config pair's `code` glob, OR having a sibling `<stem>.md`, OR (under `authoring.layout: per-dir`) whose directory has a folder spec\" \u2014 which is what `DEFAULT_CODE_EXT` and the co-located/per-dir branches in `coverage()` actually implement.",
+        "suggestion": "Update the module docstring to say the candidate universe is the configurable `code_ext` list (default polyglot) and that COVERED also includes co-located `<stem>.md` and per-dir folder specs.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| COVERED | A code file matched by any config pair's `code` glob, OR having a sibling `<stem>.md`, OR (under `authoring.layout: per-dir`) whose directory has a folder spec `<dir>/<dir>.md`. |",
+          "why": "The doc does assert both the polyglot `code_ext` default (\"Default: `.py .ts .tsx .js .jsx .mjs .cjs .go .rs .java .rb .kt .kts .swift .php .cs`\") and the three coverage routes, exactly as the finding paraphrases them."
+        }
+      }
+    ]
+  }
+]

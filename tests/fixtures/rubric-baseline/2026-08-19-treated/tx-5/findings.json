@@ -1,0 +1,23 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "low",
+        "summary": "The Definitions table states the UNMODELED test as \"no code sibling\", but the code's actual test is that the markdown's whole directory contains no candidate code file \u2014 a stricter rule that \u00a73 and INV-8 state correctly.",
+        "code_ref": "spec_eval/coverage.py:L119",
+        "doc_ref": "spec_eval/coverage.md:L22",
+        "evidence": "doc \u00a72: \"| UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc. Reported, never scored. |\"\ncode (unmodeled_markdown): \"code_dirs = {os.path.dirname(rel) for rel in candidate}\" \u2026 \"if d in code_dirs: continue  # sits beside code \u2014 the pairing model already sees it\"\ndoc \u00a73 (correct): \"A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.\"\ndoc INV-8 (correct): \"Every path in `unmodeled` sits in a directory holding no candidate code file\"\nDivergent case: `removed_module.md` beside `a.py` has no same-stem code sibling (so it satisfies the table's wording) yet the code never reports it as unmodeled \u2014 it is reported as an orphan instead (AC-7).",
+        "suggestion": "Reword the UNMODELED row to match \u00a73/INV-8: \"\u2026that same-stem pairing cannot reach \u2014 sitting in a directory that holds no candidate code file, and not a conventional doc name.\"",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The loose Definitions-table gloss is corrected by the normative statements in \u00a73 (\"it sits in a directory holding no candidate code\") and INV-8, which state the code's actual rule exactly, so the document as a whole is not wrong."
+        }
+      }
+    ]
+  }
+]

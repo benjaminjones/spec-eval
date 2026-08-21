@@ -1,0 +1,51 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "`unmodeled_markdown` never checks the config pairs' `docs` globs, so an explicitly paired spec that lives in a docs-only directory is reported as unmodeled \u2014 contradicting INV-8's \"no file is ever both unmodeled and paired\".",
+        "code_ref": "spec_eval/coverage.py:117",
+        "doc_ref": "spec_eval/coverage.md:101",
+        "evidence": "Doc INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" Doc \u00a72 defines Pair as \"`{label, code[], docs[]}` \u2014 links code globs to spec doc(s).\" Code (unmodeled_markdown) filters only on three conditions: `if d in code_dirs: continue` / `if classify_exclude(md, user_excludes) == \"user\": continue` / `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue` \u2014 `pair_docs` is not passed in and is only computed later, inside `coverage()` for the orphan check (`if md in pair_docs: continue  # explicitly paired \u2014 governed, wherever its code is`). So with `pairs: [{code: [src/*.py], docs: [docs/a-spec.md]}, \u2026]` and 3+ such specs under `docs/`, those paired docs land in `unmodeled` as \"outside the same-stem pairing model\" while their code is simultaneously counted as covered.",
+        "suggestion": "Either pass `pair_docs` into `unmodeled_markdown` and skip pair-declared docs the same way the orphan check does, or reword INV-8 to drop the \"never both unmodeled and paired\" clause (e.g. \"\u2026so an unmodeled file never has a same-stem code sibling; explicitly pair-declared docs may still appear\").",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The invariants table asserts, in the exact universal strength the finding needs, that no file is ever both unmodeled and paired, and `Pair` is defined in \u00a72 as carrying `docs[]`, so an explicitly paired doc in a docs-only tree landing in `unmodeled` contradicts a normative rule that no other passage corrects."
+        }
+      },
+      {
+        "severity": "medium",
+        "summary": "The doc names an agent skill's `SKILL.md` as a body of writing the unmodeled report surfaces, but `skill` is in `CONVENTIONAL_DOC_STEMS`, so every `SKILL.md` is filtered out before grouping.",
+        "code_ref": "spec_eval/coverage.py:53",
+        "doc_ref": "spec_eval/coverage.md:64",
+        "evidence": "Doc \u00a73 (Unmodeled markdown detection, Why): \"two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references)\". Code: `CONVENTIONAL_DOC_STEMS = {\"readme\", \u2026, \"skill\", \u2026}` and in `unmodeled_markdown`: `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue  # README/CHANGELOG/\u2026 are docs, not an unmodeled corpus`. A repo of three skills, each `skills/<name>/SKILL.md` with no reference files, therefore reports an empty `unmodeled` list \u2014 the exact 0%-but-thoroughly-specified case the section claims to name. (AC-4 works only because it uses `reference.md`.)",
+        "suggestion": "Either drop `\"skill\"` from `CONVENTIONAL_DOC_STEMS` for the unmodeled path (keeping it for the orphan path), or amend the doc to say only a skill's *reference* markdown is surfaced because `SKILL.md` is treated as a conventional doc name.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-normative",
+          "doc_quote": "**Why:** two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).",
+          "why": "The cited line is explicitly \"Why:\" rationale explaining what the same-stem pairing model cannot reach \u2014 motivation for the section rather than a claim that `unmodeled_markdown` reports `SKILL.md` files (the normative behavior is the three-condition sentence above it and AC-4)."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The \u00a72 glossary defines UNMODELED by \"no code sibling\", but the code qualifies a file by \"its directory holds no candidate code file\" \u2014 a stricter condition that \u00a73 states correctly.",
+        "code_ref": "spec_eval/coverage.py:119",
+        "doc_ref": "spec_eval/coverage.md:22",
+        "evidence": "Doc \u00a72: \"UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc.\" Code: `code_dirs = {os.path.dirname(rel) for rel in candidate}` \u2026 `if d in code_dirs: continue  # sits beside code \u2014 the pairing model already sees it`. Given `src/a.py` plus `src/x.md`, `src/y.md`, `src/z.md` (none with a same-stem `.py`), the glossary predicts an unmodeled group of 3; the code reports none (they go to `orphans` instead).",
+        "suggestion": "Change the \u00a72 row to match \u00a73: \"\u2026markdown in a directory that holds no candidate code file, not a conventional doc.\"",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.",
+          "why": "\u00a73 states the qualifying rule exactly as implemented (directory holding no candidate code), and INV-8 repeats it, so the loose glossary phrasing does not make the document wrong."
+        }
+      }
+    ]
+  }
+]
