@@ -1,0 +1,23 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "low",
+        "summary": "The Definitions-table entry for UNMODELED states the qualifying condition as \"no code sibling\", while the implementation requires the file's whole directory to contain no candidate code file (the precise rule given later in \u00a73).",
+        "code_ref": "coverage.py:L118",
+        "doc_ref": "coverage.md:L22",
+        "evidence": "Doc \u00a72: \"| UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc. Reported, never scored. |\"\nCode (`unmodeled_markdown`): `code_dirs = {os.path.dirname(rel) for rel in candidate}` \u2026 `if d in code_dirs: continue  # sits beside code \u2014 the pairing model already sees it`\nSo `src/foo.md` with no `src/foo.py` but a sibling `src/bar.py` has \"no code sibling\" yet is never reported as unmodeled (it falls to the orphan heuristic instead). Doc \u00a73 states the real rule correctly: \"A file qualifies when it sits in a directory holding no candidate code\u2026\".",
+        "suggestion": "Reword the \u00a72 table entry to match \u00a73 and the code, e.g. \"\u2026that same-stem pairing cannot reach \u2014 sits in a directory holding no candidate code file, not user-excluded, not a conventional doc name.\"",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.",
+          "why": "The Definitions-table gloss is a loose summary, but \u00a73 (and INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file\") states the directory-level rule exactly as the code implements it, so the document is not wrong."
+        }
+      }
+    ]
+  }
+]

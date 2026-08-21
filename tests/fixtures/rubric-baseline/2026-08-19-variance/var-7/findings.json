@@ -1,0 +1,37 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "low",
+        "summary": "The Definitions table describes UNMODELED as markdown with \"no code sibling\", but the code's actual test is \"sits in a directory holding no candidate code file\" (as the Behavior section and INV-8 correctly state).",
+        "code_ref": "coverage.py:L107",
+        "doc_ref": "coverage.md:L2 (Definitions table, UNMODELED row)",
+        "evidence": "code: `for md in mds:\\n    d = os.path.dirname(md)\\n    if d in code_dirs:\\n        continue   # sits beside code \u2014 the pairing model already sees it`  vs  doc table: \"UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc.\"  (doc Behavior, correctly: \"A file qualifies when it sits in a directory holding no candidate code\"; INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file\")",
+        "suggestion": "Reword the UNMODELED table row to \"\u2026in a directory that holds no candidate code file, not a conventional doc\" so it matches \u00a73 Behavior and INV-8 (a stem-less `.md` beside code is an ORPHAN candidate, not UNMODELED).",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The finding itself concedes the Behavior section and INV-8 state the directory-level rule exactly as the code implements it, so the loose Definitions-table gloss is a narrative shorthand and the document is not wrong."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The module docstring defines CANDIDATE as `.py`-only and as already having the exclusion taxonomy subtracted, contradicting the spec's language-agnostic CANDIDATE (all `code_ext` files minus pruned dirs) and its separate SPEC-WORTHY term \u2014 which is what the implementation actually does.",
+        "code_ref": "coverage.py:L5",
+        "doc_ref": "coverage.md:L2 (Definitions: Code universe, CANDIDATE, SPEC-WORTHY)",
+        "evidence": "code docstring: \"CANDIDATE = repo code files (.py) minus the EXCLUDES taxonomy (tests / config / generated / glue / \u2026)\"  vs  code body: `exts = tuple(config.get(\"code_ext\") or DEFAULT_CODE_EXT)` \u2026 `candidate.add(...)` then `spec_worthy = candidate - set(excluded)`  vs  doc: \"CANDIDATE | Every code file under the repo (by extension), minus pruned directories.\" / \"SPEC-WORTHY | CANDIDATE minus all excluded files.\"",
+        "suggestion": "Update the module docstring to drop the `(.py)` restriction and to use the spec's two-step vocabulary (CANDIDATE = all `code_ext` files minus pruned dirs; SPEC-WORTHY = CANDIDATE minus the EXCLUDES taxonomy).",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| CANDIDATE | Every code file under the repo (by extension), minus pruned directories. |",
+          "why": "The doc does assert, verbatim and in the strength the finding needs, a language-agnostic CANDIDATE with SPEC-WORTHY as a separate term (\"SPEC-WORTHY | CANDIDATE minus all excluded files.\"), which the coverage.py module docstring's \".py\"-only, exclusions-already-subtracted CANDIDATE contradicts; none of the four withdrawal grounds apply."
+        }
+      }
+    ]
+  }
+]

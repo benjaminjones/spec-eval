@@ -1,0 +1,23 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "INV-8 claims no file can be both `unmodeled` and paired, but `unmodeled_markdown` never consults the config's pair `docs` globs, so an explicitly pair-declared spec living in a docs-only tree is still reported as outside the pairing model.",
+        "code_ref": "coverage.py:L119",
+        "doc_ref": "coverage.md:INV-8",
+        "evidence": "Doc INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" Doc \u00a72 defines Pair as \"`{label, code[], docs[]}` \u2014 links code globs to spec doc(s).\" Code (`unmodeled_markdown`) filters only on three conditions \u2014 `if d in code_dirs: continue`, `if classify_exclude(md, user_excludes) == \"user\": continue`, `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue` \u2014 and never checks `config[\"pairs\"][*][\"docs\"]`. By contrast the orphan pass does guard on pairs: `pair_docs = ...` / `if md in pair_docs: continue`. So a config declaring `{code: [\"src/**/*.py\"], docs: [\"spec/functional/FR-021-auth.md\"]}` (the doc's own motivating example) yields specs that are both paired and listed under \"Unmodeled markdown \u2026 neither covered nor uncovered\", even though they do move `pct` via their paired code.",
+        "suggestion": "Either make the code skip pair-declared docs in `unmodeled_markdown` (pass `pair_docs` in and `continue` on membership, mirroring the orphan pass), or restate INV-8 as \"\u2026so no file is ever both unmodeled and *same-stem* paired\" and add \"is not a pair-declared doc\" to the \u00a73 qualification list only if the code is changed.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "INV-8 sits in the \"Invariants (rules that must always hold)\" table and asserts the universal claim verbatim (\"no file is ever both unmodeled and paired\"), no other passage states the pair-doc case correctly, and `unmodeled_markdown` never consults `config[\"pairs\"][*][\"docs\"]`, so an explicitly pair-declared spec in a docs-only tree is reported as unmodeled while paired."
+        }
+      }
+    ]
+  }
+]

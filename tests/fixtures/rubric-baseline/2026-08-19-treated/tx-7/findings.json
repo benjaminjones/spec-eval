@@ -1,0 +1,37 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "high",
+        "summary": "INV-8 guarantees no file is ever both `unmodeled` and paired, but `unmodeled_markdown` never consults the config pairs' `docs` globs, so an explicitly paired spec tree in a code-free directory is reported as unmodeled.",
+        "code_ref": "spec_eval/coverage.py:L115",
+        "doc_ref": "spec_eval/coverage.md:L101",
+        "evidence": "Doc INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" (with `Pair | {label, code[], docs[]} \u2014 links code globs to spec doc(s)`, coverage.md:L23). Code: `unmodeled_markdown(repo, candidate, mds, user_excludes)` filters only on `if d in code_dirs`, `classify_exclude(md, user_excludes) == \"user\"`, and `CONVENTIONAL_DOC_STEMS` \u2014 there is no `pair_docs` check, and `coverage` calls it as `unmodeled_markdown(repo, candidate, mds, user_excludes)` without passing the pair docs it computed at L179-L184. The orphan branch does exactly the opposite: `if md in pair_docs: continue  # explicitly paired \u2014 governed, wherever its code is` (coverage.py:L200). Concrete case: config `pairs: [{code: [\"src/*.py\"], docs: [\"spec/functional/FR-00{1,2,3}.md\"]}]` \u2014 `spec/functional/` holds no candidate code, so all three paired docs land in `unmodeled` as `{dir: \"spec\", files: 3}`, and `format_report` prints them under \"markdown that pairing cannot reach\" even though pairing reaches them.",
+        "suggestion": "Compute `pair_docs` before calling `unmodeled_markdown` and pass it in, skipping `if md in pair_docs` the same way the orphan check does; alternatively narrow INV-8 to say \"never both unmodeled and *same-stem* paired\" if the current behaviour is intended.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The cited line is in the normative invariants table and asserts the absolute claim verbatim (\"no file is ever both unmodeled and paired\"), with `Pair` defined as the config `{label, code[], docs[]}`; no other passage restates that pairing exclusion correctly, so the missing `pair_docs` check in `unmodeled_markdown` contradicts it as written."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The module docstring's COVERED/CANDIDATE definitions contradict the spec: it says coverage comes only from config pair globs and that the candidate universe is `.py`, while the spec (and the implementation) also count co-located `<stem>.md` and per-dir folder specs across 16 languages.",
+        "code_ref": "spec_eval/coverage.py:L4",
+        "doc_ref": "spec_eval/coverage.md:L7",
+        "evidence": "Code docstring: \"COVERED   = files matched by any pair's `code` globs in the config.\" / \"CANDIDATE = repo code files (.py) minus the EXCLUDES taxonomy\". Doc: \"A code file counts as covered if \u2014 and only if \u2014 a configured pair points at it, OR a markdown file sits beside it with the same name \u2026 OR \u2014 when the authoring layout is `per-dir` \u2014 a folder spec \u2026\" and \"Code universe (`code_ext`) \u2026 Default: `.py .ts .tsx .js .jsx .mjs .cjs .go .rs .java .rb .kt .kts .swift .php .cs`\". The implementation matches the doc (`DEFAULT_CODE_EXT`, coverage.py:L16; co-located/per-dir coverage loop, coverage.py:L157-L162), so only the docstring is stale.",
+        "suggestion": "Update the docstring to list all three coverage routes and drop the `(.py)` qualifier from CANDIDATE (it is language-agnostic via `DEFAULT_CODE_EXT`/`code_ext`).",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "**A code file counts as covered if \u2014 and only if \u2014 a configured pair points at it, OR a markdown file sits beside it with the same name** (`model.md` next to `model.py`), **OR \u2014 when the authoring layout is `per-dir` \u2014 a folder spec (`<dir>/<dir>.md`) exists for its directory.**",
+          "why": "The cited line carries the three-route coverage rule at full strength (\"if \u2014 and only if\"), and the Definitions row states the 16-extension `code_ext` default, so the module docstring's \"COVERED = files matched by any pair's `code` globs\" / \"CANDIDATE = repo code files (.py)\" contradicts it; every other passage in the doc agrees with L7, so no correcting passage exists."
+        }
+      }
+    ]
+  }
+]

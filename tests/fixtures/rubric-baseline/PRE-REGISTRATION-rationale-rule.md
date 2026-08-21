@@ -202,3 +202,85 @@ that the original rule did not already license.**
 Mean total findings per run is compared across arms as before. **Any extension run returning zero
 findings is reported prominently**, regardless of what the primary analysis says — a rule that
 silences a pair entirely is a worse outcome than one that changes nothing.
+
+---
+
+# EXTENSION RESULT — n=10 per arm, recorded 2026-08-19
+
+All 10 extension runs were made as registered, interleaved, in one session. Both pre-specified
+analyses follow, in the registered order. Runs retained in `2026-08-19-variance/var-6..10` and
+`2026-08-19-treated/tx-6..10`.
+
+## Analysis 1 — replication (the 5 new runs per arm, alone)
+
+| Arm | New 5 | Rate |
+|---|---|---|
+| Untreated | `0, 0, 1, 1, 0` | **2/5** |
+| Treated | `0, 0, 0, 0, 1` | **1/5** |
+
+Fisher's exact, two-sided: **p = 1.00**. The replication on its own shows nothing.
+
+## Analysis 2 — pooled, PRIMARY
+
+| Arm | All 10 | Rate |
+|---|---|---|
+| Untreated | `1,1,0,1,1,0,0,1,1,0` | **6/10 = 60%** |
+| Treated | `1,0,0,0,0,0,0,0,0,1` | **2/10 = 20%** |
+
+**Fisher's exact, two-sided: p = 0.1698.** Carrying the optional-stopping caveat registered above,
+which makes this figure optimistic rather than conservative.
+
+## Disposition under the registered rule
+
+p ≥ 0.05, and the direction held (treated < untreated), so the rule's middle row applies:
+
+> **Merge #40 on the original n=5 rule only, and say so explicitly. #36-option-1 and #37 do not get
+> to assume rubric wording works.**
+
+That is the disposition. **The effect is not statistically established.**
+
+## The untreated rate is itself unstable, and that is the real finding
+
+| Sitting | Untreated | Treated |
+|---|---|---|
+| First 5 | **4/5 = 80%** | 1/5 = 20% |
+| New 5 | **2/5 = 40%** | 1/5 = 20% |
+
+The treated rate reproduced exactly. **The untreated rate halved between sittings.** The 80% figure
+that the n=10 power calculation was built on was itself a small-sample draw; the pooled estimate is
+60%, with a 95% Wilson interval of roughly [31%, 83%].
+
+So the extension did not fail because n was too small by bad luck. It failed because **the quantity
+being estimated moves more than the effect being tested**, and no amount of additional sampling on
+this design fixes that — it only narrows an interval around a number that drifts between sessions.
+
+## What further runs would and would not buy
+
+At the observed 60% vs 20%, Fisher's exact reaches p < 0.05 at **n=20 per arm** (12/20 vs 4/20,
+p = 0.023). That is 40 runs, and it is **not recommended**: the calculation assumes a stable 60%
+untreated rate, and the data above is direct evidence that the rate is not stable. Spending 40 runs
+to narrow an interval around a moving target repeats this experiment's mistake at four times the
+cost.
+
+**No further extension is registered. This design is closed.**
+
+## Over-suppression control — passes
+
+| Arm | Findings per run | Mean | Zero-finding runs |
+|---|---|---|---|
+| Untreated | `2,2,2,2,1,1,2,1,3,1` | 1.7 | **0** |
+| Treated | `3,2,2,1,1,1,2,1,1,1` | 1.5 | **0** |
+
+No run in either arm returned zero findings. The treated mean is marginally lower, consistent with
+removing one class of finding rather than suppressing generally.
+
+## What may be claimed
+
+- The rationale-clause failure mode is **real and frequent** on this pair — it occurs in 6 of 10
+  untreated runs.
+- The treated arm is **directionally lower and reproduced across two sittings** (1/5 and 1/5), with
+  the over-suppression control holding.
+- The difference is **not statistically established** (p = 0.17, optimistic).
+- **Rubric wording is at the edge of what this instrument can measure.** A deterministic pre-model
+  filter has no run-to-run variance and would be measurable at n=1, which is now the evidence-backed
+  direction for this family rather than a preference.
