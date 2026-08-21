@@ -26,7 +26,9 @@ The module exposes a single constant string, `DRIFT_RUBRIC`, that instructs a te
 **Reviewing scope.** The reviewer is shown exactly one pair (source + docs) and must find *real* mismatches within it only.
 
 **Severity is reserved and doc-driven.** The tier is chosen by what the DOC claims, not by how bad the reviewer feels the issue is:
-- **high** — the doc states a *measurable guarantee* the code breaks: a numeric value/threshold/default disagreeing with code, an explicit function/class/method signature, a named event/message never emitted, a CLI flag default, or a violated invariant/acceptance criterion. If the violation is only visible after paraphrasing the doc, it is **not** high.
+- **high** — the doc states a *measurable guarantee* the code breaks: an explicit function/class/method signature, a named event/message never emitted, or a violated invariant/acceptance criterion. If the violation is only visible after paraphrasing the doc, it is **not** high.
+
+**Class is orthogonal to severity, and says what KIND of disagreement it is.** `drift` (the default) is a guarantee about *behaviour* the code does not honour. `stale` is a declarative *value* — a default, threshold, constant or CLI flag default — where the code carries a different one. A value of that kind defines a term rather than constraining behaviour, so it cannot be violated, only outdated: it is reported, and **not counted as drift**. Severity on a stale finding says how misleading the outdated value is, not how urgent a breach is.
 - **medium** — misleading but not load-bearing: a renamed-but-equivalent function, a stale example, a field present in code but missing from a spec table, or a mechanism described differently.
 - **low** — cosmetic or trivially-fixable wording.
 
@@ -53,7 +55,7 @@ The module exposes a single constant string, `DRIFT_RUBRIC`, that instructs a te
 **Expected reviewer output shape** (as instructed by the rubric):
 ```
 {"findings": [
-  {"severity": "high|medium|low",
+  {"severity": "high|medium|low", "class": "drift|stale",
    "code_ref": "file:Lxx or null",
    "doc_ref":  "file:Lxx or null",
    "summary":  "one sentence",

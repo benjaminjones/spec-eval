@@ -1,0 +1,37 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "INV-8 claims no file can be both `unmodeled` and paired, but `unmodeled_markdown` never consults the config pairs' `docs` globs, so an explicitly paired spec that lives in a code-free directory is still reported as unmodeled.",
+        "code_ref": "coverage.py:L117",
+        "doc_ref": "coverage.md:L101",
+        "evidence": "Doc INV-8: \"Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" Doc \u00a72 defines Pair as `{label, code[], docs[]}` \u2014 links code globs to spec doc(s), and the orphan path explicitly guards against it (`if md in pair_docs: continue` \u2026 \"explicitly paired \u2014 governed, wherever its code is\"). But `unmodeled_markdown(repo, candidate, mds, user_excludes)` receives no `pair_docs` and filters only on three conditions: `if d in code_dirs: continue` / `if classify_exclude(md, user_excludes) == \"user\": continue` / `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue`. With `pairs: [{code: [\"src/**/*.py\"], docs: [\"spec/FR-001.md\", \"spec/FR-002.md\", \"spec/FR-003.md\"]}]` and no code in `spec/`, those three paired docs are emitted as `{dir: \"spec\", files: 3}` \u2014 unmodeled and paired at the same time.",
+        "suggestion": "Either pass `pair_docs` into `unmodeled_markdown` and skip pair-declared docs (mirroring the orphan check), or reword INV-8 to say only that unmodeled paths sit in directories with no candidate code and are therefore outside *same-stem* pairing, not outside explicit config pairs.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The invariant table states verbatim and normatively that no file is ever both unmodeled and paired, with no scoping to same-stem pairing, so the finding's paraphrase is exact and the config-pair case contradicts it."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The module docstring's CANDIDATE definition contradicts the spec's Definitions table and the implementation \u2014 it restricts the code universe to `.py` and folds the exclusion taxonomy into CANDIDATE (which is the spec's SPEC-WORTHY).",
+        "code_ref": "coverage.py:L5",
+        "doc_ref": "coverage.md:L17",
+        "evidence": "Code docstring: \"CANDIDATE = repo code files (.py) minus the EXCLUDES taxonomy (tests / config / generated / glue / skills/docs / user `exclude:` pragmas)\". Doc \u00a72: \"CANDIDATE | Every code file under the repo (by extension), minus pruned directories.\" and \"SPEC-WORTHY | CANDIDATE minus all excluded files\"; \"Code universe (`code_ext`) \u2026 Default: `.py .ts .tsx .js .jsx .mjs .cjs .go .rs .java .rb .kt .kts .swift .php .cs`\". The implementation matches the doc: `candidate` collects every file ending in `exts` (16 default extensions) outside `PRUNE_DIRS`, and `spec_worthy = candidate - set(excluded)`.",
+        "suggestion": "Update the module docstring to `CANDIDATE = repo code files (any configured `code_ext`) outside pruned dirs; SPEC-WORTHY = CANDIDATE minus the EXCLUDES taxonomy \u2026` so the header matches `coverage.md` \u00a72 and `DEFAULT_CODE_EXT`.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| CANDIDATE | Every code file under the repo (by extension), minus pruned directories. |",
+          "why": "The doc's Definitions table asserts the CANDIDATE definition (by extension, minus pruned dirs) exactly as the finding paraphrases it, and the coverage.py module docstring states a different definition (.py only, minus the excludes taxonomy)."
+        }
+      }
+    ]
+  }
+]

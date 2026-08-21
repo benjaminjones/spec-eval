@@ -1,0 +1,23 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "The doc names an agent skill's `SKILL.md` as a canonical example of markdown surfaced by `unmodeled`, but the code filters any file whose stem is `skill` out of the unmodeled groups via `CONVENTIONAL_DOC_STEMS`, so `SKILL.md` files are never reported.",
+        "code_ref": "coverage.py:L124 (`unmodeled_markdown`, conventional-stem skip)",
+        "doc_ref": "coverage.md:\u00a73 \"Unmodeled markdown detection\" (**Why:** paragraph)",
+        "evidence": "Doc: \"two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references)\".\nCode: `CONVENTIONAL_DOC_STEMS = {\"readme\", \u2026, \"skill\", \"todo\", \u2026}` and in `unmodeled_markdown`: `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue  # README/CHANGELOG/\u2026 are docs, not an unmodeled corpus`. A repo with `skills/a/SKILL.md`, `skills/b/SKILL.md`, `skills/c/SKILL.md` yields zero unmodeled files (all three skipped), so no group is reported despite the doc's stated purpose. Only non-`SKILL.md` reference files (as in AC-4's `skills/*/reference.md`) are counted.",
+        "suggestion": "Either drop `\"skill\"` from the stem filter used by `unmodeled_markdown` (keep it for the orphan check, which is what the set was written for), or amend the doc to say `SKILL.md` itself is treated as a conventional doc and only a skill's *reference* markdown is counted toward the 3-file floor.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-normative",
+          "doc_quote": "**Why:** two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).",
+          "why": "The cited line is the section's \"Why:\" rationale explaining what same-stem pairing cannot see, not a claim that `SKILL.md` is reported; the normative rule in the same section (\"A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.\") matches the code's conventional-stem skip."
+        }
+      }
+    ]
+  }
+]

@@ -45,8 +45,8 @@ setup**. For hands-off CI or a cross-vendor second opinion, pair it with a dedic
      `tests/contract/test_rubric_sync.py` asserts the load-bearing phrases match. -->
 ## The agreement rubric (apply strictly)
 A finding = the code does X but the doc/spec claims Y (or vice versa). Severity is **reserved**:
-- **high** — the doc states a MEASURABLE GUARANTEE the code breaks: a numeric value/threshold/default that
-  disagrees with code, an explicit signature, a named event/message, a CLI flag default, or a violated
+- **high** — the doc states a MEASURABLE GUARANTEE the code breaks: an explicit signature, a named
+  event/message, or a violated
   invariant/acceptance criterion. If you must paraphrase the doc to see the violation, it is **not** high.
 - **medium** — misleading but not load-bearing: a renamed function that still does the same thing, a stale
   example, a field in code missing from a spec table, mechanism described differently.
@@ -70,6 +70,8 @@ thing being checked.
 - **not-asserted** — the line the finding cites does not carry the claim at the strength needed: a quantifier
   it lacks (*exactly, only, always, never, all, any*), or a clause it has that the finding dropped.
 - **stated-elsewhere** — the same doc states the rule correctly in another passage, commonly a contract table
+  and the narrative that qualifies it, in **either** direction: the table row read without the narrative, or
+  the narrative read without the table
   below the narrative.
 - **not-normative** — the graded sentence is rationale or commentary, not a claim about behaviour.
 - **scoped** — the doc scoped the statement to a named case the finding applies outside of.

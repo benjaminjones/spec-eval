@@ -1,0 +1,37 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "`unmodeled_markdown` never consults the config pairs' `docs` globs, so a spec that is explicitly pair-declared but lives in a docs-only directory is reported as unmodeled, contradicting INV-8's guarantee that no file is ever both unmodeled and paired.",
+        "code_ref": "spec_eval/coverage.py:L119",
+        "doc_ref": "spec_eval/coverage.md:L101",
+        "evidence": "Code (`unmodeled_markdown`, coverage.py L104-L126) filters only on directory, user-excludes and conventional stems \u2014 `def unmodeled_markdown(repo, candidate, mds, user_excludes):` \u2026 `if d in code_dirs: continue` / `if classify_exclude(md, user_excludes) == \"user\": continue` / `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue`. `pair_docs` is built only inside `coverage()` for the orphan pass (`if md in pair_docs: continue  # explicitly paired \u2014 governed, wherever its code is`, L200-L201) and is never passed to `unmodeled_markdown` (L210). Doc: \"INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" together with \"Pair | `{label, code[], docs[]}` \u2014 links code globs to spec doc(s).\" Failure case: `pairs: [{label: x, code: [\"src/x.py\"], docs: [\"docs/*.md\"]}]` with 3+ `.md` files in a code-free `docs/` dir yields a group the report labels \"outside the same-stem pairing model\" even though every one of those files is pair-declared.",
+        "suggestion": "Thread `pair_docs` into `unmodeled_markdown` and skip any `md in pair_docs` (mirroring the orphan pass), or restate INV-8 as \"no file is ever both unmodeled and *same-stem* paired\".",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The cited line itself carries the universal claim (\"no file is ever both unmodeled and paired\") as a normative invariant, and no other passage states that pair-declared docs are exempt from `unmodeled` (unlike INV-6, which spells that exemption out for orphans), so no withdrawal ground applies."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The module docstring's glossary defines COVERED as pair-glob matches only and CANDIDATE as `.py` files already minus the exclusion taxonomy, contradicting the spec's definitions (and the language-agnostic implementation).",
+        "code_ref": "spec_eval/coverage.py:L4",
+        "doc_ref": "spec_eval/coverage.md:L16",
+        "evidence": "Code docstring: \"COVERED   = files matched by any pair's `code` globs in the config.\" / \"CANDIDATE = repo code files (.py) minus the EXCLUDES taxonomy \u2026\". Implementation: `DEFAULT_CODE_EXT = (\".py\", \".ts\", \u2026 \".cs\")` (L16-17); `covered` also grows via the co-located `<stem>.md` and per-dir folder-spec branches (L155-L159); `candidate` is every `code_ext` file minus pruned dirs, with `spec_worthy = candidate - set(excluded)` (L145-L167). Doc: \"COVERED | A code file matched by any config pair's `code` glob, OR having a sibling `<stem>.md`, OR (under `authoring.layout: per-dir`) whose directory has a folder spec `<dir>/<dir>.md`.\" / \"CANDIDATE | Every code file under the repo (by extension), minus pruned directories.\" / \"SPEC-WORTHY | CANDIDATE minus all excluded files.\"",
+        "suggestion": "Update the module docstring to match the spec and code: COVERED = pair glob OR sibling `<stem>.md` OR per-dir folder spec; CANDIDATE = all `code_ext` files minus pruned dirs; SPEC-WORTHY = CANDIDATE minus the exclusion tiers.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| COVERED | A code file matched by any config pair's `code` glob, OR having a sibling `<stem>.md`, OR (under `authoring.layout: per-dir`) whose directory has a folder spec `<dir>/<dir>.md`. |",
+          "why": "The doc's definitions table at L16\u2013L17 does assert the three-route COVERED definition and a by-extension, pre-exclusion CANDIDATE (\"Every code file under the repo (by extension), minus pruned directories.\"), exactly as the finding paraphrases."
+        }
+      }
+    ]
+  }
+]

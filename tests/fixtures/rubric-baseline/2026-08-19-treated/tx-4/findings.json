@@ -1,0 +1,23 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "The Definitions table defines UNMODELED by \"no code sibling\", but the code excludes markdown by whole-directory test (any directory containing a candidate code file is skipped), contradicting both the implementation and INV-8/\u00a73.",
+        "code_ref": "coverage.py:L114-L119",
+        "doc_ref": "coverage.md:L22",
+        "evidence": "Doc \u00a72: \"| UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc. |\"  Code (`unmodeled_markdown`): `code_dirs = {os.path.dirname(rel) for rel in candidate}` \u2026 `if d in code_dirs: continue  # sits beside code \u2014 the pairing model already sees it`. Doc \u00a73 and INV-8 state the real rule: \"A file qualifies when it sits in a directory holding no candidate code\" / \"Every path in `unmodeled` sits in a directory holding no candidate code file\". A file such as `src/api/FR-021-limits.md` (directory holds code, but no `FR-021-limits.py`) satisfies the table's \"no code sibling\" criterion yet is never reported as unmodeled by the code.",
+        "suggestion": "Reword the UNMODELED table row to match the implementation and INV-8, e.g. \"A group of \u22653 markdown files in directories that hold no candidate code file, that are not conventional doc names \u2014 reported, never scored.\"",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "| INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired. |",
+          "why": "The Definitions-table gloss \"no code sibling\" is a loose summary, but the same document states the actual whole-directory rule precisely in \u00a73 (\"A file qualifies when it sits in a directory holding no candidate code\") and in the INV-8 contract, which match the code."
+        }
+      }
+    ]
+  }
+]

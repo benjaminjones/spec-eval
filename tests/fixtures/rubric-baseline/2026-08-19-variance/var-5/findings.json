@@ -1,0 +1,23 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "The doc says unmodeled-markdown detection exists to surface an agent skill's `SKILL.md`, but `unmodeled_markdown` skips any file whose stem is a conventional doc name, and `\"skill\"` is in that set \u2014 so `SKILL.md` files are never reported as unmodeled.",
+        "code_ref": "coverage.py:L54",
+        "doc_ref": "coverage.md:\u00a73 Unmodeled markdown detection",
+        "evidence": "Doc: \"two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references). Neither has a code sibling, so neither can move the percentage\". Code (`unmodeled_markdown`): `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue  # README/CHANGELOG/\u2026 are docs, not an unmodeled corpus`, with `CONVENTIONAL_DOC_STEMS = {..., \"code_of_conduct\", \"skill\", \"todo\", ...}`. A repo of three skills each consisting of a single `SKILL.md` therefore yields `unmodeled == []` (only non-`SKILL` references are counted, as in AC-4).",
+        "suggestion": "Either drop `\"skill\"` from the stem filter used by `unmodeled_markdown` (keep it only for the orphan check, e.g. pass a separate conventional-doc set per call site), or amend the doc's rationale to say only a skill's *reference* markdown is surfaced and `SKILL.md` itself is treated as a conventional doc.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-normative",
+          "doc_quote": "**Why:** two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).",
+          "why": "The only line mentioning `SKILL.md` in this section is the \"Why:\" rationale explaining why such writing is invisible to same-stem pairing, not a claim about which files the detector reports; the section's normative sentence \u2014 \"A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name\" \u2014 matches the code's `CONVENTIONAL_DOC_STEMS` skip exactly."
+        }
+      }
+    ]
+  }
+]

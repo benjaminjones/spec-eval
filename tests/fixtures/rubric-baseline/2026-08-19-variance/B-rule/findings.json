@@ -1,0 +1,37 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "low",
+        "summary": "The module docstring defines CANDIDATE as Python-only and already minus the exclusion taxonomy, which contradicts the spec's CANDIDATE definition (every code extension, minus only pruned dirs) that the implementation actually follows.",
+        "code_ref": "coverage.py:L6",
+        "doc_ref": "coverage.md:L14",
+        "evidence": "code (module docstring): \"CANDIDATE = repo code files (.py) minus the EXCLUDES taxonomy (tests / config / generated / glue / skills/docs / user `exclude:` pragmas)\" \u2014 but the implementation uses `exts = tuple(config.get(\"code_ext\") or DEFAULT_CODE_EXT)` with 16 extensions and builds `candidate` from the walk with no exclusion filter (`spec_worthy = candidate - set(excluded)` is a later, separate step).\ndoc \u00a72: \"CANDIDATE | Every code file under the repo (by extension), minus pruned directories.\" and \"SPEC-WORTHY | CANDIDATE minus all excluded files.\"",
+        "suggestion": "Update the coverage.py module docstring to say CANDIDATE = repo code files in any configured `code_ext` (default: the 16-language list) minus pruned directories, and that the EXCLUDES taxonomy is subtracted to produce SPEC-WORTHY.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| CANDIDATE | Every code file under the repo (by extension), minus pruned directories. |",
+          "why": "The doc's definitions table does assert CANDIDATE as every code file by extension minus pruned directories (with SPEC-WORTHY defined separately as \"CANDIDATE minus all excluded files\"), exactly as the finding paraphrases, and no named withdrawal ground applies."
+        }
+      },
+      {
+        "severity": "low",
+        "summary": "The \u00a72 definition of UNMODELED states the criterion as \"no code sibling\", whereas the code (and \u00a73/INV-8) require the markdown's whole directory to contain no candidate code file.",
+        "code_ref": "coverage.py:L100",
+        "doc_ref": "coverage.md:L21",
+        "evidence": "doc \u00a72: \"UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc.\"\ncode: `code_dirs = {os.path.dirname(rel) for rel in candidate}` \u2026 `if d in code_dirs: continue  # sits beside code \u2014 the pairing model already sees it` (so a `.md` with no same-stem sibling that nonetheless lives in a directory containing code is never unmodeled \u2014 it is an orphan candidate instead).",
+        "suggestion": "Reword the \u00a72 row to match \u00a73 and INV-8: \"\u2026markdown files sitting in directories that hold no candidate code file, not conventional docs.\"",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.",
+          "why": "\u00a73 \"Unmodeled markdown detection\" (and INV-8) state the directory-level rule correctly, so the loose \u00a72 table gloss does not make the document wrong."
+        }
+      }
+    ]
+  }
+]

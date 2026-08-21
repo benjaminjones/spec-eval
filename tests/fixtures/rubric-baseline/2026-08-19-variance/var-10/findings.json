@@ -1,0 +1,23 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "medium",
+        "summary": "`unmodeled_markdown` never filters out docs that are explicitly declared in a config pair's `docs` globs, so a pair-governed spec tree is still reported as \"markdown pairing cannot reach\" \u2014 contradicting INV-8's claim that no file is ever both unmodeled and paired.",
+        "code_ref": "coverage.py:L117",
+        "doc_ref": "coverage.md:L101",
+        "evidence": "Doc, Invariants table: \"INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" and \u00a73: \"Markdown that same-stem pairing cannot reach ... A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.\"\n\nCode, `unmodeled_markdown`:\n```\nfor md in mds:\n    d = os.path.dirname(md)\n    if d in code_dirs:\n        continue\n    if classify_exclude(md, user_excludes) == \"user\":\n        continue\n    if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS:\n        continue\n    ...\n    groups.setdefault(top, []).append(md)\n```\nNo `pair_docs` guard \u2014 unlike the orphan pass in `coverage`, which has `if md in pair_docs: continue  # explicitly paired \u2014 governed, wherever its code is`.\n\nFailure scenario: config declares `pairs: [{code: [\"src/auth.py\"], docs: [\"spec/functional/FR-021-auth.md\"]}, \u2026]` with 3 such docs under `spec/functional/`. `src/auth.py` is reported as covered *via those docs*, yet the same three docs are emitted in `unmodeled` and printed under \"outside the same-stem pairing model \u2014 neither covered nor uncovered\" \u2014 they are simultaneously paired and unmodeled.",
+        "suggestion": "Pass the pair-declared doc set into `unmodeled_markdown` (as `coverage` already computes `pair_docs` for the orphan pass) and `continue` on `md in pair_docs`; or, if the current behavior is intended, reword INV-8 to drop the \"so no file is ever both unmodeled and paired\" clause and scope it explicitly to same-stem pairing.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.",
+          "why": "The invariants table \u2014 \"rules that must always hold\" \u2014 states outright that no file is ever both unmodeled and paired, and the doc's own Definitions table fixes \"Pair\" as the config construct `{label, code[], docs[]}`, so a pair-declared doc in a docs-only directory contradicts the asserted invariant; \u00a73's looser qualification sentence does not restate this rule correctly elsewhere, and the \"so\" clause sits inside a normative invariant rather than a \"Why:\" aside."
+        }
+      }
+    ]
+  }
+]

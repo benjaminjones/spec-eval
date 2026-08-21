@@ -39,6 +39,25 @@ def test_drift_rubric_and_spec_check_skill_share_the_load_bearing_phrases():
 VERIFY_GROUNDS = ["not-asserted", "stated-elsewhere", "not-normative", "scoped"]
 
 
+# The `stated-elsewhere` description is directional, and it was one-directional until the recorded run showed
+# both directions. Pinning the emphasis-free clause keeps the three copies from drifting back to one direction.
+STATED_ELSEWHERE_SYMMETRY = "the table row read without the narrative, or the narrative read without the table"
+
+
+def test_stated_elsewhere_stays_bidirectional_in_all_three_copies():
+    """#36 — one passage of a doc graded against another is symmetric: the census behind it had 3 findings
+    graded from the table and 2 from the narrative. A one-directional description invites the rubric copies to
+    drift back to the table-only reading, which is how this was worded before."""
+    for rel in (("spec_eval", "verify.py"), ("spec_eval", "verify.md"), ("skills", "spec-check", "SKILL.md")):
+        path = os.path.join(_ROOT, *rel)
+        # Whitespace-collapsed: the clause is line-wrapped differently in each copy, and re-wrapping a
+        # paragraph is not a drift signal. Emphasis differs too (verify.py shouts EITHER), so the pinned
+        # clause is deliberately the emphasis-free half.
+        haystack = " ".join(open(path).read().split())
+        assert STATED_ELSEWHERE_SYMMETRY in haystack, \
+            f"{'/'.join(rel)} lost the stated-elsewhere symmetry clause: {STATED_ELSEWHERE_SYMMETRY!r}"
+
+
 def test_verify_grounds_are_shared_by_the_module_and_the_skill():
     """The four withdrawal grounds are the safety property of the second pass — a ground that exists in one
     copy and not the other means one path can delete a finding the other would keep."""

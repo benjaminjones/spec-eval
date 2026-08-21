@@ -29,6 +29,25 @@ def test_fingerprints_empty_on_no_data():
     assert report.drift_fingerprint([]) == ""
 
 
+def test_a_stale_finding_is_reported_but_not_counted_as_drift(tmp_path):
+    """#37 — a doc stating a default the code contradicts is an outdated definition, not a violated
+    guarantee, so it cannot be `high drift`. It stays visible with its class in the label and leaves the
+    count. Absent class reads as `drift`, so records written before the field existed count as before."""
+    drift = {"severity": "high", "class": "drift", "summary": "code never emits the documented event"}
+    stale = {"severity": "high", "class": "stale", "summary": "doc says 0.1, code says 0.2"}
+    legacy = {"severity": "high", "summary": "no class field at all"}
+    assert report.drift_load({"findings": [drift]}) == 1
+    assert report.drift_load({"findings": [stale]}) == 0, "a stale value is not a broken guarantee"
+    assert report.drift_load({"findings": [legacy]}) == 1, "absent class must read as drift"
+
+    out = tmp_path / "r.md"
+    report.write_markdown([{"label": "params", "findings": [drift, stale]}], ".", "m", str(out))
+    text = out.read_text()
+    assert "**1 high/medium drift finding(s)" in text, "the stale finding must leave the headline count"
+    assert "**[stale · high]** doc says 0.1" in text, "a stale finding carries its class in the label"
+    assert "**[high]** code never emits" in text, "an ordinary finding is unchanged"
+
+
 def test_a_reply_capped_pair_with_no_findings_reads_not_graded_not_clean(tmp_path):
     """#26 — 0 findings and no verdict are different states. A reply cap that produced nothing means the
     model never graded the pair, so `clean` would be a false reading and the pair leaves the denominator.

@@ -1,0 +1,23 @@
+[
+  {
+    "label": "coverage",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "low",
+        "summary": "The doc names an agent skill's `SKILL.md` as an example of the markdown reported under `unmodeled`, but `unmodeled_markdown` skips it because the stem `skill` is in `CONVENTIONAL_DOC_STEMS`, so `SKILL.md` files are never grouped or counted.",
+        "code_ref": "spec_eval/coverage.py:L123",
+        "doc_ref": "spec_eval/coverage.md:L64",
+        "evidence": "doc (coverage.md:64): \"two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references)\" \u2014 code (coverage.py:53-56, 123): `CONVENTIONAL_DOC_STEMS = {... \"skill\", ...}` and `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue  # README/CHANGELOG/\u2026 are docs, not an unmodeled corpus`. Confirmed on a synthetic repo containing `skills/{a,b,c}/reference.md` plus `skills/a/SKILL.md`: the reported group is `{dir: \"skills\", files: 3}` \u2014 the `SKILL.md` is dropped from the count.",
+        "suggestion": "Either drop `SKILL.md` from the doc's example (say \"an agent skill's reference files\") and note that `SKILL.md` itself is treated as a conventional doc name, or remove `\"skill\"` from `CONVENTIONAL_DOC_STEMS` for the unmodeled check so `SKILL.md` counts toward its group.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-normative",
+          "doc_quote": "**Why:** two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).",
+          "why": "The cited line is the section's \"**Why:**\" rationale explaining the motivation for reporting unmodeled markdown \u2014 it claims SKILL.md is invisible to same-stem pairing, not that `unmodeled_markdown` groups or counts SKILL.md files (the normative contract, AC-4, uses `skills/*/reference.md`)."
+        }
+      }
+    ]
+  }
+]
