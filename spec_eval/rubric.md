@@ -38,6 +38,7 @@ The module exposes a single constant string, `DRIFT_RUBRIC`, that instructs a te
 - stylistic differences or trivial restatements;
 - missing-but-implied behaviour where a doc could plausibly be silent (silence is not drift);
 - a doc describing a broader system of which this file is only one part (scope is not drift);
+- a clause that explains **why** rather than states **what** — deletable without changing anything the document requires (rationale is not a claim);
 - code comments that disagree with each other (only code-vs-doc counts);
 - drift verifiable only by RUNNING the code.
 
@@ -78,6 +79,7 @@ The module exposes a single constant string, `DRIFT_RUBRIC`, that instructs a te
 | AC-1 | The module is imported | `DRIFT_RUBRIC` is read | It is a non-empty string requiring strict-JSON output. |
 | AC-2 | A doc states a default `X=0.9` and code uses `X=0.5` | The rubric is applied | This qualifies as a **high**-severity finding (numeric default disagreement). |
 | AC-3 | A doc omits a behaviour the code implements, and the doc could plausibly be silent | The rubric is applied | No finding is produced (silence is not drift). |
+| AC-8 | A doc sentence explains why a rule exists and asserts no behaviour the code could violate | The rubric is applied | No finding is produced (rationale is not a claim). The same judgment exists in `verify` as the `not-normative` withdrawal ground; this moves it into the first pass, where it does not depend on `--verify` being enabled. |
 | AC-4 | A code↔doc mismatch is only detectable by executing the code | The rubric is applied | No finding is produced. |
 | AC-5 | No real mismatches exist in the pair | The rubric is applied | Output is exactly `{"findings": []}`. |
 | AC-6 | A function is renamed but still behaves identically to its doc description | The rubric is applied | This qualifies as at most **medium**, never high. |

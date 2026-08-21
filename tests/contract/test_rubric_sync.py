@@ -23,6 +23,7 @@ EXAMPLE_TEMPLATE_PATH = os.path.join(_ROOT, "configs", "spec-template.example.md
 LOAD_BEARING = [
     "MEASURABLE GUARANTEE",
     "silence is not drift",
+    "rationale is not a claim",
     "scope is not drift",
     "false negatives",
 ]
