@@ -27,6 +27,9 @@ Grouped by theme, from getting-started basics to scoring details. New here? Star
 - [Trusting the scores](#trusting-the-scores)
   - [Why a rubric and a second opinion instead of just asking my agent?](#why-a-rubric-and-a-second-opinion-instead-of-just-asking-my-agent)
   - [Could a custom template change the scores or the fingerprint?](#could-a-custom-template-change-the-scores-or-the-fingerprint)
+  - [How much does the score move if I just run it again?](#how-much-does-the-score-move-if-i-just-run-it-again)
+  - [When does `compare` run — is it part of a `sufficiency` or an `audit` run?](#when-does-compare-run--is-it-part-of-a-sufficiency-or-an-audit-run)
+  - [What do `delta`, `equivalent` and `MDE` mean in the compare output?](#what-do-delta-equivalent-and-mde-mean-in-the-compare-output)
   - [How accurate are the scores (and the fingerprint)?](#how-accurate-are-the-scores-and-the-fingerprint)
 
 ## Getting started
@@ -483,6 +486,60 @@ write. **Skip it for a quick look around**, because it costs one extra AI call f
 Thrown-out findings don't disappear. They show up crossed out, with the reason and the spec line, so you can
 disagree. And it can only ever *remove* findings — it never finds new ones. So a clean report after `--verify`
 means the same thing a clean report always means: nothing was found this run.
+
+### How much does the score move if I just run it again?
+
+**Measure it rather than guess — the answer differs per repo, per model and per pair.** `--reps` scores
+every pair N times and keeps every run; `compare` turns those into a number:
+
+```bash
+spec-eval sufficiency . --reps 3 --model claude-code --out spec-reports/a
+spec-eval compare spec-reports/a/sufficiency-reps.json spec-reports/a/sufficiency-reps.json
+```
+
+Comparing a run with itself gives a zero difference by construction. What you are reading is **noise
+share** — the fraction of the variation that is the grader disagreeing with itself on identical input.
+It **rises with noise**: `0.05` is a steady grader, `0.40` means nearly half the movement is the instrument.
+
+**Do this before comparing two vendors.** If one grader's noise share is large, a gap between two graders
+has nothing to stand on, and you have found that out for the price of one extra run and no second API key.
+
+**Every rep is kept, not a summary.** `sufficiency-reps.json` holds the raw scores, so you can recompute a
+spread a different way later without re-running anything.
+
+### When does `compare` run — is it part of a `sufficiency` or an `audit` run?
+
+**Neither. It is its own command, and it runs afterwards.**
+
+```bash
+spec-eval sufficiency . --reps 3 --model <A> --out runA    # scores, N times
+spec-eval sufficiency . --reps 3 --model <B> --out runB    # scores, N times
+spec-eval compare runA/sufficiency-reps.json runB/sufficiency-reps.json
+```
+
+- It **does not** read `audit` findings. Point it at a drift report and it will tell you so by name rather
+  than crash.
+- It **makes no model calls.** It is arithmetic over files you already have — free, offline, and safe to
+  re-run with a different margin as many times as you like.
+- It accepts a plain `sufficiency.json` too (what a default `--reps 1` run writes), reading it as a single
+  run. You get the difference but no noise share, because one observation cannot show spread.
+
+### What do `delta`, `equivalent` and `MDE` mean in the compare output?
+
+Three numbers, in the order they should be read:
+
+| | |
+|---|---|
+| **MDE** — smallest detectable effect | Printed **first, unconditionally**. If it is larger than the difference you would act on, **this run cannot answer your question**, and nothing further in the output changes that |
+| **delta ± SE** | The difference between graders **against its own standard error**. A delta smaller than its SE is noise wearing a number |
+| **equivalent within ±X** | True only when the **entire** interval sits inside a margin you choose **before** running |
+
+**"Not significant" is not "the same".** A run that fails to find a difference may simply be too small to
+find one — which is exactly what the MDE tells you. `compare` will report equivalence only when the
+evidence supports that positive claim, and will not let a null stand in for it.
+
+Per-pair differences are printed too, and they are **exploratory**. Across a dozen pairs, the largest gap
+is expected to look large by chance; treat one as a lead to investigate, not a result.
 
 ### How accurate are the scores (and the fingerprint)?
 

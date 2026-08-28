@@ -59,7 +59,9 @@ in the difference instead of inflating the effect.
 - **INV-3** `mde_80pct_power` is emitted on every run, including when the result is null.
 - **INV-4** `tost_equivalent` is true **only** if `-margin < ci90.low` and `ci90.high < margin`.
 - **INV-5** A `--reps 1` input yields `noise_share: null` with an `unavailable_because` reason, never `0`.
-- **INV-6** `noise_share` **rises with noise** — it is the complement of a classic ICC, and carries a
+- **INV-6** When both sides carry the same vendor name, the `noise` keys are disambiguated rather than
+  collapsed — two runs of one model is a reproducibility check, not one run.
+- **INV-7** `noise_share` **rises with noise** — it is the complement of a classic ICC, and carries a
   `definition` field saying so on every emission.
 
 ## 7. What it does not do
@@ -82,3 +84,5 @@ in the difference instead of inflating the effect.
 | **AC-6** | a plain `sufficiency.json` (a bare list) | it loads as one rep; no exception |
 | **AC-7** | a file that is neither shape | a `ValueError` naming both accepted shapes, not an `AttributeError` |
 | **AC-8** | one rep per pair | `noise_share` is `null` with `unavailable_because` set |
+| **AC-9** | two different files, same vendor name | two noise shares, keys suffixed `(A)` / `(B)` |
+| **AC-10** | the same file on both sides | `delta` = 0 and exactly **one** noise share |

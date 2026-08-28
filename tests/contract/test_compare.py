@@ -124,3 +124,22 @@ def test_all_null_scores_is_an_error_not_an_empty_comparison(tmp_path):
         raise AssertionError("expected a ValueError")
     except ValueError as e:
         assert "no scored pairs" in str(e)
+
+
+def test_same_vendor_name_does_not_collapse_two_noise_shares(tmp_path):
+    """Two runs of ONE model is the reproducibility check the README documents. Both shares must survive."""
+    a = _reps(tmp_path, "a.json", "same-model", {"p1": [0.8, 0.8], "p2": [0.6, 0.6], "p3": [0.4, 0.4]})
+    b = _reps(tmp_path, "b.json", "same-model", {"p1": [0.1, 0.9], "p2": [0.2, 0.8], "p3": [0.3, 0.7]})
+    r = compare.compare(a, b)
+    assert len(r["noise"]) == 2, f"two noise shares collapsed into {list(r['noise'])}"
+    shares = sorted(v["noise_share"] for v in r["noise"].values())
+    assert shares[0] < shares[1]                      # the noisier run is visibly noisier
+
+
+def test_self_comparison_reports_one_noise_share(tmp_path):
+    """Comparing a file with itself is the documented 'measure the wobble first' move. One share, not two."""
+    a = _reps(tmp_path, "a.json", "solo", {"p1": [0.8, 0.9], "p2": [0.6, 0.5], "p3": [0.4, 0.45]})
+    r = compare.compare(a, a)
+    assert r["delta"] == 0.0
+    assert len(r["noise"]) == 1
+    assert r["noise"]["solo"]["noise_share"] is not None

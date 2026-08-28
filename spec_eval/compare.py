@@ -142,7 +142,12 @@ def compare(a, b, margin=0.5, alpha=0.05):
         "ci95": [round(ci[0], 4), round(ci[1], 4)],
         "ci90_used_for_tost": [round(ci90[0], 4), round(ci90[1], 4)],
         "tost_equivalent": equivalent,
-        "noise": {va: noise(la), vb: noise(lb)},
+        # Keys are disambiguated when both sides carry the same vendor name — which is the NORMAL case for
+        # the self-comparison and for a reproducibility check across two runs of one model. A plain dict
+        # would collapse them and silently show one noise share where two were computed.
+        "noise": ({va: noise(la)} if va == vb and la == lb
+                  else {va: noise(la), vb: noise(lb)} if va != vb
+                  else {f"{va} (A)": noise(la), f"{vb} (B)": noise(lb)}),
         "per_pair_delta": per_pair,
         "per_pair_note": "exploratory. Apply Benjamini-Hochberg before reading any single pair as a finding; "
                          "with n pairs examined, the largest |delta| is expected to be large by chance",
