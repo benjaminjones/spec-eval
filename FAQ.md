@@ -509,6 +509,15 @@ spread a different way later without re-running anything.
 
 ### When does `compare` run — is it part of a `sufficiency` or an `audit` run?
 
+**What it's for, in one breath:** the AI grader does not give the same score twice. Ask it to score the
+same spec three times and you might get 0.82, then 0.79, then 0.84. So when two scores differ, you are
+stuck with a question you cannot answer by staring at them: **did something really change, or did the
+grader just change its mind?** `compare` answers that. It looks at how much the grader wobbles on its own,
+then tells you whether the difference you care about is bigger than the wobble.
+
+Use it whenever a score difference is about to cost you something — before you switch models, before you
+tell someone one spec is better than another, before you act on a score that dropped.
+
 **Neither. It is its own command, and it runs afterwards.**
 
 ```bash
