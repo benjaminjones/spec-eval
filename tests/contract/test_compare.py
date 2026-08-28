@@ -82,3 +82,45 @@ def test_benjamini_hochberg_is_stricter_than_uncorrected():
     keep = compare.benjamini_hochberg(p, q=0.05)
     assert sum(1 for x in p if x < 0.05) == 2          # a naive cut would keep two
     assert keep == [0]                                 # BH keeps only the strongest
+
+
+def test_ac6_plain_sufficiency_json_loads_as_one_rep(tmp_path):
+    """`--reps 1` is the DEFAULT, so a bare list is the likeliest first mistake. It must not be a traceback."""
+    p = tmp_path / "sufficiency.json"
+    p.write_text(json.dumps([{"label": "p1", "sufficiency": 0.8},
+                             {"label": "p2", "sufficiency": 0.6}]))
+    vendor, by_label = compare.load_reps(str(p))
+    assert by_label == {"p1": [0.8], "p2": [0.6]}
+
+
+def test_ac7_wrong_shape_names_both_accepted_shapes(tmp_path):
+    p = tmp_path / "audit-findings.json"
+    p.write_text(json.dumps({"findings": []}))
+    try:
+        compare.load_reps(str(p))
+        raise AssertionError("expected a ValueError")
+    except ValueError as e:
+        assert "sufficiency.json" in str(e) and "sufficiency-reps.json" in str(e)
+        assert "does not read" in str(e)          # says what it is NOT for
+    except AttributeError:
+        raise AssertionError("raised AttributeError — the bare-traceback failure this test exists to bar")
+
+
+def test_ac8_one_rep_gives_null_noise_share_with_a_reason(tmp_path):
+    a = _reps(tmp_path, "a.json", "A", {"p1": [0.8], "p2": [0.6], "p3": [0.4]})
+    b = _reps(tmp_path, "b.json", "B", {"p1": [0.7], "p2": [0.6], "p3": [0.5]})
+    r = compare.compare(a, b)
+    nz = r["noise"]["A"]
+    assert nz["noise_share"] is None                      # NOT zero — zero noise is a claim
+    assert "only one rep per pair" in nz["unavailable_because"]
+    assert r["delta"] is not None                         # the paired delta still works
+
+
+def test_all_null_scores_is_an_error_not_an_empty_comparison(tmp_path):
+    p = tmp_path / "empty.json"
+    p.write_text(json.dumps([{"label": "p1", "sufficiency": None}]))
+    try:
+        compare.load_reps(str(p))
+        raise AssertionError("expected a ValueError")
+    except ValueError as e:
+        assert "no scored pairs" in str(e)

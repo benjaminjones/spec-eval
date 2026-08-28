@@ -251,7 +251,10 @@ def main(argv=None):
                   f"95% CI [{res['ci95'][0]:+.3f}, {res['ci95'][1]:+.3f}]")
             print(f"TOST equivalent within ±{res['margin']}: {res['tost_equivalent']}")
             for v, nz in res["noise"].items():
-                print(f"  noise share, {v}: {nz['noise_share']} (rises with noise, not a classic ICC)")
+                if nz.get("noise_share") is None:
+                    print(f"  noise share, {v}: unavailable — {nz.get('unavailable_because', 'not computable')}")
+                else:
+                    print(f"  noise share, {v}: {nz['noise_share']} (rises with noise, not a classic ICC)")
             if res["dropped_pairs"]:
                 print(f"  ⚠ {len(res['dropped_pairs'])} pair(s) scored by only one vendor, excluded: "
                       f"{', '.join(res['dropped_pairs'])}")

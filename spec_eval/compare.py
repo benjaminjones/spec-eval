@@ -30,21 +30,39 @@ def _mean(xs):
 
 
 def load_reps(path, vendor=None):
-    """Read a `--reps` output file. Returns (vendor, {label: [scores]}).
+    """Read a sufficiency output file. Returns (vendor, {label: [scores]}).
 
-    Skipped and unparseable pairs carry `sufficiency: null` and are DROPPED here rather than coerced to 0.0.
-    A pair the model could not score is missing data; scoring it zero would report a parse failure as a
+    ACCEPTS BOTH SHAPES. `sufficiency --reps N` (N > 1) writes {"model":…, "reps":[…]}; a plain run writes a
+    bare list. `--reps 1` is the DEFAULT, so a bare list is the likeliest thing a first-time caller points
+    here, and it must not be a stack trace. A bare list is read as a single rep.
+
+    A SINGLE REP GIVES NO WITHIN-VENDOR VARIANCE. The paired delta is still computable, but `noise_share`
+    is undefined and is reported as None with a reason rather than as zero — zero noise is a claim, and one
+    observation cannot support it.
+
+    Skipped and unparseable pairs carry `sufficiency: null` and are DROPPED rather than coerced to 0.0. A
+    pair the model could not score is missing data; scoring it zero would report a parse failure as a
     maximally bad spec, which is the one error that would masquerade as a finding.
     """
     d = json.load(open(path))
-    vendor = vendor or d.get("model") or path
+    if isinstance(d, list):                       # a plain sufficiency.json — one rep
+        reps, vendor = [{"rep": 1, "results": d}], vendor or path
+    elif isinstance(d, dict) and "reps" in d:
+        reps, vendor = d["reps"], vendor or d.get("model") or path
+    else:
+        raise ValueError(
+            f"{path} is neither a sufficiency.json (a list of pair records) nor a sufficiency-reps.json "
+            f"(an object with a 'reps' key). `compare` reads sufficiency output only — it does not read "
+            f"audit findings.")
     by_label = {}
-    for rep in d.get("reps", []):
+    for rep in reps:
         for rec in rep.get("results", []):
             s = rec.get("sufficiency")
             if s is None:
                 continue
             by_label.setdefault(rec["label"], []).append(float(s))
+    if not by_label:
+        raise ValueError(f"{path} contained no scored pairs — every `sufficiency` value was null or absent")
     return vendor, by_label
 
 
@@ -60,6 +78,12 @@ def noise(by_label):
         all_scores.extend(scores)
         if len(scores) >= 2:
             within.append(statistics.variance(scores))
+    if not within:
+        # Every pair has a single observation: the paired delta still works, the noise share does not.
+        return {"within_vendor_variance": None, "total_variance": None, "noise_share": None,
+                "unavailable_because": "only one rep per pair — within-vendor variance needs >= 2. "
+                                       "Re-run `sufficiency --reps 3` to measure the instrument's spread.",
+                "pairs_with_replication": 0}
     if len(all_scores) < 2:
         return {"within_vendor_variance": None, "total_variance": None, "noise_share": None}
     total = statistics.variance(all_scores)
