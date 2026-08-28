@@ -158,7 +158,9 @@ def benjamini_hochberg(pvalues, q=0.05):
     """BH step-up. Returns the indices declared significant at false-discovery rate `q`."""
     idx = sorted(range(len(pvalues)), key=lambda i: pvalues[i])
     m = len(pvalues)
-    keep, thresh = [], 0
+    # Step UP: find the LARGEST rank whose p-value clears rank/m * q, then reject everything at or below it.
+    # Stepping down and stopping at the first failure would reject fewer and is the common mis-implementation.
+    thresh = 0
     for rank, i in enumerate(idx, 1):
         if pvalues[i] <= rank / m * q:
             thresh = rank
