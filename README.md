@@ -24,6 +24,7 @@ trusting. How far you lean on it is up to you. **No specs yet? spec-eval writes 
 - [How the scores are made](#how-the-scores-are-made)
 - [Reading the scores](#reading-the-scores)
 - [Higher stakes? Get a second opinion](#higher-stakes-get-a-second-opinion)
+  - [Measure the wobble before you trust a difference](#measure-the-wobble-before-you-trust-a-difference)
 - [Proof it works](#proof-it-works)
 - [More](#more)
 - [FAQ](#faq)
@@ -293,6 +294,49 @@ How to read two reports:
 - **Only one flags it** → a judgment call. Read the quoted evidence and decide.
 - **Sufficiency scores differ a little** → normal wobble. Compare the **gaps lists**, not the decimals — the same
   missing behavior named by both graders is the signal.
+
+### Measure the wobble before you trust a difference
+
+*"Normal wobble"* is easy to say and easy to get wrong in both directions. A single sufficiency score is
+**one draw**, so before reading a gap between two vendors, find out how much the same vendor disagrees with
+**itself**:
+
+```bash
+spec-eval sufficiency . --reps 3 --model claude-code --out spec-reports/claude
+spec-eval compare spec-reports/claude/sufficiency-reps.json \
+                  spec-reports/claude/sufficiency-reps.json
+```
+
+Comparing a run against itself gives a difference of zero by construction — that is not the point. The
+point is `noise share`, which tells you **how much of the score is the grader talking to itself**. Do this
+first: if the noise is large, a between-vendor gap has nothing to sit on, and you have learned that without
+a second API key.
+
+Then, with two vendors:
+
+```bash
+spec-eval sufficiency . --reps 3 --model claude-code             --out spec-reports/claude
+spec-eval sufficiency . --reps 3 --model google:gemini-3.5-flash --out spec-reports/gemini
+spec-eval compare spec-reports/claude/sufficiency-reps.json \
+                  spec-reports/gemini/sufficiency-reps.json
+```
+
+**`compare` runs after scoring, on its own.** It is not part of a `sufficiency` run and it does not read
+`audit` output — it reads the retained sufficiency reps and does arithmetic. **It makes no model calls**, so
+it is free, and you can re-run it with a different margin as often as you like without re-scoring anything.
+
+What it prints, and how to read it:
+
+| | |
+|---|---|
+| **Smallest detectable effect** | printed **first, always**. If it is bigger than the difference you care about, this run cannot settle the question — no matter what the rest of the output says |
+| **delta ± SE** | the vendor difference **against its own standard error**. A delta smaller than its SE is not a difference |
+| **equivalent within ±X** | true only when the **whole** interval fits inside a margin you set **before** running. *"No significant difference"* is not the same claim, and this tool will not make it for you |
+| **noise share** | rises **with** noise. `0.35` means about a third of the variation is the grader disagreeing with itself |
+| **per-pair deltas** | exploratory. Across a dozen pairs the largest one is expected to look big by chance |
+
+`--reps` defaults to `1`, which writes the usual `sufficiency.json`; `compare` accepts that too and reads it
+as a single run — you just get no noise share, because one observation cannot show spread.
 
 Each vendor reads its own key from the environment — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY` —
 so put both keys in one `.env` and each run picks up the one it needs. (Want one fewer key? Swap either side for

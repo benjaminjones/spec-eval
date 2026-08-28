@@ -13,7 +13,7 @@ import argparse
 import os
 import sys
 import json
-from . import providers, audit, report, coverage as coverage_mod, sufficiency as sufficiency_mod, authoring, runlog, syscontext
+from . import providers, audit, report, coverage as coverage_mod, sufficiency as sufficiency_mod, authoring, runlog, syscontext, compare as compare_mod
 
 UNCOVERED_LIST_CAP = 25   # cap the per-line uncovered list printed to the terminal; full list always lands in coverage.md
 
@@ -85,8 +85,20 @@ def main(argv=None):
                         help="second pass: re-read each doc and withdraw findings it does not actually "
                              "assert. One extra model call per pair that produced findings. Off by default "
                              "— it costs roughly a third again in calls and its benefit is unmeasured.")
-    model_args(sub.add_parser("sufficiency", help="SUFFICIENCY: how completely do the specs capture the code's "
-                                                  "behavior? (needs a model)"))
+    _suff = sub.add_parser("sufficiency", help="SUFFICIENCY: how completely do the specs capture the code's "
+                                               "behavior? (needs a model)")
+    model_args(_suff)
+    _suff.add_argument("--reps", type=int, default=1, metavar="N",
+                       help="score every pair N times and write every rep (default 1). N>1 makes the "
+                            "instrument's own spread visible; feed the output to `compare`.")
+
+    _cmp = sub.add_parser("compare", help="COMPARE two `--reps` runs — noise share, vendor delta against "
+                                          "its standard error, and TOST equivalence. Makes NO model calls.")
+    _cmp.add_argument("a", metavar="REPS_A.json")
+    _cmp.add_argument("b", metavar="REPS_B.json")
+    _cmp.add_argument("--margin", type=float, default=0.5,
+                      help="equivalence margin on the sufficiency scale, FIXED BEFORE THE RUN (default 0.5)")
+    _cmp.add_argument("--out", "-o", default="spec-reports")
 
     g = sub.add_parser("generate", help="AUTHOR an intent-led spec BESIDE each spec-worthy code file with no spec (needs a model)")
     g.add_argument("repo", metavar="PROJECT_DIR", help="path to the project — a repo root, a subdirectory, or a single code file")
@@ -188,8 +200,26 @@ def main(argv=None):
         if os.path.isfile(args.repo):
             args.repo, cfg = _file_scope(args.repo, cfg)
         os.makedirs(args.out, exist_ok=True)
-        results = sufficiency_mod.sufficiency_repo(args.repo, cfg, args.model)
+        reps = max(1, int(getattr(args, "reps", 1)))
+        all_reps = []
+        for i in range(reps):
+            r = sufficiency_mod.sufficiency_repo(args.repo, cfg, args.model)
+            all_reps.append({"rep": i + 1, "results": r})
+            if reps > 1:
+                print(f"  rep {i + 1}/{reps}: "
+                      f"{sum(1 for x in r if x.get('sufficiency') is not None)}/{len(r)} pairs scored")
+        results = all_reps[0]["results"]          # rep 1 drives the single-run report, unchanged
         json.dump(results, open(os.path.join(args.out, "sufficiency.json"), "w"), indent=2)
+        if reps > 1:
+            # Every rep is retained, not just a summary. A spread computed from a summary cannot be
+            # recomputed under a different rule, and the whole point of --reps is to keep the raw draws.
+            json.dump({"model": args.model, "repo": args.repo, "reps_requested": reps, "reps": all_reps},
+                      open(os.path.join(args.out, "sufficiency-reps.json"), "w"), indent=2)
+            scored = [x["sufficiency"] for rep in all_reps for x in rep["results"]
+                      if x.get("sufficiency") is not None]
+            spread = (max(scored) - min(scored)) if scored else 0.0
+            print(f"wrote sufficiency-reps.json — {reps} reps, {len(scored)} scored observations, "
+                  f"observed range {spread:.2f} on the sufficiency scale")
         avg = report.write_sufficiency_markdown(results, args.repo, args.model, os.path.join(args.out, "sufficiency.md"), args.fingerprint)
         scored = sum(1 for r in results if r.get("sufficiency") is not None)
         print(f"average spec sufficiency {avg:.2f} across {scored}/{len(results)} pairs (1.0 = no gaps found — an "
@@ -203,6 +233,33 @@ def main(argv=None):
         runlog.append_run(args.out, args.repo, "sufficiency", args.model,
                           {"avg_sufficiency": round(avg, 2), "pairs_scored": scored, "pairs_truncated": truncated,
                            "per_module": {r["label"]: r["sufficiency"] for r in results if r.get("sufficiency") is not None}})
+
+    elif args.cmd == "compare":
+        os.makedirs(args.out, exist_ok=True)
+        a = compare_mod.load_reps(args.a)
+        b = compare_mod.load_reps(args.b)
+        res = compare_mod.compare(a, b, margin=args.margin)
+        json.dump(res, open(os.path.join(args.out, "compare.json"), "w"), indent=2)
+        if "error" in res:
+            print(f"cannot compare: {res['error']}")
+        else:
+            # MDE FIRST, always — a null from an underpowered design is a statement about the design.
+            print(f"MDE at 80% power: {res['mde_80pct_power']:.3f} against a margin of {res['margin']}")
+            if res["underpowered_for_margin"]:
+                print("  ⚠ MDE exceeds the margin — this run CANNOT demonstrate equivalence")
+            print(f"delta {res['delta']:+.3f} ± {res['se_delta']:.3f} (SE) over n={res['pairs_n']} pairs, "
+                  f"95% CI [{res['ci95'][0]:+.3f}, {res['ci95'][1]:+.3f}]")
+            print(f"TOST equivalent within ±{res['margin']}: {res['tost_equivalent']}")
+            for v, nz in res["noise"].items():
+                if nz.get("noise_share") is None:
+                    print(f"  noise share, {v}: unavailable — {nz.get('unavailable_because', 'not computable')}")
+                else:
+                    print(f"  noise share, {v}: {nz['noise_share']} (rises with noise, not a classic ICC)")
+            if res["dropped_pairs"]:
+                print(f"  ⚠ {len(res['dropped_pairs'])} pair(s) scored by only one vendor, excluded: "
+                      f"{', '.join(res['dropped_pairs'])}")
+            print("per-pair deltas are EXPLORATORY — apply Benjamini-Hochberg before reading one as a finding")
+        print(f"wrote compare.json → {os.path.abspath(args.out)}")
 
     elif args.cmd == "generate":
         _load_keys(args.env, args.config)
