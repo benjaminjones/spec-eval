@@ -1,47 +1,63 @@
 [
   {
-    "code": "audit.py",
-    "spec": "audit.md",
-    "status": "authored"
+    "code": "spec_eval/audit.py",
+    "spec": "spec_eval/audit.md",
+    "status": "skipped"
   },
   {
-    "code": "authoring.py",
-    "spec": "authoring.md",
-    "status": "authored"
+    "code": "spec_eval/authoring.py",
+    "spec": "spec_eval/authoring.md",
+    "status": "skipped"
   },
   {
-    "code": "cli.py",
-    "spec": "cli.md",
-    "status": "authored"
+    "code": "spec_eval/cli.py",
+    "spec": "spec_eval/cli.md",
+    "status": "skipped"
   },
   {
-    "code": "coverage.py",
-    "spec": "coverage.md",
-    "status": "authored"
+    "code": "spec_eval/coverage.py",
+    "spec": "spec_eval/coverage.md",
+    "status": "skipped"
   },
   {
-    "code": "providers.py",
-    "spec": "providers.md",
-    "status": "authored"
+    "code": "spec_eval/providers.py",
+    "spec": "spec_eval/providers.md",
+    "status": "skipped"
   },
   {
-    "code": "report.py",
-    "spec": "report.md",
-    "status": "authored"
+    "code": "spec_eval/report.py",
+    "spec": "spec_eval/report.md",
+    "status": "skipped"
   },
   {
-    "code": "rubric.py",
-    "spec": "rubric.md",
-    "status": "authored"
+    "code": "spec_eval/rubric.py",
+    "spec": "spec_eval/rubric.md",
+    "status": "skipped"
   },
   {
-    "code": "runlog.py",
-    "spec": "runlog.md",
-    "status": "authored"
+    "code": "spec_eval/runlog.py",
+    "spec": "spec_eval/runlog.md",
+    "status": "skipped"
   },
   {
-    "code": "sufficiency.py",
-    "spec": "sufficiency.md",
-    "status": "authored"
+    "code": "spec_eval/sufficiency.py",
+    "spec": "spec_eval/sufficiency.md",
+    "status": "skipped"
+  },
+  {
+    "code": "spec_eval/syscontext.py",
+    "spec": "spec_eval/syscontext.md",
+    "status": "skipped"
+  },
+  {
+    "code": "spec_eval/verify.py",
+    "spec": "spec_eval/verify.md",
+    "status": "skipped"
+  },
+  {
+    "code": ".",
+    "spec": "OVERVIEW.md",
+    "status": "authored",
+    "note": "index synthesised in 2 passes over all 11 specs (nothing dropped)"
   }
 ]
