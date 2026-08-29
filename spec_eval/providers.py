@@ -39,6 +39,32 @@ def parse_model(spec):
     return "anthropic", spec
 
 
+class CallBudgetExceeded(RuntimeError):
+    """Raised the moment a run would exceed its committed call ceiling. Not catchable by retry logic."""
+
+
+# A HARD CEILING ON MODEL CALLS FOR THE WHOLE PROCESS. None = unlimited (the default, unchanged behaviour).
+# The number of calls a run makes is knowable in advance — pairs x reps x passes — so a run that exceeds it
+# is looping or retrying, which is exactly when an unattended paid run empties an account. The guard fires
+# BEFORE the call is issued, so the ceiling is the number of calls MADE, never the number after one more.
+MAX_CALLS = None
+
+
+def set_max_calls(n):
+    """Set the process-wide call ceiling. Call once, before any model call."""
+    global MAX_CALLS
+    MAX_CALLS = None if n in (None, 0) else int(n)
+
+
+def _guard():
+    """Refuse the next call if it would exceed the ceiling. Checked before the request is sent."""
+    if MAX_CALLS is not None and USAGE["calls"] >= MAX_CALLS:
+        raise CallBudgetExceeded(
+            f"call ceiling reached: {USAGE['calls']} of {MAX_CALLS} already made "
+            f"({USAGE['in']:,} in / {USAGE['out']:,} out tokens). Refusing to issue another. "
+            f"Raise --max-calls only after checking why the count exceeded the plan.")
+
+
 def _track(u_in, u_out, truncated=False):
     """Record one call's token usage and whether its reply was cut off at the token cap (None-safe)."""
     USAGE["in"] += u_in or 0
@@ -103,6 +129,7 @@ def _gen_claude_code(model, system, user):
 
 
 def gen(model_spec, system, user, max_tokens=1200):
+    _guard()                     # before the request, so the ceiling counts calls MADE
     prov, model = parse_model(model_spec)
     if prov == "claude-code":
         return _gen_claude_code(model, system, user)
