@@ -29,6 +29,70 @@ def _mean(xs):
     return statistics.fmean(xs) if xs else None
 
 
+def _betacf(a, b, x, itmax=200, eps=3e-12):
+    """Continued fraction for the incomplete beta function (Lentz's method)."""
+    qab, qap, qam = a + b, a + 1.0, a - 1.0
+    c, d = 1.0, 1.0 - qab * x / qap
+    if abs(d) < 1e-300:
+        d = 1e-300
+    d = 1.0 / d
+    h = d
+    for m in range(1, itmax + 1):
+        m2 = 2 * m
+        for num in (m * (b - m) * x / ((qam + m2) * (a + m2)),
+                    -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))):
+            d = 1.0 + num * d
+            if abs(d) < 1e-300:
+                d = 1e-300
+            c = 1.0 + num / c
+            if abs(c) < 1e-300:
+                c = 1e-300
+            d = 1.0 / d
+            h *= d * c
+        if abs(d * c - 1.0) < eps:
+            break
+    return h
+
+
+def _betai(a, b, x):
+    """Regularised incomplete beta I_x(a,b)."""
+    if x <= 0.0:
+        return 0.0
+    if x >= 1.0:
+        return 1.0
+    lbeta = (math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+             + a * math.log(x) + b * math.log(1.0 - x))
+    if x < (a + 1.0) / (a + b + 2.0):
+        return math.exp(lbeta) * _betacf(a, b, x) / a
+    return 1.0 - math.exp(lbeta) * _betacf(b, a, 1.0 - x) / b
+
+
+def _t_cdf(t, df):
+    x = df / (df + t * t)
+    p = 0.5 * _betai(df / 2.0, 0.5, x)
+    return 1.0 - p if t > 0 else p
+
+
+def _t_ppf(p, df):
+    """Student-t quantile by bisection on the CDF. No SciPy dependency.
+
+    THE NORMAL QUANTILE IS WRONG HERE AND THE ERROR IS NOT COSMETIC. n is the number of PAIRS — 12 in the
+    reference design — so df = 11 and t(.975,11) = 2.201 against z = 1.96, a 12% wider interval. Using 1.96
+    delivers ~92.4% coverage on an interval labelled 95%. When a margin verdict was the deliverable that was
+    a rounding concern; when the INTERVAL is the deliverable it is the published number.
+    """
+    if df <= 0:
+        raise ValueError("df must be positive")
+    lo, hi = -1e3, 1e3
+    for _ in range(200):
+        mid = (lo + hi) / 2.0
+        if _t_cdf(mid, df) < p:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2.0
+
+
 def load_reps(path, vendor=None):
     """Read a sufficiency output file. Returns (vendor, {label: [scores]}).
 
@@ -95,7 +159,7 @@ def noise(by_label):
             "pairs_with_replication": len(within)}
 
 
-def compare(a, b, margin=0.5, alpha=0.05):
+def compare(a, b, margin=None, alpha=0.05):
     """Paired vendor contrast. `a` and `b` are (vendor, {label: [scores]}) from load_reps."""
     va, la = a
     vb, lb = b
@@ -112,46 +176,81 @@ def compare(a, b, margin=0.5, alpha=0.05):
     sd = statistics.stdev(d)
     se = sd / math.sqrt(n)
 
-    # MDE at 80% power, two-sided alpha. Reported FIRST and whatever the result is.
-    mde = 2.80 * se
-    z = 1.96 if alpha == 0.05 else 1.645
-    ci = (delta - z * se, delta + z * se)
-    # TOST uses a 90% interval for a 5% one-sided pair — equivalence iff it sits inside the margin.
-    ci90 = (delta - 1.645 * se, delta + 1.645 * se)
-    equivalent = -margin < ci90[0] and ci90[1] < margin
+    # Student t at df = n-1 throughout. n is the number of PAIRS, so df is small and the normal quantile
+    # under-covers: at df = 11, t(.975) = 2.201 against z = 1.96.
+    df = n - 1
+    tcrit = _t_ppf(1 - alpha / 2, df)
+    mde = (tcrit + _t_ppf(0.80, df)) * se          # 80% power, two-sided alpha
+    ci = (delta - tcrit * se, delta + tcrit * se)
+    ci90 = (delta - _t_ppf(1 - alpha, df) * se, delta + _t_ppf(1 - alpha, df) * se)
 
-    per_pair = sorted(({"pair": p, "delta": round(v, 4),
-                        "mean_" + va: round(_mean(la[p]), 4), "mean_" + vb: round(_mean(lb[p]), 4),
-                        "reps": [len(la[p]), len(lb[p])]} for p, v in diffs.items()),
-                      key=lambda r: -abs(r["delta"]))
+    # m* — the smallest margin at which THIS run would have shown equivalence. A measured quantity that
+    # answers "equivalent at m?" for any m the reader supplies, so the tool need not pick one for them.
+    m_star = abs(delta) + _t_ppf(1 - alpha, df) * se
 
-    return {
+    # Per-pair contrasts with a pooled two-sample t, so Benjamini-Hochberg has p-values to correct.
+    per_pair, pvals, excluded = [], [], []
+    for p_, v in diffs.items():
+        xa, xb = la[p_], lb[p_]
+        rec = {"pair": p_, "delta": round(v, 4),
+               "mean_" + va: round(_mean(xa), 4), "mean_" + vb: round(_mean(xb), 4),
+               "reps": [len(xa), len(xb)]}
+        dfp = len(xa) + len(xb) - 2
+        sp2 = (((len(xa) - 1) * (statistics.variance(xa) if len(xa) > 1 else 0.0)
+                + (len(xb) - 1) * (statistics.variance(xb) if len(xb) > 1 else 0.0)) / dfp) if dfp > 0 else 0.0
+        if dfp <= 0 or sp2 <= 0:
+            # NOT hypothetical: 3 of 12 pairs in the reference corpus return byte-identical reps. Dropping
+            # them silently would move the BH family size without saying so.
+            rec["p_value"] = None
+            rec["p_unavailable_because"] = "zero within-pair variance — no computable t"
+            excluded.append(p_)
+        else:
+            tstat = v / math.sqrt(sp2 * (1 / len(xa) + 1 / len(xb)))
+            rec["p_value"] = round(2 * (1 - _t_cdf(abs(tstat), dfp)), 6)
+            pvals.append((p_, rec["p_value"]))
+        per_pair.append(rec)
+    per_pair.sort(key=lambda r: -abs(r["delta"]))
+
+    keep = benjamini_hochberg([q for _, q in pvals], q=alpha) if pvals else []
+    bh_significant = sorted(pvals[i][0] for i in keep)
+
+    out = {
         "vendors": [va, vb],
         "pairs_n": n,
+        "df": df,
+        "quantile_basis": "Student t at df = n-1",
         "shared_pairs": shared,
         "dropped_pairs": dropped,
         "dropped_note": "pairs scored by only one vendor are excluded from the paired contrast, "
                         "and listed so the exclusion is visible rather than silent",
         "mde_80pct_power": round(mde, 4),
-        "margin": margin,
-        "underpowered_for_margin": mde > margin,
-        "underpowered_note": "MDE exceeds the equivalence margin — this run cannot demonstrate equivalence, "
-                             "and a null from it is a statement about the design, not about the vendors",
         "delta": round(delta, 4),
         "se_delta": round(se, 4),
         "ci95": [round(ci[0], 4), round(ci[1], 4)],
-        "ci90_used_for_tost": [round(ci90[0], 4), round(ci90[1], 4)],
-        "tost_equivalent": equivalent,
-        # Keys are disambiguated when both sides carry the same vendor name — which is the NORMAL case for
-        # the self-comparison and for a reproducibility check across two runs of one model. A plain dict
-        # would collapse them and silently show one noise share where two were computed.
+        "m_star": round(m_star, 4),
+        "m_star_note": "the smallest margin at which this run would have shown equivalence — supply "
+                       "--margin to test a specific one",
         "noise": ({va: noise(la)} if va == vb and la == lb
                   else {va: noise(la), vb: noise(lb)} if va != vb
                   else {f"{va} (A)": noise(la), f"{vb} (B)": noise(lb)}),
         "per_pair_delta": per_pair,
-        "per_pair_note": "exploratory. Apply Benjamini-Hochberg before reading any single pair as a finding; "
-                         "with n pairs examined, the largest |delta| is expected to be large by chance",
+        "bh_significant": bh_significant,
+        "bh_family_size": len(pvals),
+        "bh_excluded": excluded,
+        "bh_note": "Benjamini-Hochberg applied across pairs with a computable p-value. The family size is "
+                   "printed because it is smaller than the pair count whenever a pair has zero variance.",
     }
+    if margin is not None:
+        # Only emitted when a margin was SUPPLIED. Absence, never a default `false` — and never a default
+        # `true`, which is what a built-in margin produced for practically any two graders.
+        out["margin"] = margin
+        out["ci90_used_for_tost"] = [round(ci90[0], 4), round(ci90[1], 4)]
+        out["tost_equivalent"] = bool(-margin < ci90[0] and ci90[1] < margin)
+        out["underpowered_for_margin"] = mde > margin
+        out["underpowered_note"] = ("MDE exceeds the equivalence margin — this run cannot demonstrate "
+                                    "equivalence, and a null from it is a statement about the design, "
+                                    "not about the vendors")
+    return out
 
 
 def benjamini_hochberg(pvalues, q=0.05):

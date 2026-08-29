@@ -33,13 +33,14 @@ def test_ac2_null_only_pair_is_dropped_not_zeroed(tmp_path):
     assert abs(r["delta"]) < 1e-9
 
 
-def test_ac3_identical_scores_give_zero_delta_and_equivalence(tmp_path):
+def test_ac3_identical_scores_give_zero_delta_and_no_verdict_without_a_margin(tmp_path):
     scores = {"p1": [0.8, 0.8, 0.8], "p2": [0.6, 0.6, 0.6], "p3": [0.4, 0.4, 0.4]}
     a = _reps(tmp_path, "a.json", "A", scores)
     b = _reps(tmp_path, "b.json", "B", scores)
     r = compare.compare(a, b)
-    assert r["delta"] == 0.0
-    assert r["tost_equivalent"] is True
+    assert r["delta"] == 0.0 and r["m_star"] == 0.0
+    assert "tost_equivalent" not in r          # absence, not a defaulted true
+    assert compare.compare(a, b, margin=0.5)["tost_equivalent"] is True
 
 
 def test_ac4_mde_is_always_present(tmp_path):
@@ -143,3 +144,27 @@ def test_self_comparison_reports_one_noise_share(tmp_path):
     assert r["delta"] == 0.0
     assert len(r["noise"]) == 1
     assert r["noise"]["solo"]["noise_share"] is not None
+
+
+def test_inv7_intervals_use_student_t_not_a_normal_quantile():
+    """n is the PAIR count, so df is small and z under-covers. Validated against published t values."""
+    for p, df, expected in [(.975, 11, 2.2010), (.95, 11, 1.7959), (.80, 11, 0.8755), (.975, 2, 4.3027)]:
+        assert abs(compare._t_ppf(p, df) - expected) < 1e-3, f"t({p},{df})"
+
+
+def test_ac12_no_margin_means_no_verdict_but_m_star_instead(tmp_path):
+    a = _reps(tmp_path, "a.json", "A", {"p1": [0.8, 0.9], "p2": [0.6, 0.5], "p3": [0.4, 0.45]})
+    b = _reps(tmp_path, "b.json", "B", {"p1": [0.7, 0.8], "p2": [0.6, 0.6], "p3": [0.5, 0.4]})
+    r = compare.compare(a, b)
+    assert "tost_equivalent" not in r and "margin" not in r
+    assert r["m_star"] >= abs(r["delta"])      # m* can never be smaller than the effect itself
+
+
+def test_ac11_zero_variance_pair_is_excluded_from_the_bh_family(tmp_path):
+    """3 of 12 pairs in the reference corpus return byte-identical reps. Dropping them must be visible."""
+    a = _reps(tmp_path, "a.json", "A", {"flat": [0.8, 0.8, 0.8], "p2": [0.6, 0.7, 0.5], "p3": [0.4, 0.5, 0.3]})
+    b = _reps(tmp_path, "b.json", "B", {"flat": [0.8, 0.8, 0.8], "p2": [0.5, 0.6, 0.4], "p3": [0.3, 0.4, 0.2]})
+    r = compare.compare(a, b)
+    assert "flat" in r["bh_excluded"]
+    assert r["bh_family_size"] == 2 and r["bh_family_size"] < r["pairs_n"]
+    assert next(x for x in r["per_pair_delta"] if x["pair"] == "flat")["p_value"] is None

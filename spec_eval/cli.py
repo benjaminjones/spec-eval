@@ -96,8 +96,11 @@ def main(argv=None):
                                           "its standard error, and TOST equivalence. Makes NO model calls.")
     _cmp.add_argument("a", metavar="REPS_A.json")
     _cmp.add_argument("b", metavar="REPS_B.json")
-    _cmp.add_argument("--margin", type=float, default=0.5,
-                      help="equivalence margin on the sufficiency scale, FIXED BEFORE THE RUN (default 0.5)")
+    _cmp.add_argument("--margin", type=float, default=None,
+                      help="OPTIONAL equivalence margin on the sufficiency scale, FIXED BEFORE THE RUN. "
+                           "Omit it and no equivalence verdict is emitted — `m_star` is reported instead, "
+                           "which answers the question for any margin you supply later. There is no default: "
+                           "a built-in margin returns 'equivalent' for practically any two graders.")
     _cmp.add_argument("--out", "-o", default="spec-reports")
 
     g = sub.add_parser("generate", help="AUTHOR an intent-led spec BESIDE each spec-worthy code file with no spec (needs a model)")
@@ -244,12 +247,21 @@ def main(argv=None):
             print(f"cannot compare: {res['error']}")
         else:
             # MDE FIRST, always — a null from an underpowered design is a statement about the design.
-            print(f"MDE at 80% power: {res['mde_80pct_power']:.3f} against a margin of {res['margin']}")
-            if res["underpowered_for_margin"]:
+            print(f"MDE at 80% power: {res['mde_80pct_power']:.3f}"
+                  + (f" against a margin of {res['margin']}" if "margin" in res else ""))
+            if res.get("underpowered_for_margin"):
                 print("  ⚠ MDE exceeds the margin — this run CANNOT demonstrate equivalence")
-            print(f"delta {res['delta']:+.3f} ± {res['se_delta']:.3f} (SE) over n={res['pairs_n']} pairs, "
-                  f"95% CI [{res['ci95'][0]:+.3f}, {res['ci95'][1]:+.3f}]")
-            print(f"TOST equivalent within ±{res['margin']}: {res['tost_equivalent']}")
+            print(f"delta {res['delta']:+.3f} ± {res['se_delta']:.3f} (SE) over n={res['pairs_n']} pairs "
+                  f"(df={res['df']}, Student t), 95% CI [{res['ci95'][0]:+.3f}, {res['ci95'][1]:+.3f}]")
+            if "margin" in res:
+                print(f"TOST equivalent within ±{res['margin']}: {res['tost_equivalent']}")
+            else:
+                print(f"m* = {res['m_star']:.3f} — the smallest margin at which this run would have shown "
+                      f"equivalence. No margin supplied, so no verdict is claimed.")
+            if res["bh_significant"] or res["bh_excluded"]:
+                print(f"  Benjamini-Hochberg over {res['bh_family_size']} pair(s): "
+                      f"{res['bh_significant'] or 'none significant'}"
+                      + (f" · excluded (zero variance): {res['bh_excluded']}" if res["bh_excluded"] else ""))
             for v, nz in res["noise"].items():
                 if nz.get("noise_share") is None:
                     print(f"  noise share, {v}: unavailable — {nz.get('unavailable_because', 'not computable')}")
@@ -258,7 +270,8 @@ def main(argv=None):
             if res["dropped_pairs"]:
                 print(f"  ⚠ {len(res['dropped_pairs'])} pair(s) scored by only one vendor, excluded: "
                       f"{', '.join(res['dropped_pairs'])}")
-            print("per-pair deltas are EXPLORATORY — apply Benjamini-Hochberg before reading one as a finding")
+            print("per-pair deltas are EXPLORATORY and Benjamini-Hochberg has been applied above; with n "
+                  "pairs examined the largest |delta| is expected to look large by chance")
         print(f"wrote compare.json → {os.path.abspath(args.out)}")
 
     elif args.cmd == "generate":
