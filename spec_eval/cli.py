@@ -110,6 +110,9 @@ def main(argv=None):
                            "which answers the question for any margin you supply later. There is no default: "
                            "a built-in margin returns 'equivalent' for practically any two graders.")
     _cmp.add_argument("--out", "-o", default="spec-reports")
+    _cmp.add_argument("--allow-sha-mismatch", action="store_true",
+                      help="compare two runs that graded DIFFERENT commits. Off by default: their difference "
+                           "mixes a vendor effect with a code change and is not interpretable as either.")
 
     g = sub.add_parser("generate", help="AUTHOR an intent-led spec BESIDE each spec-worthy code file with no spec (needs a model)")
     g.add_argument("repo", metavar="PROJECT_DIR", help="path to the project — a repo root, a subdirectory, or a single code file")
@@ -227,7 +230,10 @@ def main(argv=None):
         if reps > 1:
             # Every rep is retained, not just a summary. A spread computed from a summary cannot be
             # recomputed under a different rule, and the whole point of --reps is to keep the raw draws.
-            json.dump({"model": args.model, "repo": args.repo, "reps_requested": reps, "reps": all_reps},
+            # THE SUBJECT SHA TRAVELS WITH THE SCORES. Without it two reps files are indistinguishable
+            # from two commits, and `compare` will happily contrast a vendor effect with a code change.
+            json.dump({"model": args.model, "repo": args.repo, "git_sha": runlog.git_sha(args.repo),
+                       "reps_requested": reps, "reps": all_reps},
                       open(os.path.join(args.out, "sufficiency-reps.json"), "w"), indent=2)
             scored = [x["sufficiency"] for rep in all_reps for x in rep["results"]
                       if x.get("sufficiency") is not None]
@@ -252,7 +258,12 @@ def main(argv=None):
         os.makedirs(args.out, exist_ok=True)
         a = compare_mod.load_reps(args.a)
         b = compare_mod.load_reps(args.b)
-        res = compare_mod.compare(a, b, margin=args.margin)
+        try:
+            res = compare_mod.compare(a, b, margin=args.margin,
+                                      allow_sha_mismatch=args.allow_sha_mismatch)
+        except ValueError as e:
+            print(f"refusing to compare: {e}")
+            raise SystemExit(2)
         json.dump(res, open(os.path.join(args.out, "compare.json"), "w"), indent=2)
         if "error" in res:
             print(f"cannot compare: {res['error']}")

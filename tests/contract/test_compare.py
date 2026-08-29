@@ -1,6 +1,8 @@
 """Contract tests for `compare` — one per acceptance row in spec_eval/compare.md §7."""
 import json
 
+import pytest
+
 from spec_eval import compare
 
 
@@ -90,7 +92,7 @@ def test_ac6_plain_sufficiency_json_loads_as_one_rep(tmp_path):
     p = tmp_path / "sufficiency.json"
     p.write_text(json.dumps([{"label": "p1", "sufficiency": 0.8},
                              {"label": "p2", "sufficiency": 0.6}]))
-    vendor, by_label = compare.load_reps(str(p))
+    vendor, by_label, _sha = compare.load_reps(str(p))
     assert by_label == {"p1": [0.8], "p2": [0.6]}
 
 
@@ -168,3 +170,41 @@ def test_ac11_zero_variance_pair_is_excluded_from_the_bh_family(tmp_path):
     assert "flat" in r["bh_excluded"]
     assert r["bh_family_size"] == 2 and r["bh_family_size"] < r["pairs_n"]
     assert next(x for x in r["per_pair_delta"] if x["pair"] == "flat")["p_value"] is None
+
+
+def _reps_sha(tmp_path, name, model, per_pair, sha):
+    """A reps file carrying a subject SHA, as `sufficiency` now writes."""
+    n = max(len(v) for v in per_pair.values())
+    reps = [{"rep": i + 1, "results": [{"label": lbl, "sufficiency": s[i]} for lbl, s in per_pair.items()]}
+            for i in range(n)]
+    p = tmp_path / name
+    p.write_text(json.dumps({"model": model, "git_sha": sha, "reps": reps}))
+    return compare.load_reps(str(p))
+
+
+def test_compare_refuses_two_different_subjects(tmp_path):
+    """Two arms on two commits mix a vendor effect with a code change. That is a different measurement,
+    not a caveat — and it is the defect this guard exists to stop recurring."""
+    scores = {"p1": [0.8, 0.8], "p2": [0.6, 0.6], "p3": [0.4, 0.4]}
+    a = _reps_sha(tmp_path, "a.json", "A", scores, "aaaaaaa")
+    b = _reps_sha(tmp_path, "b.json", "B", scores, "bbbbbbb")
+    with pytest.raises(ValueError, match="DIFFERENT SUBJECTS"):
+        compare.compare(a, b)
+    r = compare.compare(a, b, allow_sha_mismatch=True)      # deliberate cross-commit comparison still possible
+    assert r["delta"] == 0.0
+
+
+def test_matching_shas_compare_normally(tmp_path):
+    scores = {"p1": [0.8, 0.9], "p2": [0.6, 0.5], "p3": [0.4, 0.45]}
+    a = _reps_sha(tmp_path, "a.json", "A", scores, "deadbee")
+    b = _reps_sha(tmp_path, "b.json", "B", scores, "deadbee")
+    assert compare.compare(a, b)["pairs_n"] == 3
+
+
+def test_a_missing_sha_on_either_side_does_not_block(tmp_path):
+    """Older artifacts carry no SHA. The guard fires on a known MISMATCH, never on absence — otherwise it
+    would refuse every file written before the stamp existed."""
+    scores = {"p1": [0.8, 0.8], "p2": [0.6, 0.6], "p3": [0.4, 0.4]}
+    a = _reps_sha(tmp_path, "a.json", "A", scores, "aaaaaaa")
+    b = _reps(tmp_path, "b.json", "B", scores)             # no git_sha key at all
+    assert compare.compare(a, b)["pairs_n"] == 3
