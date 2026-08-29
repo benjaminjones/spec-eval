@@ -3,7 +3,9 @@ from spec_eval import providers
 
 
 class _Err(Exception):
-    def __init__(self, msg, status): super().__init__(msg); self.status_code = status
+    def __init__(self, msg, status):
+        super().__init__(msg)
+        self.status_code = status
 
 
 def test_only_the_specific_404_triggers_the_fallback():
@@ -70,9 +72,14 @@ def test_incomplete_status_is_recorded_as_truncated():
 
 
 def test_text_is_assembled_when_output_text_is_absent():
-    class _Part: text = "wor"
-    class _Part2: text = "ld"
-    class _Item: content = [_Part(), _Part2()]
+    class _Part:
+        text = "wor"
+
+    class _Part2:
+        text = "ld"
+
+    class _Item:
+        content = [_Part(), _Part2()]
     class _NoConvenience(_Resp):
         output_text, output = None, [_Item()]
 
