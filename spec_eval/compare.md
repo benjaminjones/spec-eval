@@ -67,7 +67,8 @@ in the difference instead of inflating the effect.
 - **INV-7** Intervals use **Student t at `df = n−1`**, never a normal quantile.
 - **INV-8** With no `--margin`, **no `tost_equivalent` key is emitted** — absence, not `false`, and never a defaulted `true`.
 - **INV-9** A pair with zero within-pair variance gets `p_value: null` with a reason and is listed in `bh_excluded`; `bh_family_size` reports what was actually corrected over.
-- **INV-10** `noise_share` **rises with noise** — it is the complement of a classic ICC, and carries a
+- **INV-10** If both inputs carry a `git_sha` and they **differ**, `compare` **raises** rather than reporting — two arms on two commits mix a vendor effect with a code change. A missing SHA on either side never blocks, so pre-stamp artifacts still load.
+- **INV-11** `noise_share` **rises with noise** — it is the complement of a classic ICC, and carries a
   `definition` field saying so on every emission.
 
 ## 7. What it does not do
@@ -93,3 +94,5 @@ in the difference instead of inflating the effect.
 | **AC-10** | the same file on both sides | `delta` = 0 and exactly **one** noise share |
 | **AC-11** | a pair with zero within-pair variance | `p_value` null with a reason, and the pair in `bh_excluded` |
 | **AC-12** | no `--margin` supplied | `m_star` present, `tost_equivalent` absent |
+| **AC-13** | two inputs with different `git_sha` | `ValueError` naming both SHAs; `--allow-sha-mismatch` overrides |
+| **AC-14** | one input with no `git_sha` | compares normally — absence is not a mismatch |

@@ -109,10 +109,12 @@ def load_reps(path, vendor=None):
     maximally bad spec, which is the one error that would masquerade as a finding.
     """
     d = json.load(open(path))
+    sha = None
     if isinstance(d, list):                       # a plain sufficiency.json — one rep
         reps, vendor = [{"rep": 1, "results": d}], vendor or path
     elif isinstance(d, dict) and "reps" in d:
         reps, vendor = d["reps"], vendor or d.get("model") or path
+        sha = d.get("git_sha")
     else:
         raise ValueError(
             f"{path} is neither a sufficiency.json (a list of pair records) nor a sufficiency-reps.json "
@@ -127,7 +129,7 @@ def load_reps(path, vendor=None):
             by_label.setdefault(rec["label"], []).append(float(s))
     if not by_label:
         raise ValueError(f"{path} contained no scored pairs — every `sufficiency` value was null or absent")
-    return vendor, by_label
+    return vendor, by_label, (sha if isinstance(d, dict) else None)
 
 
 def noise(by_label):
@@ -159,10 +161,22 @@ def noise(by_label):
             "pairs_with_replication": len(within)}
 
 
-def compare(a, b, margin=None, alpha=0.05):
-    """Paired vendor contrast. `a` and `b` are (vendor, {label: [scores]}) from load_reps."""
-    va, la = a
-    vb, lb = b
+def compare(a, b, margin=None, alpha=0.05, allow_sha_mismatch=False):
+    """Paired vendor contrast. `a` and `b` are (vendor, {label: [scores]}, sha) from load_reps.
+
+    REFUSES TWO DIFFERENT SUBJECTS. If both sides carry a subject SHA and the SHAs differ, the two arms
+    graded different code and the difference between them is a vendor effect confounded with a code change.
+    That is not a caveat to note in the output — it is a different measurement, and the caller almost
+    certainly did not mean to make it.
+    """
+    va, la, sha_a = (a if len(a) == 3 else (*a, None))
+    vb, lb, sha_b = (b if len(b) == 3 else (*b, None))
+    if sha_a and sha_b and sha_a != sha_b and not allow_sha_mismatch:
+        raise ValueError(
+            f"the two runs graded DIFFERENT SUBJECTS: {va} at {sha_a}, {vb} at {sha_b}. Their difference "
+            f"mixes a vendor effect with a code change and is not interpretable as either. Re-run one arm "
+            f"at the other's commit, or pass allow_sha_mismatch=True if you genuinely intend to compare "
+            f"across commits.")
     shared = sorted(set(la) & set(lb))
     dropped = sorted((set(la) | set(lb)) - set(shared))
     diffs = {p: _mean(la[p]) - _mean(lb[p]) for p in shared}
