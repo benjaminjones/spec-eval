@@ -67,6 +67,13 @@ def main(argv=None):
                                  description="Portable spec coverage + drift + sufficiency + authoring.")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
+    def _add_max_calls(p):
+        p.add_argument("--max-calls", type=int, default=None, metavar="N",
+                       help="HARD ceiling on model calls for this run. The call count is knowable in "
+                            "advance (pairs x reps), so exceeding it means a loop or a retry storm — the "
+                            "run aborts rather than spending further. Unset = unlimited.")
+
+
     def model_args(p):
         p.add_argument("repo", metavar="PROJECT_DIR", help="path to the project — a repo root, a subdirectory, or a single code file")
         p.add_argument("--config", "-c", default=None,
@@ -88,6 +95,7 @@ def main(argv=None):
     _suff = sub.add_parser("sufficiency", help="SUFFICIENCY: how completely do the specs capture the code's "
                                                "behavior? (needs a model)")
     model_args(_suff)
+    _add_max_calls(_suff)
     _suff.add_argument("--reps", type=int, default=1, metavar="N",
                        help="score every pair N times and write every rep (default 1). N>1 makes the "
                             "instrument's own spread visible; feed the output to `compare`.")
@@ -203,6 +211,9 @@ def main(argv=None):
         if os.path.isfile(args.repo):
             args.repo, cfg = _file_scope(args.repo, cfg)
         os.makedirs(args.out, exist_ok=True)
+        if getattr(args, "max_calls", None):
+            providers.set_max_calls(args.max_calls)
+            print(f"call ceiling: {args.max_calls} — the run aborts rather than exceeding it")
         reps = max(1, int(getattr(args, "reps", 1)))
         all_reps = []
         for i in range(reps):
