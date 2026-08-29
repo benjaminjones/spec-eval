@@ -128,6 +128,41 @@ def _gen_claude_code(model, system, user):
     return d.get("result") or ""
 
 
+def _wants_responses_endpoint(exc):
+    """True only for the specific 404 that names v1/responses. Never a blanket retry.
+
+    A broad `except` here would silently re-issue a call after a rate limit, an auth failure or a bad
+    request — turning one billable error into two. The API states this condition in words; match on it.
+    """
+    if getattr(exc, "status_code", None) != 404:
+        return False
+    return "v1/responses" in str(exc)
+
+
+def _gen_openai_responses(client, model, system, user, max_tokens):
+    """The v1/responses path. Token fields are named differently and the reply is assembled, not indexed."""
+    r = client.responses.create(
+        model=model,
+        instructions=system,
+        input=user,
+        max_output_tokens=max_tokens)
+    u = getattr(r, "usage", None)
+    # responses reports input_tokens/output_tokens; chat reports prompt_tokens/completion_tokens.
+    _track(getattr(u, "input_tokens", 0) if u else 0,
+           getattr(u, "output_tokens", 0) if u else 0,
+           truncated=(getattr(r, "status", None) == "incomplete"))
+    text = getattr(r, "output_text", None)
+    if text:
+        return text
+    # output_text is a convenience field and is absent on some shapes; assemble it rather than fail.
+    parts = []
+    for item in (getattr(r, "output", None) or []):
+        for c in (getattr(item, "content", None) or []):
+            if getattr(c, "text", None):
+                parts.append(c.text)
+    return "".join(parts)
+
+
 def gen(model_spec, system, user, max_tokens=1200):
     _guard()                     # before the request, so the ceiling counts calls MADE
     prov, model = parse_model(model_spec)
@@ -147,11 +182,22 @@ def gen(model_spec, system, user, max_tokens=1200):
         if "openai" not in _clients:
             from openai import OpenAI
             _clients["openai"] = OpenAI()                       # reads OPENAI_API_KEY
-        r = _clients["openai"].chat.completions.create(
-            model=model, messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
-        _track(r.usage.prompt_tokens, r.usage.completion_tokens,
-               truncated=(getattr(r.choices[0], "finish_reason", None) == "length" if r.choices else False))
-        return r.choices[0].message.content or ""
+        client = _clients["openai"]
+        # CHAT COMPLETIONS FIRST, RESPONSES ON FALLBACK. Newer OpenAI models (the reasoning and codex
+        # families) are served only from v1/responses and return a 404 from v1/chat/completions naming it.
+        # Routing on the model NAME would be a guess that rots with every release; routing on the API's own
+        # error is a fact. Existing models keep the path they have always used.
+        try:
+            r = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
+            _track(r.usage.prompt_tokens, r.usage.completion_tokens,
+                   truncated=(getattr(r.choices[0], "finish_reason", None) == "length" if r.choices else False))
+            return r.choices[0].message.content or ""
+        except Exception as exc:
+            if not _wants_responses_endpoint(exc):
+                raise
+            return _gen_openai_responses(client, model, system, user, max_tokens)
     if prov == "google":
         from google import genai
         from google.genai import types

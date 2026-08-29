@@ -36,6 +36,16 @@ This module lets the rest of the system ask a large-language model a question an
 
 **Usage tracking.** Every successful call adds its input and output token counts to `USAGE` and increments `calls`. Token counts are read from each vendor's usage metadata and treated as 0 when absent. For the `claude-code` bridge, the input count is the sum of the envelope's plain and cached input tokens — the tokens actually processed — since the CLI reports cached input separately. **Why:** token totals are exact and reported as-is; the tool deliberately does not translate them into a dollar figure — prices vary by model and change over time, so pricing belongs outside the tool.
 
+**OpenAI endpoint routing.** An `openai:` call is issued against `v1/chat/completions` first. If — and
+only if — the API answers **404 naming `v1/responses`**, the same call is re-issued against
+`client.responses`. Newer reasoning and codex models are served only from that endpoint. **Why route on the
+error and not the model name:** a name-based rule is a guess that rots with every release, while the API
+states the condition in words. The retry is deliberately narrow — a broad `except` would re-issue after a
+rate limit or an auth failure, turning one billable error into two. The `responses` path maps
+`input_tokens`/`output_tokens` onto the same usage counters as chat's `prompt_tokens`/`completion_tokens`,
+because mixing them would silently under-report the spend a budgeted run is measured against, and it treats
+`status == "incomplete"` as truncation.
+
 **Truncation detection.** Every reply's stop/finish reason is checked: when the vendor reports the reply was cut off at the token cap (anthropic `max_tokens`, openai `length`, google `MAX_TOKENS`), the call is recorded as truncated — `LAST["truncated"]` for the call just made, `USAGE["truncated"]` as a running tally. The bridge's envelope exposes no stop reason, so bridge calls never set the flag. **Why:** a capped reply can pass off a partial answer as complete; callers read the flag to surface the partial view instead of staying silent.
 
 **Error semantics.** An unrecognized provider raises `ValueError` naming the offending provider and listing the valid prefixes.
