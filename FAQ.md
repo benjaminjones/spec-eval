@@ -304,8 +304,17 @@ to the codebase; explain jargon in plain words") and pass it with `--template`
 (see [How do I change the spec template?](#how-do-i-change-the-spec-template)).
 
 Either way, let the tools check the rewrite: `audit` catches a simplification that now *contradicts* the
-code, and `sufficiency` catches one that *dropped* behavior. If both hold steady, that's strong evidence the
-plainer wording lost nothing that matters. Rewrite in small batches and review the diffs like any code change.
+code, and `sufficiency` catches one that *dropped* behavior.
+
+**Read `sufficiency`'s gaps list, not its score.** The two are not interchangeable, and the gaps list is the
+one that answers this question. A rewrite that drops a documented behavior reliably shows up as a new entry
+in the list naming that behavior; the same drop may or may not move the decimal, because the score is a
+summary that also wobbles on its own between identical runs. Watch the score alone and you can miss a real
+omission. This is the same rule the README gives for reading two vendors' reports — compare the gaps lists,
+not the decimals — and it applies just as much to comparing a rewrite against the text it replaced.
+
+So: if `audit` stays clean and the gaps list grows no new entry, that's good evidence the plainer wording
+lost nothing that matters. Rewrite in small batches and review the diffs like any code change.
 
 ## Keeping specs current
 
