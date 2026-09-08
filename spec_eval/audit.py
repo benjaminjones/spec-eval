@@ -109,10 +109,10 @@ def rubric_from(config, key, default, repo="."):
     """The grading rubric, config-overridable per check: `rubric: {sufficiency, drift}` → a FILE path.
 
     WHY THIS EXISTS. Both shipped rubrics are written for code and require a `code_ref` of the form
-    `file.py (function_or_class)`. Point either check at documents that are not code — a paper, a policy,
-    a spec compared against an earlier spec — and that pointer cannot exist, so the model invents one and
-    the finding cannot be located in the text. Overriding the rubric is the supported way to ask the same
-    two questions (what does the candidate OMIT, what does it CONTRADICT) about a different kind of pair.
+    `file.py (function_or_class)`. Point either check at a pair that is not code and that pointer cannot
+    exist, so the model invents one and the finding cannot be located. Overriding the rubric is the
+    supported way to ask the same two questions — what does the candidate OMIT, what does it CONTRADICT
+    — about a different kind of pair.
 
     A path rather than an inline string: rubrics run to a paragraph or more, and a file is reviewable,
     diffable and version-controlled, which an inline YAML block is not. Relative paths resolve against

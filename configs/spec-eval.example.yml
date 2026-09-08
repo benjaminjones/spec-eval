@@ -29,12 +29,11 @@ exclude: []          # extra globs to treat as NOT spec-worthy, e.g. ["**/migrat
 
 # rubric — the grading rubric per check, as a FILE path: `rubric.sufficiency`, `rubric.drift`.
 #   Both shipped rubrics are written for CODE and require a `code_ref` like `parser.py (parse_headers)`.
-#   Point a check at documents that are not code — a paper, a policy, a spec against an earlier spec —
-#   and that pointer cannot exist, so the model invents one and the finding cannot be located. Override
-#   the rubric to ask the same two questions (what is OMITTED, what is CONTRADICTED) about a different
-#   kind of pair. Relative paths resolve against the project directory. A missing or empty file is an
-#   ERROR, never a silent fallback — a run that quietly grades against the wrong rubric looks exactly
-#   like one that works.
+#   Point a check at a pair that is not code and that pointer cannot exist, so the model invents one and
+#   the finding cannot be located. Override the rubric to ask the same two questions — what is OMITTED,
+#   what is CONTRADICTED — about a different kind of pair. Relative paths resolve against the project
+#   directory. A missing or empty file is an ERROR, never a silent fallback — a run that quietly grades
+#   against the wrong rubric looks exactly like one that works.
 #   Writing one: the parsers keep a CLOSED schema, so a custom pointer (a verbatim quote, a line range)
 #   must ride in `code_ref` to survive. Any other key you ask for is dropped silently.
 # rubric:

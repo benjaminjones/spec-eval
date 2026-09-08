@@ -104,33 +104,31 @@ checks will grade them:
 
 ```yaml
 pairs:
-  - label: paper
+  - label: doc
     code: [source.md]        # the trusted document
-    docs: [rewrite.md]       # the one being checked against it
+    docs: [candidate.md]     # the one being checked against it
 ```
 
 **But the shipped rubrics are written for code**, and both require a `code_ref` like
 `parser.py (parse_headers)`. A prose document has no functions, so the model invents a pointer and the
-finding cannot be located in the text. Override the rubric to fix that:
+finding cannot be located. Override the rubric to fix that:
 
 ```yaml
 rubric:
-  sufficiency: rubrics/prose-sufficiency.md
-  drift: rubrics/prose-drift.md
+  sufficiency: rubrics/my-sufficiency.md
+  drift: rubrics/my-drift.md
 ```
 
 Ask the same two questions the built-in rubrics ask — *what does the candidate omit*, *what does it
-contradict* — and require a **verbatim quote** as the pointer instead of a symbol name. A quote anchors by
-exact string match, so a finding can be highlighted in the document with no fuzzy matching.
+contradict* — and require a pointer the pair can actually carry.
 
-**One gotcha worth knowing before you write one.** The parsers keep a **closed schema**: `sufficiency`
-keeps `severity`, `missing` and `code_ref`; `audit` keeps `severity`, `class`, `summary`, `code_ref`,
-`doc_ref`, `evidence` and `suggestion`. **Any other key you ask the model for is dropped silently** — so a
-custom pointer must ride in `code_ref`, or it will vanish with no error and every finding will look
-unanchored.
+**One gotcha before you write one.** The parsers keep a **closed schema**: `sufficiency` keeps `severity`,
+`missing` and `code_ref`; `audit` keeps `severity`, `class`, `summary`, `code_ref`, `doc_ref`, `evidence`
+and `suggestion`. **Any other key you ask the model for is dropped silently** — so a custom pointer must
+ride in `code_ref`, or it vanishes with no error and every finding looks unanchored.
 
-A missing or empty rubric file is an error rather than a fallback to the default, because a run that
-quietly grades against the wrong rubric produces a well-formed report and a plausible score.
+A missing or empty rubric file is an error rather than a fallback, because a run that quietly grades
+against the wrong rubric produces a well-formed report and a plausible score.
 
 ### Can I run `audit` / `sufficiency` without an API key?
 
