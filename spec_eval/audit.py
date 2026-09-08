@@ -1,5 +1,6 @@
 """Audit a repo's configured code↔doc pairs for drift. Filesystem-based, portable (repo path is an argument)."""
 import os
+import pathlib
 import re
 import json
 import glob
@@ -104,6 +105,39 @@ def caps_from(config):
     return int(c.get("code", CODE_CAP)), int(c.get("docs", DOC_CAP))
 
 
+def rubric_from(config, key, default, repo="."):
+    """The grading rubric, config-overridable per check: `rubric: {sufficiency, drift}` → a FILE path.
+
+    WHY THIS EXISTS. Both shipped rubrics are written for code and require a `code_ref` of the form
+    `file.py (function_or_class)`. Point either check at documents that are not code — a paper, a policy,
+    a spec compared against an earlier spec — and that pointer cannot exist, so the model invents one and
+    the finding cannot be located in the text. Overriding the rubric is the supported way to ask the same
+    two questions (what does the candidate OMIT, what does it CONTRADICT) about a different kind of pair.
+
+    A path rather than an inline string: rubrics run to a paragraph or more, and a file is reviewable,
+    diffable and version-controlled, which an inline YAML block is not. Relative paths resolve against
+    the project directory. A missing or empty file is an error, never a silent fallback to the default —
+    a run that quietly grades against the wrong rubric is indistinguishable from one that works.
+
+    WRITING ONE: the parsers keep a CLOSED schema. `sufficiency` keeps `severity`, `missing` and
+    `code_ref`; `audit` keeps `severity`, `class`, `summary`, `code_ref`, `doc_ref`, `evidence` and
+    `suggestion`. Any other key you ask the model for is dropped silently, so a custom pointer — a
+    verbatim quote, a line range, a section id — must ride in `code_ref` to survive.
+    """
+    v = ((config or {}).get("rubric") or {}).get(key)
+    if v is None:
+        return default
+    p = pathlib.Path(v)
+    if not p.is_absolute():
+        p = pathlib.Path(repo) / p
+    if not p.is_file():
+        raise SystemExit(f"rubric.{key}: no such file: {p}")
+    text = p.read_text(encoding="utf-8").strip()
+    if not text:
+        raise SystemExit(f"rubric.{key}: file is empty: {p}")
+    return text
+
+
 def rationale_markers_from(config):
     """The line-leading prefixes that mark a rationale clause, config-overridable: `rationale_markers: [...]`.
 
@@ -144,7 +178,8 @@ def truncation_notes(code_capped, doc_capped, code_cap=CODE_CAP, doc_cap=DOC_CAP
     return notes
 
 
-def audit_pair(repo, pair, model, code_cap=CODE_CAP, doc_cap=DOC_CAP, markers=RATIONALE_MARKERS):
+def audit_pair(repo, pair, model, code_cap=CODE_CAP, doc_cap=DOC_CAP, markers=RATIONALE_MARKERS,
+               rubric=None):
     code, nc, code_capped = _read_globs(repo, pair.get("code", []), code_cap)
     doc, nd, doc_capped = _read_globs(repo, pair.get("docs", []), doc_cap)
     if nc == 0 or nd == 0:
@@ -154,7 +189,7 @@ def audit_pair(repo, pair, model, code_cap=CODE_CAP, doc_cap=DOC_CAP, markers=RA
     # exactly the line this masks, so filtering there would reject every correct use of that ground.
     doc, masked = mask_rationale(doc, markers)
     user = f"# Drift review: {pair['label']}\n\n## Code\n```\n{code}\n```\n\n## Docs / spec\n{doc}\n"
-    findings = parse_findings(providers.gen(model, DRIFT_RUBRIC, user, max_tokens=REVIEW_MAX_TOKENS))   # headroom: a truncated findings list is unparseable
+    findings = parse_findings(providers.gen(model, rubric or DRIFT_RUBRIC, user, max_tokens=REVIEW_MAX_TOKENS))   # headroom: a truncated findings list is unparseable
     rec = {"label": pair["label"], "code_files": nc, "doc_files": nd, "findings": findings}
     if masked:
         rec["rationale_masked"] = masked
@@ -169,4 +204,5 @@ def audit_repo(repo, config, model):
     pairs = config.get("pairs") or coverage_mod.infer_pairs(repo, config)   # co-located specs need no pairs.yml
     code_cap, doc_cap = caps_from(config)
     markers = rationale_markers_from(config)
-    return [audit_pair(repo, p, model, code_cap, doc_cap, markers) for p in pairs]
+    rubric = rubric_from(config, "drift", DRIFT_RUBRIC, repo)
+    return [audit_pair(repo, p, model, code_cap, doc_cap, markers, rubric) for p in pairs]
