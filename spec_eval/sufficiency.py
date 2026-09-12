@@ -26,7 +26,7 @@ SUFFICIENCY_RUBRIC = (
 )
 
 
-def sufficiency_pair(repo, pair, model, code_cap=None, doc_cap=None):
+def sufficiency_pair(repo, pair, model, code_cap=None, doc_cap=None, rubric=None):
     code_cap = audit.CODE_CAP if code_cap is None else code_cap
     doc_cap = audit.DOC_CAP if doc_cap is None else doc_cap
     code, nc, code_capped = audit._read_globs(repo, pair.get("code", []), code_cap)
@@ -35,7 +35,7 @@ def sufficiency_pair(repo, pair, model, code_cap=None, doc_cap=None):
         return {"label": pair["label"], "skipped": f"no files matched (code={nc}, docs={nd})",
                 "sufficiency": None, "gaps": []}
     user = f"# Sufficiency review: {pair['label']}\n\n## Code\n```\n{code}\n```\n\n## Spec\n{doc}\n"
-    resp = providers.gen(model, SUFFICIENCY_RUBRIC, user, max_tokens=audit.REVIEW_MAX_TOKENS)   # same budget as drift — a truncated gap list is unparseable
+    resp = providers.gen(model, rubric or SUFFICIENCY_RUBRIC, user, max_tokens=audit.REVIEW_MAX_TOKENS)   # same budget as drift — a truncated gap list is unparseable
     notes = audit.truncation_notes(code_capped, doc_capped, code_cap, doc_cap)
     d = audit.first_json_object(resp, "sufficiency", "gaps")
     if d is not None:
@@ -64,4 +64,5 @@ def sufficiency_repo(repo, config, model):
     from . import coverage as coverage_mod
     pairs = config.get("pairs") or coverage_mod.infer_pairs(repo, config)   # co-located specs need no pairs.yml
     code_cap, doc_cap = audit.caps_from(config)
-    return [sufficiency_pair(repo, p, model, code_cap, doc_cap) for p in pairs]
+    rubric = audit.rubric_from(config, "sufficiency", SUFFICIENCY_RUBRIC, repo)
+    return [sufficiency_pair(repo, p, model, code_cap, doc_cap, rubric) for p in pairs]

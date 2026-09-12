@@ -9,6 +9,7 @@ Grouped by theme, from getting-started basics to scoring details. New here? Star
   - [Does it work for front-end code?](#does-it-work-for-front-end-code)
 - [Running the checks](#running-the-checks)
   - [Can I check a single folder or a single file?](#can-i-check-a-single-folder-or-a-single-file)
+  - [Can I use it on documents that aren't code?](#can-i-use-it-on-documents-that-arent-code)
   - [Can I run `audit` / `sufficiency` without an API key?](#can-i-run-audit--sufficiency-without-an-api-key)
   - [Can I set the commands up as slash commands?](#can-i-set-the-commands-up-as-slash-commands)
   - [How much does a run cost?](#how-much-does-a-run-cost)
@@ -95,6 +96,39 @@ spec-eval audit . --config one-pair.yml
 (default ~64k characters of code, ~28k of spec — adjustable with a `caps:` block in a config), so very large
 groups are judged on a truncated view. Prefer smaller,
 focused pairs when you can.
+
+### Can I use it on documents that aren't code?
+
+Yes, with one change. The pair machinery is content-agnostic — name any two file sets in a config and both
+checks will grade them:
+
+```yaml
+pairs:
+  - label: doc
+    code: [source.md]        # the trusted document
+    docs: [candidate.md]     # the one being checked against it
+```
+
+**But the shipped rubrics are written for code**, and both require a `code_ref` like
+`parser.py (parse_headers)`. A prose document has no functions, so the model invents a pointer and the
+finding cannot be located. Override the rubric to fix that:
+
+```yaml
+rubric:
+  sufficiency: rubrics/my-sufficiency.md
+  drift: rubrics/my-drift.md
+```
+
+Ask the same two questions the built-in rubrics ask — *what does the candidate omit*, *what does it
+contradict* — and require a pointer the pair can actually carry.
+
+**One gotcha before you write one.** The parsers keep a **closed schema**: `sufficiency` keeps `severity`,
+`missing` and `code_ref`; `audit` keeps `severity`, `class`, `summary`, `code_ref`, `doc_ref`, `evidence`
+and `suggestion`. **Any other key you ask the model for is dropped silently** — so a custom pointer must
+ride in `code_ref`, or it vanishes with no error and every finding looks unanchored.
+
+A missing or empty rubric file is an error rather than a fallback, because a run that quietly grades
+against the wrong rubric produces a well-formed report and a plausible score.
 
 ### Can I run `audit` / `sufficiency` without an API key?
 
