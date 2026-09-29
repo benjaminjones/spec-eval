@@ -15,7 +15,7 @@ This module turns the raw results of a spec-vs-code audit into the **legible pro
 | **Pair** | One audited unit (a code/doc module pairing), carried as a result record with a `label`. |
 | **Finding** | A drift item on a pair: `severity` ∈ {high, medium, low, ...}, `summary`, optional `code_ref`, `doc_ref`, `evidence`, `suggestion`. |
 | **Evidence block** | The finding's quoted code and doc snippets, rendered as a four-space-indented fenced block so a multi-line quote stays inside its list item. Fences inside the quote are neutralized so they cannot close the block early. |
-| **Drift load** | Count of a pair's findings whose severity is `high` or `medium` **and which were not withdrawn by the verification pass**. Integer ≥ 0. |
+| **Drift load** | Count of a pair's findings whose severity is `high` or `medium` **and which were neither withdrawn by the verification pass nor classed `stale`**. Integer ≥ 0. |
 | **Withdrawn finding** | A finding the optional second pass judged not supported by its document. It carries a `verification` verdict naming the ground and quoting the doc line. Kept in the report, struck through, and excluded from the drift load. |
 | **Skipped pair** | A result carrying a truthy `skipped` reason string; excluded from all counts and fingerprints. |
 | **Stale finding** | A finding whose `class` is `stale`: the doc states a declarative *value* (default, threshold, constant, CLI flag default) and the code carries a different one. **Shown in the report, not counted in the drift load** — a value defines a term rather than constraining behaviour, so it cannot be violated, only outdated. Rendered `**[stale · severity]**`. Absent class reads as `drift`. |
@@ -89,8 +89,8 @@ Both reports read `providers.USAGE['calls']` at render time — the header state
 | AC-9 | a finding whose `evidence` itself contains a ``` fence | render drift bullet | the rendered block contains exactly two fences — its own — so the report cannot spill into a code block. |
 | AC-10 | a finding whose `evidence` is the empty string | render drift bullet | no `*evidence:*` block is emitted. |
 | AC-4 | pairs with sufficiency 0.4, 0.9, and one `None` | `write_sufficiency_markdown` | per-module detail order is 0.4, 0.9, then the `None` pair last; average = 0.65. |
-| AC-9 | One pair with one `drift` and one `stale` high finding | `write_markdown` | headline reads `1 high/medium drift finding(s)`; both findings appear; the stale one renders `**[stale · high]**`. |
-| AC-8 | 2 pairs, one with no findings and `truncated` naming the reply cap, one with an input cap | `write_markdown` | first reads `⚠ not graded` in header and fingerprint and leaves the denominator (`across 1 graded pair(s) (2 attempted)`); second still reads `✓ clean`. |
+| AC-13 | One pair with one `drift` and one `stale` high finding | `write_markdown` | headline reads `1 high/medium drift finding(s)`; both findings appear; the stale one renders `**[stale · high]**`. |
+| AC-12 | 2 pairs, one with no findings and `truncated` naming the reply cap, one with an input cap | `write_markdown` | first reads `⚠ not graded` in header and fingerprint and leaves the denominator (`across 1 graded pair(s) (2 attempted)`); second still reads `✓ clean`. |
 | AC-5 | no scored pairs | `write_sufficiency_markdown` | average = 0.00; sufficiency fingerprint omitted. |
 | AC-6 | `sufficiency = 1.0` | `_bar(1.0)` | returns 20 `█` and 0 `░`. |
 | AC-7 | `include_fingerprint=False` | either report | no fingerprint table appears in output. |
