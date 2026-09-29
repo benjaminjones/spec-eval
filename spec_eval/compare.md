@@ -62,8 +62,9 @@ in the difference instead of inflating the effect.
 - **INV-3** `mde_80pct_power` is emitted on every run, including when the result is null.
 - **INV-4** `tost_equivalent` is true **only** if `-margin < ci90.low` and `ci90.high < margin`.
 - **INV-5** A `--reps 1` input yields `noise_share: null` with an `unavailable_because` reason, never `0`.
-- **INV-6** When both sides carry the same vendor name, the `noise` keys are disambiguated rather than
-  collapsed — two runs of one model is a reproducibility check, not one run.
+- **INV-6** When both sides carry the same vendor name **but different scores**, the `noise` keys are
+  disambiguated rather than collapsed — two runs of one model is a reproducibility check, not one run.
+  The same file on both sides is one run, and collapses to a single `noise` key.
 - **INV-7** Intervals use **Student t at `df = n−1`**, never a normal quantile.
 - **INV-8** With no `--margin`, **no `tost_equivalent` key is emitted** — absence, not `false`, and never a defaulted `true`.
 - **INV-9** A pair with zero within-pair variance gets `p_value: null` with a reason and is listed in `bh_excluded`; `bh_family_size` reports what was actually corrected over.
