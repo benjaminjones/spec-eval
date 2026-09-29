@@ -115,7 +115,7 @@ spec-eval audit . --config pairs.yml
 
 ## Choosing a layout
 
-Four shapes — the first three are one flag; the fourth adds a config:
+Four shapes — the first is the default, the next two are one flag; the fourth adds a config:
 
 | You want | Command |
 |---|---|
