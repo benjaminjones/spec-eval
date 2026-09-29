@@ -13,7 +13,7 @@ skill produces that. It **generates** the spec artifact; the sibling **spec-chec
 
 Runs in your coding-agent session (Claude Code, Copilot, Cursor) — no API key, no setup.
 
-## The three layers (produce all three)
+## The three layers (produce all three — the OVERVIEW layer when the user asks for one)
 Trust you can lead with — often working from the spec, reaching for the code when you choose — comes from **layering**, where each doc names its source of truth and defers downward. **By default every file is co-located** — a spec sits *beside* its code (`src/x.py` → `src/x.md`); a separate folder (`spec/`, `docs/`) is an explicit choice the user names, never a default you invent (see "Where the files go" below):
 
 1. **OVERVIEW — the *shape*** (`OVERVIEW.md`, at the top of the path you spec): a navigation root — module map +
@@ -193,8 +193,9 @@ a **deliberate** act — the CLI gates it behind `--add-section`, and a doc that
 > scanner-detected), then a pure data-flow `flowchart LR` whose external systems come only from the observed
 > scan, internal edges marked inferred (not verified against a call graph).
 
-**On the fingerprint stamp.** Never hand-write a digest, and don't ask an agent to. `spec-eval diagram <path>
---write` is the only thing that stamps, and it stamps what *it* draws — it regenerates the section and writes
+**On the fingerprint stamp.** Never hand-write a digest, and don't ask an agent to. Besides the receipts
+`generate --overview` writes on the overview it authors, `spec-eval diagram <path> --write` is the only thing
+that stamps, and it stamps what *it* draws — it regenerates the section and writes
 the matching receipt in one step, so run it **instead of** a hand edit, not after one (running it after
 replaces the hand-written diagram). A hand-edited section simply carries no stamp, and an unstamped doc is
 never flagged stale — an honest silence, not a false receipt.
