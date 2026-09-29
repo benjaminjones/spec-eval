@@ -46,13 +46,22 @@ def test_parse_findings_missing_evidence_is_empty_not_absent():
     assert out[0]["evidence"] == ""
 
 
+FINDING_KEYS = {"severity", "class", "summary", "code_ref", "doc_ref", "evidence", "suggestion"}
+
+
 def test_unparsed_fallback_carries_the_same_key_set():
-    """The regex fallback used to emit a two-key finding while the parsed path emitted six. Any consumer
-    indexing a field on a finding would raise on exactly the responses that are already going wrong."""
+    """The regex fallback used to emit a two-key finding while the parsed path emitted the full set. Any
+    consumer indexing a field on a finding would raise on exactly the responses that are already going
+    wrong.
+
+    The equality alone does not pin WHAT the set is — both paths could grow a key together and still
+    agree — so the declared enumeration is asserted too. `audit.md` INV-5 names these seven keys, and a
+    reader is entitled to index any of them unconditionally."""
     parsed = audit.parse_findings('{"findings": [{"severity": "high", "summary": "x"}]}')
     fallback = audit.parse_findings('garbled ... "severity": "high" ... not json')
     assert len(fallback) == 1
     assert set(fallback[0]) == set(parsed[0])
+    assert set(parsed[0]) == FINDING_KEYS
     assert fallback[0]["evidence"] == "" and fallback[0]["code_ref"] is None
 
 
