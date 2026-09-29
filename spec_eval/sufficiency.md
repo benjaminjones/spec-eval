@@ -8,7 +8,7 @@ This module gives the system the ability to score how much *load-bearing behavio
 
 It is the deliberate inverse of the drift auditor. Where drift asks "does the spec *contradict* the code?" and treats silence as acceptable, sufficiency asks "does the spec *omit* behavior that's in the code?" — silence IS the finding here. The bar is not line-by-line restatement; pure implementation trivia may be omitted freely. The bar is intent-level behavior, contracts, defaults, and events.
 
-**Every reported gap is something a rebuild-from-spec would have to guess, and each carries a severity of either `major` or `minor`.** A whole missing feature is major; a missing default or edge-case is minor.
+**Every gap the grader reports is something a rebuild-from-spec would have to guess, and each carries a severity of either `major` or `minor`.** A whole missing feature is major; a missing default or edge-case is minor. The one exception is the diagnostic gap the module emits itself on a parse failure (§3), which carries the `"?"` sentinel instead of a grade.
 
 ## 2. Definitions
 
@@ -19,7 +19,7 @@ It is the deliberate inverse of the drift auditor. Where drift asks "does the sp
 | code | Concatenated source text of all matched code files, capped at the code cap (`caps.code`, default `audit.CODE_CAP`). |
 | doc | Concatenated spec/doc text of all matched doc files, capped at the doc cap (`caps.docs`, default `audit.DOC_CAP`). |
 | gap | One missing behavior: `{severity, missing[, code_ref]}` — `missing` is a one-sentence description; `code_ref` is a **plain-text pointer you can search for** — the file plus the nearest enclosing function/class (the file name alone when the gap spans the module). The rubric requires it on every gap; the parser still tolerates a missing one. Symbols are used instead of line numbers because they stay valid as the code moves, and plain text works in any viewer or editor. |
-| severity | `major` (whole feature/contract/component missing) or `minor` (default/threshold/edge-case/event-shape missing). |
+| severity | `major` (whole feature/contract/component missing) or `minor` (default/threshold/edge-case/event-shape missing) — or the `"?"` sentinel, emitted only on the parse-failure fallback gap (§3) as a diagnostic marker, not a grade. |
 | sufficiency | Score in `[0.0, 1.0]`; 1.0 = the grader found no load-bearing gaps, 0.0 = spec barely constrains the code. An indicator, not a guarantee. |
 | skipped | Marker returned when no code or no doc files matched. |
 
