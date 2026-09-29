@@ -133,7 +133,7 @@ the overview needs regenerating — a **medium** staleness finding, fixable by `
      SPEC-HEALTH.md is authored here / by hand, not by the CLI. -->
 By default this check reports **in the chat**. If the user asks to **save** or **write** the results (e.g.
 *"…and save the results to `spec-reports/`"*), also mirror the run into a `spec-reports/` folder so it leaves
-durable, reviewable receipts — the same files the `spec-eval` CLI produces:
+durable, reviewable receipts — the same three report files the `spec-eval` CLI produces, plus the standing scorecard:
 
 - `spec-reports/coverage.md` — which spec-worthy code files have a governing spec, and which don't.
 - `spec-reports/report.md` — the drift findings (per pair: `severity · class · summary · code ref · doc ref · fix`),
