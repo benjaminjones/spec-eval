@@ -22,7 +22,7 @@ prose; a reader landing on any one page should get what they need.
 
 ## Writing docs
 
-Docs describe **what exists and how it works** — not the conversation that produced them. Two habits:
+Docs describe **what exists and how it works** — not the conversation that produced them. Three habits:
 
 - **Cold-read pass.** Before committing docs written during a working session, reread the diff as if you never saw
   the discussion. Cut any sentence catching the reader up on something only the chat covered — defensive negation
