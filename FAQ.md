@@ -517,7 +517,7 @@ itself into something stays talked into it. It takes a *second* reader, not the 
 A finding can only be thrown out for one of four reasons, and the reader has to quote the line that proves it:
 
 - the spec line the finding points at doesn't actually claim that
-- the spec says the right thing somewhere else, further down
+- the spec says the right thing somewhere else, earlier or further down
 - the sentence was explaining *why*, not promising what the code does
 - the spec was talking about a different case
 
