@@ -89,8 +89,8 @@ Prefer a guided walkthrough? **[Getting-started tutorial →](https://github.com
 None of them change your files — reports go to `spec-reports/`. The exception is `generate`, which writes new
 specs beside your code: review them and commit the keepers like code.
 
-The `(uses AI)` commands (`generate`, `sufficiency`, `audit`) need an AI behind them — `coverage` and
-`context` never do. Three ways to run them, least setup first:
+The `(uses AI)` commands (`generate`, `sufficiency`, `audit`, and `diagram`) need an AI behind them —
+`coverage` and `context` never do. Three ways to run them, least setup first:
 
 ### Run via prompt chat (no setup)
 
@@ -120,12 +120,12 @@ Do one scoped job at a time (one file, or one folder) so a small-context agent d
 
 #### Check specs
 
-The [checking skill](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md) grades what exists (drift + sufficiency):
+The [checking skill](https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md) grades what exists (coverage + drift):
 ```text
 Read {{SKILL = https://github.com/benjaminjones/spec-eval/blob/main/skills/spec-check/SKILL.md}}
 and follow it to check specs for: {{TARGET = ./  (a file, a folder, or the whole project)}}
-Before checking, echo TARGET and the report setting back in one message — with its full option list
-from the comment, so I can pick in my reply — and wait for my OK:
+Before checking, echo TARGET and these two settings back in one message — each setting with its full
+option list from the comments, so I can pick in my reply — and wait for my OK:
   - run both passes, in order: 1) coverage (which files have no spec), 2) drift (do the specs match the code)
   - double-check:  no   # no | yes (re-read each spec and drop findings it doesn't actually support)
   - reports:  chat only   # chat only (results land in the chat) | save (also save the results to spec-reports/)
