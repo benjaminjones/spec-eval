@@ -19,7 +19,7 @@ This module lets the rest of the system ask a large-language model a question an
 
 ## 3. Behavior
 
-**Model-spec resolution.** A spec containing `:` is split into `(provider, model)`. A bare name is mapped: names beginning `gpt` → `openai`, names beginning `gemini` → `google`, everything else → `anthropic`.
+**Model-spec resolution.** The bare name `claude-code` is checked first and resolves to `("claude-code", "")` — the bridge on the CLI's own default model. Otherwise a spec containing `:` is split into `(provider, model)`, and a bare name is mapped: names beginning `gpt` → `openai`, names beginning `gemini` → `google`, everything else → `anthropic`.
 > Reconstructed intent (confidence: high) — inferred from the code: the default-to-anthropic fallback treats Anthropic model names as the "unprefixed" default.
 
 **Generation.** Given a model spec, a system prompt, and a user prompt, the module dispatches to the matching vendor SDK and returns the model's text reply as a plain string:

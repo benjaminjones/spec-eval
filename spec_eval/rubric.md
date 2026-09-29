@@ -44,7 +44,7 @@ The module exposes a single constant string, `DRIFT_RUBRIC`, that instructs a te
 
 > **Why:** The rubric is tuned to protect trust — a false positive costs more than a missed low-severity issue. An empty findings list is explicitly valid.
 
-**Output format.** The reviewer must emit strict JSON with no preamble: an object with a `findings` array. Each finding carries `severity`, `code_ref`, `doc_ref`, `summary`, `evidence`, and `suggestion`. When no drift exists, the output is `{"findings": []}`.
+**Output format.** The reviewer must emit strict JSON with no preamble: an object with a `findings` array. Each finding carries `severity`, `class`, `code_ref`, `doc_ref`, `summary`, `evidence`, and `suggestion`. When no drift exists, the output is `{"findings": []}`.
 
 ## 4. Contracts
 
@@ -77,7 +77,7 @@ The module exposes a single constant string, `DRIFT_RUBRIC`, that instructs a te
 | ID | Given | When | Then |
 |----|-------|------|------|
 | AC-1 | The module is imported | `DRIFT_RUBRIC` is read | It is a non-empty string requiring strict-JSON output. |
-| AC-2 | A doc states a default `X=0.9` and code uses `X=0.5` | The rubric is applied | This qualifies as a **high**-severity finding (numeric default disagreement). |
+| AC-2 | A doc states a default `X=0.9` and code uses `X=0.5` | The rubric is applied | This is reported as a `stale`-class finding, not a **high**-severity guarantee breach (numeric default disagreement) — a declarative value can only be outdated, so it is **not counted as drift**, and its severity says how misleading the value is, not how urgent a breach is. |
 | AC-3 | A doc omits a behaviour the code implements, and the doc could plausibly be silent | The rubric is applied | No finding is produced (silence is not drift). |
 | AC-8 | A doc sentence explains why a rule exists and asserts no behaviour the code could violate | The rubric is applied | No finding is produced (rationale is not a claim). The same judgment exists in `verify` as the `not-normative` withdrawal ground; this moves it into the first pass, where it does not depend on `--verify` being enabled. |
 | AC-4 | A code↔doc mismatch is only detectable by executing the code | The rubric is applied | No finding is produced. |

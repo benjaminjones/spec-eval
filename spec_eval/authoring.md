@@ -29,7 +29,7 @@ Two rules always hold:
 | CODE_CAP | Max code characters fed to a per-module authoring call (`caps.code` in a config, default `audit.CODE_CAP`). |
 | REDUCE_CAP | Char budget for the per-module intents concatenated into one synthesis pass (`caps.reduce` in a config overrides the default). |
 | overwrite | Flag: regenerate already-present targets instead of skipping them. |
-| status | Per-target outcome: `authored`, `skipped` (a file was already there), or `failed` (the reply was not a document — nothing written, nothing stamped). |
+| status | Per-record outcome: `authored`, `skipped` (a file was already there, or a per-dir overview below `overview_min_files`), or `failed` (the reply was not a document — nothing written, nothing stamped) — plus `stray`, the one value carried by a record that is *not* a declared target (markdown that appeared on disk during the run, INV-15). |
 | note | Optional per-target message flagging a partial view or extra work: a multi-pass (recursive) synthesis, code input over the cap, a model reply cut off at the token cap, or a per-dir overview skipped below `overview_min_files`. |
 | on_progress | Optional callback invoked with a short status string as each module (map) and target is authored — never on a skip. |
 
@@ -114,7 +114,7 @@ Either way no markdown is returned: nothing is written, no fingerprint is stampe
 
 **Accounting for what appeared on disk.** The markdown tree is inventoried before the first model call and again after the last one. Any file that appeared or changed without being one of the run's declared targets is reported as `stray`. **Why:** a provider with file-write tools can author straight to a path of its own choosing, so "what the generator wrote" and "what appeared on disk" are two different sets, and only the first is recorded. A stray is reported, never deleted — it may be the real work product, and destroying a model's output to enforce tidiness is the worse failure.
 
-**Result reporting.** Returns a list of records, one per target, each carrying `code`, `spec`, `status` (`authored` | `skipped` | `failed` | `stray`), and optionally `note`.
+**Result reporting.** Returns a list of records — one per target, plus one per stray write — each carrying `code`, `spec`, `status` (`authored` | `skipped` | `failed` | `stray`), and optionally `note`. A stray's `code` is the sentinel `-`, because no declared target produced it.
 
 **Progress.** When an `on_progress` callback is supplied, it is invoked with a short status line as each module (map call) and each target is authored — never on a skip — so a long run reports as it goes instead of running silent. **Why:** authoring is one sequential model call per module and prints its result list only at the end; without progress a multi-module run looks hung.
 
@@ -123,7 +123,7 @@ Either way no markdown is returned: nothing is written, no fingerprint is stampe
 Semantic shapes:
 - **per-file spec path**: string ending in `.md`, same directory and stem as `code_path`.
 - **per-dir spec path**: `<dir>/<name>.md`, shared with `coverage.dir_spec_path`.
-- **generate result**: list of records `{code, spec, status[, note]}`, one per target.
+- **generate result**: list of records `{code, spec, status[, note]}` — one per target, plus one per stray write, whose `code` is the sentinel `-`.
 - **authored markdown**: raw markdown (no outer code fence).
 
 ### Invariants (*rules that must always hold*)
@@ -168,6 +168,6 @@ Semantic shapes:
 | AC-15 | entry-point scan observed `src/cli.py:12`; the diagram cites it | `diagram_block` runs | the `scanner-verified` label is preserved unchanged. |
 | AC-16 | `OVERVIEW.md` at `src/a/`, link written as `(src/a/list.md)`, that file exists | `generate_repo` runs | the written link is `(list.md)` and the repair count appears in the note. |
 | AC-17 | an overview links `(SPEC-HEALTH.md)` and no such file exists | `generate_repo` runs | the link is left byte-identical and reported as broken in the note. |
-| AC-18 | the provider writes `specs/catalog-show.md` itself during a run targeting `src/a/` | `generate_repo` runs | a record `{spec: "specs/catalog-show.md", status: "stray"}` is returned and the file is untouched. |
+| AC-18 | the provider writes `specs/catalog-show.md` itself during a run targeting `src/a/` | `generate_repo` runs | a record `{code: "-", spec: "specs/catalog-show.md", status: "stray"}` is returned and the file is untouched. |
 | AC-19 | the model returns a data-flow diagram of 20 nodes and 30 edges | `diagram_block` runs | the block is returned byte-identical and no note mentions a budget — rendering budgets are rubric instructions, not code checks. |
 | AC-20 | `overview: repo`, code with no observable external systems | `generate_repo` runs | the written `OVERVIEW.md` ends with an `<!-- architecture-fingerprint: … -->` receipt and carries no `system-context-fingerprint`. |

@@ -61,7 +61,7 @@ Its job is to parse arguments, load API keys from the environment, dispatch to t
 **coverage — free.** No key loading, no model calls. Runs `coverage.coverage`, writes `coverage.json` and `coverage.md`. Prints the coverage percentage and covered/spec-worthy counts; if any files are uncovered, lists each on its own line (capped, with an `… and N more` overflow note pointing at `coverage.md`); if any possible orphaned specs are found, lists them each on its own line as well (also capped, advisory — never affects the `--min` gate). Prints one ⚠ `unmodeled:` line per directory tree of markdown the same-stem pairing model cannot reach, so the percentage is read as scoped to same-stem pairs rather than to the whole project. Logs `coverage_pct`, `covered`, `spec_worthy`, `orphans`, and `unmodeled_md`. The written report paths print as absolute paths.
 - **`--min` gate:** if `--min` is set and coverage percent is below it, prints a `FAIL` line and exits with status **1**. **Why:** lets CI enforce a coverage floor.
 
-**Artifacts & logging.** Every command creates `--out` if needed, writes both a JSON and (except generate, which writes only JSON) a Markdown file, and calls `runlog.append_run` with the command, repo, model (null for `coverage` and `context`), and command-specific metrics.
+**Artifacts & logging.** Every command except `diagram` creates `--out` if needed, writes both a JSON and (except generate, which writes only JSON) a Markdown file, and calls `runlog.append_run` with the command, repo, model (null for `coverage` and `context`), and command-specific metrics. `diagram` has no `--out` at all: it never writes an artifact there and never appends a run record — with `--write`/`--add-section` it edits the existing overview doc in place instead (INV-6, INV-7).
 
 > Reconstructed intent (confidence: high) — the run-log call at the end of each branch is a consistent audit trail of every invocation, inferred from the uniform `append_run` usage.
 
@@ -72,7 +72,7 @@ Its job is to parse arguments, load API keys from the environment, dispatch to t
 - `results` (sufficiency) — list of pairs; each carries `label` and `sufficiency ∈ [0.0,1.0] | null`.
 - `cov` (coverage) — `{ pct, covered[], uncovered[], spec_worthy, orphans[] }`.
 - `ctx` (context) — `{ schema, scanner{version, tables_digest}, repo, files_scanned, unscanned{ext:count}, entries[] }`.
-- `res` (generate) — list of `{ status, spec, note? }`; status ∈ {`authored`, `skipped`}.
+- `res` (generate) — list of `{ status, spec, note? }`; status ∈ {`authored`, `skipped`, `failed`, `stray`}.
 
 ### Invariants (*rules that must always hold*)
 
