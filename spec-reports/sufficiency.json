@@ -3,52 +3,37 @@
     "label": "audit",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.85,
+    "sufficiency": 0.8,
     "gaps": [
       {
-        "severity": "minor",
-        "missing": "The model call is made with a fixed output-token budget of 3000 (REVIEW_MAX_TOKENS), a module-level constant deliberately shared with the sufficiency check so both reviews use the same budget; the spec never states that any output cap is set or its value.",
-        "code_ref": "spec_eval/audit.py (audit_pair)"
+        "severity": "major",
+        "missing": "The spec calls the rubric a fixed prompt and omits the config-overridable `rubric: {drift, sufficiency}` setting, which takes a FILE path (relative paths resolved against the repo/project dir) and hard-errors with SystemExit on a missing or empty file rather than silently falling back to the default.",
+        "code_ref": "spec_eval/audit.py (rubric_from)"
       },
       {
         "severity": "minor",
-        "missing": "Whether the reply was cut off is not returned by the call but read from the provider module's mutable global `providers.LAST[\"truncated\"]` immediately after the last generation.",
-        "code_ref": "spec_eval/audit.py (truncation_notes)"
+        "missing": "The model call's output budget (REVIEW_MAX_TOKENS = 3000, deliberately shared with the sufficiency check so a truncated findings list stays parseable) is never given a value in the spec, which only mentions that a reply may hit \"the token cap\".",
+        "code_ref": "spec_eval/audit.py (REVIEW_MAX_TOKENS)"
       },
       {
         "severity": "minor",
-        "missing": "The exact truncation-note strings and their order are unspecified: \"code input capped at ~{n:,} chars\", then \"docs input capped at ~{n:,} chars\", then \"reply hit the token cap\", with comma-grouped numbers reflecting the effective (possibly config-overridden) caps.",
-        "code_ref": "spec_eval/audit.py (truncation_notes)"
-      },
-      {
-        "severity": "minor",
-        "missing": "The user-message template is unspecified: a `# Drift review: {label}` heading, the code side wrapped in a triple-backtick fence under `## Code`, and the doc side unfenced under `## Docs / spec`.",
-        "code_ref": "spec_eval/audit.py (audit_pair)"
-      },
-      {
-        "severity": "minor",
-        "missing": "`first_json_object(resp, *keys)` is a general, reusable exported helper that scans every `{` position with `JSONDecoder(strict=False).raw_decode` and accepts any caller-supplied key set (reused by the sufficiency check), not a findings-only internal step.",
-        "code_ref": "spec_eval/audit.py (first_json_object)"
-      },
-      {
-        "severity": "minor",
-        "missing": "After a findings-bearing JSON object parses successfully, parse_findings returns immediately \u2014 the regex fallback is never applied even when zero entries had a valid severity (so a well-formed object with only invalid severities yields [], not fallback findings).",
+        "missing": "The parsers keep a CLOSED schema \u2014 any key a custom rubric asks the model for beyond the seven finding keys is dropped silently, so a custom pointer (quote, line range, section id) must ride inside `code_ref` to survive.",
         "code_ref": "spec_eval/audit.py (parse_findings)"
       },
       {
         "severity": "minor",
-        "missing": "Cap overrides are coerced with `int()` (numeric strings accepted, non-numeric raises) and a falsy/absent `caps` key falls back to the defaults; caps are resolved once per repo audit and threaded into every pair.",
-        "code_ref": "spec_eval/audit.py (caps_from)"
+        "missing": "The meaning of the `class` axis is undefined: it is orthogonal to severity, `stale` denotes an outdated declarative value rather than a broken guarantee, and a `stale` finding is reported but not counted as drift.",
+        "code_ref": "spec_eval/audit.py (CLASSES)"
       },
       {
         "severity": "minor",
-        "missing": "File reads use `errors=\"ignore\"` (undecodable bytes silently dropped rather than the file skipped) and only OSError is swallowed; whitespace-only files are treated as empty and excluded.",
-        "code_ref": "spec_eval/audit.py (_read_globs)"
+        "missing": "If an exception is raised partway through iterating parsed findings, the already-collected findings are retained AND the regex fallback then appends a finding per `\"severity\"` match, so the same drift item can appear twice.",
+        "code_ref": "spec_eval/audit.py (parse_findings)"
       },
       {
         "severity": "minor",
-        "missing": "The severity ranking map (high=3, medium=2, low=1) is an exported module constant used as the membership test for validity, not merely a documented ordering.",
-        "code_ref": "spec_eval/audit.py (SEV)"
+        "missing": "`truncation_notes` is a shared helper producing the identical pair-level partial-view note list for both audit and sufficiency, with the reply-truncation flag read from the provider's LAST-call state rather than from the response itself.",
+        "code_ref": "spec_eval/audit.py (truncation_notes)"
       }
     ]
   },
@@ -56,115 +41,181 @@
     "label": "authoring",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.72,
+    "sufficiency": 0.85,
     "gaps": [
       {
         "severity": "major",
-        "missing": "The Architecture diagram rendering contract is summarized in one clause but its actual rules are absent: at most 5 sequence participants and 10 messages, each workflow message opening with its literal shell command, dashed replies only for user-returned artifacts, the flowchart's 12-node/18-edge budget with its ordered upstream-folding rules and one-line fold note, 2-5 stroke-only lifecycle subgraphs, the shape vocabulary (stadium/rect/[[ ]]/[( )]/[/ /]), the three exact classDefs, edge conventions (solid/dashed/exactly one ==> primary chain), node-label format, and the requirement that the data flow terminate in the same user-facing result the sequence diagram shows (the spec instead says it ends at external systems).",
-        "code_ref": "spec_eval/authoring.py (ARCH_DIAGRAM_RUBRIC)"
-      },
-      {
-        "severity": "major",
-        "missing": "The repo OVERVIEW.md is ALWAYS given a trailing architecture fingerprint receipt (`syscontext.architecture_stamp_comment(ctx, ep, files)`) \u2014 unconditional, unlike the evidence-gated system-context stamp \u2014 which is what `context --check` compares the module set against.",
-        "code_ref": "spec_eval/authoring.py (generate_repo._repo_overview)"
-      },
-      {
-        "severity": "major",
-        "missing": "The built-in per-module structure's exact skeleton is unstated: the four numbered headings ('## 1. Purpose' with a '**In one line:** <=20 words' opener, '## 2. Definitions' term table, '## 3. Behavior', '## 4. Contracts' with its italic reference cue), the '### Invariants' / '### Acceptance criteria (Given/When/Then)' tables with INV-n / AC-n IDs, and the rule that an INV may be asserted only where the code actually enforces it.",
+        "missing": "The built-in per-module rubric's actual section skeleton is never stated: '## 1. Purpose' (bold '**In one line:** <=20 words' opener, WHAT+WHY, constraint as a checkable consequence), '## 2. Definitions' table, '## 3. Behavior' (no per-method walkthrough), '## 4. Contracts' with semantic shapes, a '### Invariants' table of INV-n ids asserted ONLY where the code enforces them (assert/clamp/validation/raised error), and a '### Acceptance criteria (*Given / When / Then*)' table of AC-n ids with concrete numbers.",
         "code_ref": "spec_eval/authoring.py (AUTHORING_STRUCTURE)"
       },
       {
-        "severity": "major",
-        "missing": "The folder-spec rubric's own section set is never given \u2014 '## 1. Purpose', '## 2. Modules' (module -> one-line responsibility table), '## 3. How it fits together', '## 4. Shared contract' (cross-module only) \u2014 plus its self-contained-reader premise.",
+        "severity": "minor",
+        "missing": "FOLDER_SPEC_RUBRIC's section set is unspecified \u2014 a directory spec must be SELF-CONTAINED (the per-module specs may not exist) with '## 1. Purpose', '## 2. Modules' (module -> one-line responsibility table), '## 3. How it fits together', '## 4. Shared contract' (cross-module only).",
         "code_ref": "spec_eval/authoring.py (FOLDER_SPEC_RUBRIC)"
       },
       {
         "severity": "minor",
-        "missing": "The numeric defaults behind the named constants are omitted: REDUCE_CAP = 48000 chars, _MAX_LEVELS = 4 synthesis levels, and AUTHOR_MAX_TOKENS = 5000 output tokens for every authoring/synthesis call.",
-        "code_ref": "spec_eval/authoring.py"
+        "missing": "The concrete default constants are missing: REDUCE_CAP = 48000 chars, _MAX_LEVELS = 4 recursion passes, AUTHOR_MAX_TOKENS = 5000 output tokens used at every authoring/synthesis call site.",
+        "code_ref": "spec_eval/authoring.py (module-level constants)"
       },
       {
         "severity": "minor",
-        "missing": "The System-context rules also require reproducing a trailing 'Not scanned: \u2026' language-gap line verbatim beneath the table, and explicitly override the right-sizing discipline so a single evidence-backed row is still rendered as a full table.",
-        "code_ref": "spec_eval/authoring.py (_OV_SYSTEM_CONTEXT)"
+        "missing": "Several AUTHORING_DISCIPLINE rules are absent: organize headings by CAPABILITY and never make a function signature or language type a heading, drop code trivia, every table row filled (never an empty INV-/AC- row), and label inferred rationale as '> Reconstructed intent (confidence: low/med/high) \u2014 inferred from the code.'",
+        "code_ref": "spec_eval/authoring.py (AUTHORING_DISCIPLINE)"
       },
       {
         "severity": "minor",
-        "missing": "An unrecognised `authoring.layout` value raises ValueError naming the three valid layouts, rather than falling back to a default.",
-        "code_ref": "spec_eval/authoring.py (_layout_targets)"
-      },
-      {
-        "severity": "minor",
-        "missing": "Stray-write detection walks only .md files outside `coverage.PRUNE_DIRS` and compares an (mtime_ns, size) signature, so a write inside a pruned directory is invisible and an in-place rewrite of an existing file counts as stray.",
-        "code_ref": "spec_eval/authoring.py (_md_inventory)"
-      },
-      {
-        "severity": "minor",
-        "missing": "A synthesis over an empty item list short-circuits to empty markdown with no model call (level 1, not truncated).",
-        "code_ref": "spec_eval/authoring.py (_synthesize)"
-      },
-      {
-        "severity": "minor",
-        "missing": "`has_architecture_section` is a public fence-aware precondition the `diagram --write` path checks before synthesising, so a replace-only update on a doc lacking the section fails fast instead of burning model calls.",
+        "missing": "`has_architecture_section` \u2014 the fence-aware public precondition the `diagram --write` path checks BEFORE synthesising so a replace-only update on a doc with no Architecture section fails fast instead of burning model calls \u2014 is not specified.",
         "code_ref": "spec_eval/authoring.py (has_architecture_section)"
       },
       {
         "severity": "minor",
-        "missing": "The broken-link note lists at most the first 5 unresolvable paths (deduplicated and sorted) followed by an ellipsis, and the repaired-link note reports a count of repo-root-to-document rewrites.",
-        "code_ref": "spec_eval/authoring.py (_link_note)"
+        "missing": "`diagram_block`'s return contract is not given: it returns the 5-tuple (section_body_markdown, ctx, ep, modules, note|None) so callers can stamp fingerprints from the same scans and module set.",
+        "code_ref": "spec_eval/authoring.py (diagram_block)"
       },
       {
         "severity": "minor",
-        "missing": "Progress reporting also emits per-synthesis-group lines ('\u00b7 synthesis pass N: group i/M (k modules)') and per-module map lines ('\u00b7 module <path>'), not just one line per target.",
+        "missing": "Two System-context rules are missing: a trailing 'Not scanned:' language-gap line in the evidence block must be reproduced verbatim beneath the table, and the System-context rules take PRECEDENCE over the right-sizing discipline (a single evidence-backed row still renders a full table; 'unknown from this repo' counts as filled).",
+        "code_ref": "spec_eval/authoring.py (_OV_SYSTEM_CONTEXT)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The diagram rubric's concrete rendering budgets and visual legend are omitted (<=5 participants, <=10 messages, <=12 nodes / 18 edges, 2-5 stroke-only lifecycle subgraphs, the stadium/rect/[[ ]]/[( )]/[/ /] shape legend, and the exact process/artifact/external classDef fill+stroke+color palette with no theme/init/linkStyle).",
+        "code_ref": "spec_eval/authoring.py (ARCH_DIAGRAM_RUBRIC)"
+      },
+      {
+        "severity": "minor",
+        "missing": "`_layout_targets` error and skip semantics are unstated: an unknown layout raises ValueError naming the three valid values, and a config pair with no `docs` entry or no matching code files is silently dropped from the target set.",
+        "code_ref": "spec_eval/authoring.py (_layout_targets)"
+      },
+      {
+        "severity": "minor",
+        "missing": "Stray-write detection scope is unspecified: the inventory walks only `.md` files, prunes coverage's PRUNE_DIRS, and keys each file by (mtime_ns, size), so an unchanged non-target file is not reported and ignored directories are invisible.",
+        "code_ref": "spec_eval/authoring.py (_md_inventory)"
+      },
+      {
+        "severity": "minor",
+        "missing": "Force-fit slicing arithmetic and note truncation thresholds are absent: each item gets max(200, cap // len(items) - 40) chars plus a '...[truncated]' marker, and the broken-link note lists at most 5 paths before an ellipsis.",
         "code_ref": "spec_eval/authoring.py (_synthesize)"
       }
+    ],
+    "truncated": [
+      "docs input capped at ~28,000 chars"
     ]
   },
   {
     "label": "cli",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.86,
+    "sufficiency": 0.62,
     "gaps": [
       {
-        "severity": "minor",
-        "missing": "The terminal list cap is a fixed 25 entries (UNCOVERED_LIST_CAP), and the orphan list is truncated at the same cap with no '\u2026 and N more' overflow line (only the uncovered list gets one).",
-        "code_ref": "spec_eval/cli.py (main \u2014 coverage branch / UNCOVERED_LIST_CAP)"
+        "severity": "major",
+        "missing": "The entire `compare` subcommand is absent from the spec \u2014 it takes two `--reps` JSON files plus `--margin`/`--allow-sha-mismatch`/`--out`, makes no model calls, writes `compare.json`, and prints MDE-at-80%-power first, an underpowered warning, delta \u00b1 SE with df/Student-t 95% CI, TOST verdict or `m_star` when no margin is given, Benjamini-Hochberg results, per-vendor noise share, dropped single-vendor pairs, and an exploratory-deltas caveat; a refusal raises SystemExit(2).",
+        "code_ref": "spec_eval/cli.py (main)"
+      },
+      {
+        "severity": "major",
+        "missing": "`sufficiency --reps N` is undocumented: it re-scores every pair N times, prints a per-rep `scored/total` progress line, uses rep 1 for the single-run report/JSON, and (when N>1) writes `sufficiency-reps.json` carrying model, repo, `git_sha`, `reps_requested` and every raw rep, then prints the observed min-max spread.",
+        "code_ref": "spec_eval/cli.py (main)"
+      },
+      {
+        "severity": "major",
+        "missing": "`sufficiency --max-calls N` is undocumented: it installs a hard ceiling on model calls via `providers.set_max_calls` (aborting the run rather than exceeding it) and prints a ceiling banner; it exists only on `sufficiency`, not on `audit`/`generate`/`diagram`.",
+        "code_ref": "spec_eval/cli.py (_add_max_calls / main)"
       },
       {
         "severity": "minor",
-        "missing": "`diagram` exits non-zero with 'no spec-worthy code files \u2026 nothing to diagram' when the module set is empty, even without --write.",
-        "code_ref": "spec_eval/cli.py (main \u2014 diagram branch)"
+        "missing": "Audit's summary line has two forms: when some attempted pairs are ungraded (`report.not_graded`) it prints graded/attempted/total separately so an ungraded pair stays in the denominator rather than reading as clean, and it logs `pairs_graded` alongside `pairs_audited`.",
+        "code_ref": "spec_eval/cli.py (main)"
       },
       {
         "severity": "minor",
-        "missing": "`context --check` resolves the overview doc as OVERVIEW.md then README.md (same lookup as diagram --write) and names the missing-doc default 'OVERVIEW.md' in messages; the spec says it reads <repo>/OVERVIEW.md only.",
-        "code_ref": "spec_eval/cli.py (_diagram_target / main \u2014 context branch)"
+        "missing": "The terminal cap on the uncovered list (and the orphan list, which reuses it) is 25 entries, with the overflow note only printed for the uncovered list.",
+        "code_ref": "spec_eval/cli.py (UNCOVERED_LIST_CAP / main)"
       },
       {
         "severity": "minor",
-        "missing": "The `--check` delta receipt is stamped with the repo's git SHA (runlog.git_sha) passed into syscontext.diff_receipt.",
-        "code_ref": "spec_eval/cli.py (main \u2014 context branch)"
+        "missing": "The generate run-log record also carries `failed` and `stray` counts, not just `authored`/`skipped`/`flagged`.",
+        "code_ref": "spec_eval/cli.py (main)"
       },
       {
         "severity": "minor",
-        "missing": "`generate`'s run-log record also carries `failed` and `stray` counts (spec lists only authored/skipped/flagged), and the generate result contract admits the `failed` and `stray` statuses.",
-        "code_ref": "spec_eval/cli.py (main \u2014 generate branch)"
+        "missing": "`diagram` exits non-zero with 'no spec-worthy code files \u2026 nothing to diagram' when the module set is empty.",
+        "code_ref": "spec_eval/cli.py (main)"
       },
       {
         "severity": "minor",
-        "missing": "Single-file scope for `generate` forces authoring layout to 'per-pair', and _file_scope resolves the per-dir folder-spec name via the config's `dir_spec_name` (default '<dir>') only when the co-located <stem>.md does not exist.",
-        "code_ref": "spec_eval/cli.py (_file_scope)"
+        "missing": "`diagram --write`/`--add-section` validate the write target (doc exists, Architecture section present) BEFORE synthesis, so a doc that will be refused fails fast without paying for any model call.",
+        "code_ref": "spec_eval/cli.py (main)"
+      }
+    ]
+  },
+  {
+    "label": "compare",
+    "code_files": 1,
+    "doc_files": 1,
+    "sufficiency": 0.76,
+    "gaps": [
+      {
+        "severity": "major",
+        "missing": "The noise_share estimator is never defined computationally: within variance is the mean of per-pair sample variances over only those pairs with >= 2 reps, and the denominator is the pooled variance of all scores across all pairs (not a variance-components decomposition), with noise_share null when total variance is 0.",
+        "code_ref": "spec_eval/compare.py (noise)"
       },
       {
         "severity": "minor",
-        "missing": "`diagram --write/--add-section` validates the target doc and its Architecture section BEFORE synthesis, so a refused write costs no model calls.",
-        "code_ref": "spec_eval/cli.py (main \u2014 diagram branch)"
+        "missing": "The noise block also emits within_vendor_variance, total_variance and pairs_with_replication (count of pairs with >= 2 reps), all absent from the spec's field list.",
+        "code_ref": "spec_eval/compare.py (noise)"
       },
       {
         "severity": "minor",
-        "missing": "The coverage result shape also includes `unmodeled` entries of {dir, files} (and orphans/unmodeled are optional keys accessed via .get), which the documented `cov` contract omits.",
-        "code_ref": "spec_eval/cli.py (main \u2014 coverage branch)"
+        "missing": "The MDE formula is unspecified: mde_80pct_power = (t(1-alpha/2, df) + t(0.80, df)) * se_delta.",
+        "code_ref": "spec_eval/compare.py (compare)"
+      },
+      {
+        "severity": "minor",
+        "missing": "m_star and the TOST interval formulas are unspecified: m_star = |delta| + t(1-alpha, df)*se, and ci90 is delta +/- t(1-alpha, df)*se (one-sided quantile), while ci95 uses t(1-alpha/2, df).",
+        "code_ref": "spec_eval/compare.py (compare)"
+      },
+      {
+        "severity": "minor",
+        "missing": "When a margin is supplied the output also carries underpowered_for_margin (mde > margin) plus an underpowered_note; the spec never names this verdict field or its rule.",
+        "code_ref": "spec_eval/compare.py (compare)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The per-pair test is a pooled two-sample t (df = n_a + n_b - 2, pooled sp2 with zero variance substituted for single-rep arms), two-sided p rounded to 6 dp \u2014 the spec says only 'a weak two-sample test'.",
+        "code_ref": "spec_eval/compare.py (compare)"
+      },
+      {
+        "severity": "minor",
+        "missing": "alpha is a caller-settable parameter defaulting to 0.05 and simultaneously drives the CI width, the TOST/one-sided quantile, and the Benjamini-Hochberg FDR level q; the spec fixes none of this.",
+        "code_ref": "spec_eval/compare.py (compare)"
+      },
+      {
+        "severity": "minor",
+        "missing": "Vendor labels are derived from the file's 'model' key, falling back to the file path, and can be overridden by a vendor argument to load_reps \u2014 this determines the vendors list and the noise keys.",
+        "code_ref": "spec_eval/compare.py (load_reps)"
+      },
+      {
+        "severity": "minor",
+        "missing": "A file whose every record has a null sufficiency raises ValueError ('contained no scored pairs') rather than returning an empty mapping; also git_sha is only read from the object shape, so a bare list always yields sha None.",
+        "code_ref": "spec_eval/compare.py (load_reps)"
+      },
+      {
+        "severity": "minor",
+        "missing": "Sign convention is unstated: delta is first input minus second (mean_a - mean_b) per pair, then averaged.",
+        "code_ref": "spec_eval/compare.py (compare)"
+      },
+      {
+        "severity": "minor",
+        "missing": "Per-pair record shape and rounding are unspecified: keys pair, delta, mean_<vendorA>, mean_<vendorB>, reps [n_a, n_b], with deltas/CIs rounded to 4 dp, variances to 6 dp; bh_significant is a sorted list of pair labels.",
+        "code_ref": "spec_eval/compare.py (compare)"
+      },
+      {
+        "severity": "minor",
+        "missing": "Explanatory string fields shipped in every result (dropped_note, m_star_note, bh_note, quantile_basis = 'Student t at df = n-1') and the field name pairs_n for the shared-pair count are not in the spec.",
+        "code_ref": "spec_eval/compare.py (compare)"
       }
     ]
   },
@@ -176,38 +227,28 @@
     "gaps": [
       {
         "severity": "minor",
-        "missing": "The full conventional-doc stem list (24 entries including `notice`, `contributing`, `changes`, `testing`, `faq`, `getting-started`/`getting_started`, `security`, `code_of_conduct`, `skill`, `todo`, `authors`, `maintainers`, `install`, `upgrading`, `agent`, `cursorrules`, `copilot-instructions`, `llms`) and the case-insensitive stem comparison are not enumerated \u2014 the spec gives only examples plus an ellipsis.",
-        "code_ref": "spec_eval/coverage.py (CONVENTIONAL_DOC_STEMS)"
+        "missing": "The full conventional-doc stem list is not enumerated (spec gives only examples), so a rebuild would not know that stems like `testing`, `security`, `faq`, `todo`, `install`, `upgrading`, `authors`, `maintainers`, `notice`, `contributing`, `changes`, `skill`, `code_of_conduct`, `getting-started`, `cursorrules`, `copilot-instructions`, `llms` are also exempt from orphan and unmodeled reporting.",
+        "code_ref": "coverage.py (CONVENTIONAL_DOC_STEMS)"
       },
       {
         "severity": "minor",
-        "missing": "`dir_spec_path` resolution rules are unspecified: the `<dir>` sentinel means the containing directory's own basename, any other value is used verbatim as the filename stem, and a repo-root file falls back to the repo directory name.",
-        "code_ref": "spec_eval/coverage.py (dir_spec_path)"
+        "missing": "`dir_spec_path` semantics are under-specified: a code file at the repo root uses the repo directory's basename as the folder-spec stem, and a non-`<dir>` `dir_spec_name` is used as a literal filename in the code file's own directory.",
+        "code_ref": "coverage.py (dir_spec_path)"
       },
       {
         "severity": "minor",
-        "missing": "Unmodeled markdown at the repo root is grouped under the literal key `\".\"` rather than a directory name.",
-        "code_ref": "spec_eval/coverage.py (unmodeled_markdown)"
+        "missing": "Unmodeled markdown at the repo root (no path separator) is grouped under the directory key `\".\"` rather than being skipped.",
+        "code_ref": "coverage.py (unmodeled_markdown)"
       },
       {
         "severity": "minor",
-        "missing": "Report rendering details are unstated: the headline percent is printed with zero decimals (`{pct:.0f}%`) even though `pct` carries one, the \"Excluded \u2026 by class\" section is emitted unconditionally (even when empty), and unmodeled groups append `\u2026` when the file count exceeds the 3-file sample.",
-        "code_ref": "spec_eval/coverage.py (format_report)"
+        "missing": "The exact prune-directory membership is only partially listed; entries like `venv`, `env`, `htmlcov`, `.tox`, `.eggs`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `site-packages`, `jspm_packages`, `thirdparty` would have to be guessed, and pruning also suppresses `.md` collection (so specs inside those trees are invisible to orphan/unmodeled detection).",
+        "code_ref": "coverage.py (PRUNE_DIRS)"
       },
       {
         "severity": "minor",
-        "missing": "Exact PRUNE_DIRS membership is elided in the spec (`venv`, `env`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `.tox`, `htmlcov`, `.eggs`, `.idea`, `.vscode`, `jspm_packages`, `thirdparty`), and the prune list differs from the `generated` exclusion tier (e.g. `formal` prunes nothing but marks generated).",
-        "code_ref": "spec_eval/coverage.py (PRUNE_DIRS)"
-      },
-      {
-        "severity": "minor",
-        "missing": "`infer_pairs` labels a pair with the code file's basename stem only (so same-stem files in different directories yield duplicate labels), and it ignores both configured `pairs` and the per-dir layout \u2014 only same-stem siblings are inferred.",
-        "code_ref": "spec_eval/coverage.py (infer_pairs)"
-      },
-      {
-        "severity": "minor",
-        "missing": "`uncovered` is computed as `spec_worthy - covered` using the unintersected covered set, and pair-glob matches can add files outside the candidate/extension universe to `covered` before intersection.",
-        "code_ref": "spec_eval/coverage.py (coverage)"
+        "missing": "Report rendering details are unspecified: the headline prints the percent with zero decimals (despite `pct` carrying one), the `# Spec coverage \u2014 <repo name>` heading, the `\u2026` continuation marker on unmodeled samples, and the Excluded section being emitted unconditionally even when empty.",
+        "code_ref": "coverage.py (format_report)"
       }
     ]
   },
@@ -215,36 +256,46 @@
     "label": "providers",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.87,
+    "sufficiency": 0.72,
     "gaps": [
       {
-        "severity": "minor",
-        "missing": "The actual value of `DEFAULT_MODEL` (`\"anthropic:claude-opus-4-8\"`) is never stated \u2014 the spec only says the constant exists, so a rebuild would have to guess the default model.",
-        "code_ref": "spec_eval/providers.py (module-level constants)"
+        "severity": "major",
+        "missing": "The entire process-wide call-budget feature is absent from the spec: module-level `MAX_CALLS` (None = unlimited default), `set_max_calls(n)` normalizing None/0 to unlimited, and a `CallBudgetExceeded(RuntimeError)` raised by a guard that runs BEFORE each request (so the ceiling bounds calls actually made) with a message reporting calls made, the limit, and cumulative in/out tokens.",
+        "code_ref": "spec_eval/providers.py (set_max_calls / _guard / CallBudgetExceeded)"
       },
       {
         "severity": "minor",
-        "missing": "The `claude -p` subprocess is run with a hard 600-second timeout, which will raise on long CLI calls; no timeout is mentioned in the spec.",
+        "missing": "The concrete value of `DEFAULT_MODEL` (`\"anthropic:claude-opus-4-8\"`) is never stated, only that the constant exists.",
+        "code_ref": "spec_eval/providers.py (module-level DEFAULT_MODEL)"
+      },
+      {
+        "severity": "minor",
+        "missing": "Bridge failure messages are extracted from the CLI's JSON envelope rather than raw head bytes: try stdout then stderr, parse JSON, prefer the first non-empty `result`/`error`/`message` string, else re-serialize the envelope minus the `usage` block, cap at 600 chars, falling back to trimmed raw text or the literal \"no output\".",
+        "code_ref": "spec_eval/providers.py (_bridge_error)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The `claude -p` subprocess is run with a 600-second timeout.",
         "code_ref": "spec_eval/providers.py (_gen_claude_code)"
       },
       {
         "severity": "minor",
-        "missing": "The bridge treats a JSON envelope that merely lacks a `result` key (not just `is_error`) as an error envelope and raises.",
-        "code_ref": "spec_eval/providers.py (_gen_claude_code)"
+        "missing": "The spec states `max_tokens` is not passed to OpenAI at all, but the v1/responses fallback path does pass it as `max_output_tokens`.",
+        "code_ref": "spec_eval/providers.py (_gen_openai_responses)"
       },
       {
         "severity": "minor",
-        "missing": "Bridge failure messages embed the child output truncated to 400 characters, preferring stderr over stdout on non-zero exit; the spec specifies neither the content nor the cap.",
-        "code_ref": "spec_eval/providers.py (_gen_claude_code)"
+        "missing": "On the responses path, when the convenience field `output_text` is absent/empty the reply text is assembled by concatenating `.text` from every content part of every output item instead of failing.",
+        "code_ref": "spec_eval/providers.py (_gen_openai_responses)"
       },
       {
         "severity": "minor",
-        "missing": "`_track` unconditionally overwrites `LAST[\"truncated\"]` on every call, so a bridge (or non-truncated) call actively resets a previously-True flag rather than leaving it unset.",
-        "code_ref": "spec_eval/providers.py (_track)"
+        "missing": "OpenAI chat truncation detection reads `finish_reason` from the first choice only and records False when `choices` is empty, rather than erroring.",
+        "code_ref": "spec_eval/providers.py (gen)"
       },
       {
         "severity": "minor",
-        "missing": "OpenAI's truncation check guards against an empty `choices` list (falling back to False), but the return path indexes `choices[0]` unguarded \u2014 an empty-choices reply raises IndexError rather than returning \"\".",
+        "missing": "Google truncation detection matches the substring `MAX_TOKENS` against the first candidate's finish reason enum name or its string form (tolerating both enum and raw shapes).",
         "code_ref": "spec_eval/providers.py (gen)"
       }
     ]
@@ -253,47 +304,47 @@
     "label": "report",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.84,
+    "sufficiency": 0.87,
     "gaps": [
       {
         "severity": "minor",
-        "missing": "The sufficiency fingerprint's concrete shape is unspecified: an `## Sufficiency fingerprint  *(at a glance \u2014 worst first)*` heading over a three-column table (`Pair | Spec completeness | Score`) where the unicode bar is rendered inside backticks and the score to two decimals \u2014 the spec never says the bar lives in this table at all.",
+        "missing": "The sufficiency fingerprint's concrete table shape is unspecified: heading `## Sufficiency fingerprint  *(at a glance \u2014 worst first)*`, three columns `Pair | Spec completeness | Score`, label and bar wrapped in inline code, score formatted to two decimals.",
         "code_ref": "report.py (sufficiency_fingerprint)"
       },
       {
         "severity": "minor",
-        "missing": "The drift fingerprint's concrete shape is unspecified: an `### Drift fingerprint` heading (h3, unlike the sufficiency fingerprint's h2) over a two-column table `Pair | High+med findings`.",
+        "missing": "The drift fingerprint's concrete table shape is unspecified: `### Drift fingerprint` (an h3, unlike the sufficiency fingerprint's h2), single data column headed `High+med findings`, cell values `\u26a0 not graded` / `\u2713 clean` / `\u26a0 N`.",
         "code_ref": "report.py (drift_fingerprint)"
       },
       {
         "severity": "minor",
-        "missing": "A withdrawn finding also suppresses its evidence block (spec only says it proposes no fix), and its withdrawal renders as `- *withdrawn on verification \u2014 {ground}:* {why}` plus an optional `- *the doc says:* \u201c{doc_quote}\u201d` line in curly quotes.",
-        "code_ref": "report.py (write_markdown)"
-      },
-      {
-        "severity": "minor",
-        "missing": "`_bar` accepts a configurable `width` (default 20) and computes filled cells as `int(round(v * width))`, so the rounding rule and non-20 widths are unstated.",
+        "missing": "The bar's value\u2192cell mapping (`int(round(v*width))`, i.e. half-up rounding of v\u00d720) is not stated, so mid-range scores (e.g. 0.42 \u2192 8 filled) can't be reproduced; only the v=1.0 endpoint is pinned by AC-6.",
         "code_ref": "report.py (_bar)"
       },
       {
         "severity": "minor",
-        "missing": "Fence neutralization is a substitution of ``` with ''' (the quoted text is preserved, not stripped or escaped), and the evidence value is coerced with `str()` so non-string evidence still renders.",
+        "missing": "A withdrawn finding suppresses its evidence block as well as its fix line (the loop `continue`s after the ground/doc-quote lines); the spec only says it proposes no fix.",
+        "code_ref": "report.py (write_markdown)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The withdrawn-finding lines' conditionality and format are unspecified: `*withdrawn on verification \u2014 {ground}:* {why}` always emitted (with `why` defaulting to empty), and the `*the doc says:* \u201c\u2026\u201d` line only when `doc_quote` is present.",
+        "code_ref": "report.py (write_markdown)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The drift report's per-pair detail sections are emitted in input order (including skipped pairs in place), which the spec never states \u2014 it only fixes ordering for the fingerprints and the sufficiency detail.",
+        "code_ref": "report.py (write_markdown)"
+      },
+      {
+        "severity": "minor",
+        "missing": "In the sufficiency report, skipped pairs sort into the same last bucket as unscored pairs (their `sufficiency` is None), rather than appearing in input position.",
+        "code_ref": "report.py (write_sufficiency_markdown)"
+      },
+      {
+        "severity": "minor",
+        "missing": "Fence neutralization in the evidence block is done by replacing ``` with `'''` and the value is coerced with `str()`, so non-string evidence renders via its repr rather than erroring.",
         "code_ref": "report.py (_evidence_block)"
-      },
-      {
-        "severity": "minor",
-        "missing": "The sufficiency report's per-module section is introduced by a `## Per-module gaps  *(worst first)*` heading, and skipped pairs sort at the end alongside unscored pairs (they sort by `(sufficiency is None, sufficiency or 0)`), which the spec leaves unstated.",
-        "code_ref": "report.py (write_sufficiency_markdown)"
-      },
-      {
-        "severity": "minor",
-        "missing": "Drift load treats a finding carrying a `verification` object with no `verdict` key as upheld (verdict defaults to \"upheld\"), so only an explicit \"withdrawn\" verdict excludes it.",
-        "code_ref": "report.py (drift_load)"
-      },
-      {
-        "severity": "minor",
-        "missing": "The sufficiency report's truncated note omits the drift report's \"findings may be incomplete\" clause, rendering only `- \u26a0 *partial view ({notes})*`, with multiple notes joined by `; `.",
-        "code_ref": "report.py (write_sufficiency_markdown)"
       }
     ]
   },
@@ -301,17 +352,17 @@
     "label": "rubric",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.93,
+    "sufficiency": 0.92,
     "gaps": [
       {
         "severity": "minor",
-        "missing": "The module docstring's self-audit linkage \u2014 that `rubric.md` sitting beside the module IS this module's own spec and is guarded by spec-eval's self-audit \u2014 is not stated in the spec, which only documents the SKILL.md mirror and the sync test.",
-        "code_ref": "spec_eval/rubric.py (module docstring)"
+        "missing": "The spec omits that `DRIFT_RUBRIC` is a verbatim prompt string containing no format placeholders/templating slots for the pair's code or doc content (the pair is supplied out-of-band by the caller), so a rebuild could plausibly add `{code}`/`{doc}` substitution points.",
+        "code_ref": "spec_eval/rubric.py (DRIFT_RUBRIC)"
       },
       {
         "severity": "minor",
-        "missing": "The rubric is a second-person LLM prompt string (persona framing \"You are a careful technical reviewer...\", imperative instructions, trailing literal JSON schema example) rather than structured data; a rebuild could plausibly emit the same rules as a dict/enum and break the phrase-level sync test.",
-        "code_ref": "spec_eval/rubric.py (DRIFT_RUBRIC)"
+        "missing": "The spec's sync contract omits the docstring's second maintenance pointer \u2014 that `rubric.md` beside the module is the module's own spec and is guarded by spec-eval's self-audit \u2014 so a rebuild would restore only the SKILL.md mirror half of the KEEP IN SYNC block.",
+        "code_ref": "spec_eval/rubric.py (module docstring)"
       }
     ]
   },
@@ -319,21 +370,21 @@
     "label": "runlog",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.92,
+    "sufficiency": 0.9,
     "gaps": [
       {
         "severity": "minor",
-        "missing": "The SHA lookup is a separately callable public helper `git_sha(repo)` returning the short hash string or None; the spec describes only the inline resolution behavior, not this standalone function/signature.",
+        "missing": "`git_sha(repo)` is a standalone public helper with its own contract (returns the short SHA string or None) that callers can use independently; the spec folds it entirely into `append_run` and never defines it as part of the module's API surface.",
         "code_ref": "spec_eval/runlog.py (git_sha)"
       },
       {
         "severity": "minor",
-        "missing": "The subprocess return code is never checked \u2014 the result is derived purely from stripped stdout (empty stdout coerces to None) and stderr is captured then silently discarded, so a failing-but-chatty git still yields whatever it printed on stdout.",
+        "missing": "Git's exit status is ignored \u2014 the SHA is taken from stripped stdout whenever it is non-empty, so a non-zero returncode with output would still be recorded, and empty/whitespace-only stdout yields null; the spec implies failure is detected by the command erroring.",
         "code_ref": "spec_eval/runlog.py (git_sha)"
       },
       {
         "severity": "minor",
-        "missing": "Serialization uses `json.dumps` with defaults, so non-JSON-serializable values in `stats` raise (the write is unguarded, unlike the git failure path) and non-ASCII characters are escaped.",
+        "missing": "`stats` values must be JSON-serializable; a non-serializable value raises out of `json.dumps` and propagates to the caller after the output directory and (possibly) an empty `runs.jsonl` have already been created \u2014 the spec only specifies error tolerance for git resolution.",
         "code_ref": "spec_eval/runlog.py (append_run)"
       }
     ]
@@ -342,47 +393,32 @@
     "label": "sufficiency",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.88,
+    "sufficiency": 0.85,
     "gaps": [
       {
-        "severity": "minor",
-        "missing": "The skip result's explanation string has a specific format \u2014 `no files matched (code=<nc>, docs=<nd>)` embedding both matched-file counts \u2014 which the spec describes only as 'an explanation string'.",
-        "code_ref": "spec_eval/sufficiency.py (sufficiency_pair)"
-      },
-      {
-        "severity": "minor",
-        "missing": "The exact user-message layout sent to the model is unspecified: a `# Sufficiency review: {label}` heading, a `## Code` section wrapping the concatenated code in a bare triple-backtick fence, then an unfenced `## Spec` section with the doc text.",
-        "code_ref": "spec_eval/sufficiency.py (sufficiency_pair)"
-      },
-      {
-        "severity": "minor",
-        "missing": "`sufficiency_pair` accepts optional per-call `code_cap`/`doc_cap` override arguments that fall back to `audit.CODE_CAP`/`audit.DOC_CAP` when None, while the repo-level entry point derives them via `audit.caps_from(config)`.",
-        "code_ref": "spec_eval/sufficiency.py (sufficiency_pair, sufficiency_repo)"
-      },
-      {
-        "severity": "minor",
-        "missing": "A pair missing the `code` or `docs` key entirely is tolerated (defaults to an empty glob list, yielding 0 matches and the skip path) rather than raising.",
-        "code_ref": "spec_eval/sufficiency.py (sufficiency_pair)"
-      },
-      {
-        "severity": "minor",
-        "missing": "No validation or clamping is performed on model output \u2014 the score is passed through `float()` unbounded (so values outside [0,1] survive) and `severity` is only lowercased, not checked against the major/minor vocabulary.",
-        "code_ref": "spec_eval/sufficiency.py (sufficiency_pair)"
-      },
-      {
-        "severity": "minor",
-        "missing": "`config.get(\"pairs\") or infer_pairs(...)` means an empty or otherwise falsy `pairs` value also triggers inference, not just an absent key.",
+        "severity": "major",
+        "missing": "The rubric is overridable per-repo via config (`audit.rubric_from(config, \"sufficiency\", SUFFICIENCY_RUBRIC, repo)`), and `sufficiency_pair` accepts an injected `rubric` (falling back to the built-in when None) \u2014 the spec presents SUFFICIENCY_RUBRIC as the only, fixed rubric.",
         "code_ref": "spec_eval/sufficiency.py (sufficiency_repo)"
       },
       {
         "severity": "minor",
-        "missing": "A `code_ref` that is empty/falsy is dropped by the same guard as `\"null\"`, and the spec does not state that the `\"null\"` string check is case-insensitive.",
+        "missing": "`sufficiency_pair` takes optional `code_cap`/`doc_cap` arguments that override the config/audit defaults when not None, so callers can cap per-pair rather than only via `caps.code`/`caps.docs`.",
         "code_ref": "spec_eval/sufficiency.py (sufficiency_pair)"
       },
       {
         "severity": "minor",
-        "missing": "Pairs are evaluated strictly sequentially in a list comprehension (no concurrency, and one pair's model call cannot be skipped or short-circuited by another).",
-        "code_ref": "spec_eval/sufficiency.py (sufficiency_repo)"
+        "missing": "A parsed gap missing its `severity` or `missing` key is not dropped or defaulted to a sentinel \u2014 both coerce to the empty string, so a malformed gap still appears in the result list.",
+        "code_ref": "spec_eval/sufficiency.py (sufficiency_pair)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The parsed `sufficiency` float is never clamped or validated against [0.0, 1.0], so an out-of-range model score passes through verbatim despite the documented bounds.",
+        "code_ref": "spec_eval/sufficiency.py (sufficiency_pair)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The skipped result never carries `truncated` notes (truncation is computed only after the skip return), and its `skipped` string has a specific shape embedding both match counts (`no files matched (code=N, docs=M)`).",
+        "code_ref": "spec_eval/sufficiency.py (sufficiency_pair)"
       }
     ]
   },
@@ -390,67 +426,82 @@
     "label": "syscontext",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.87,
+    "sufficiency": 0.82,
     "gaps": [
       {
-        "severity": "minor",
-        "missing": "The numeric values of the caps are never given \u2014 EVIDENCE_CAP=8, LINE_CAP=160, FILE_CAP=2_000_000 bytes, EP_MODULE_MAIN_CAP=6 \u2014 so a rebuild would have to guess every threshold the spec names symbolically.",
-        "code_ref": "syscontext.py"
+        "severity": "major",
+        "missing": "The curated detection tables' actual contents are only exemplified, so a rebuild must guess which systems are recognized and with what kind \u2014 e.g. Celery broker, Memcached, LDAP, Elasticsearch/OpenSearch, Cassandra, Oracle, SMTP, MariaDB (infra) and Twilio, SendGrid, Slack, OpenAI, Anthropic, Google APIs, ccxt, yfinance, Alpaca, Interactive Brokers (application), plus the exact key spellings per ecosystem.",
+        "code_ref": "spec_eval/syscontext.py (SDK_IMPORTS)"
       },
       {
         "severity": "minor",
-        "missing": "The exact display names and full contents of the detection tables are not enumerated (e.g. `RabbitMQ (AMQP)`, `SMTP (email)`, `Celery broker`, `Crypto exchange APIs (ccxt)`, the full SCHEME_SYSTEMS/AWS_SERVICES/SKIP_HOST_SUFFIXES/OTHER_SOURCE_EXT lists), yet those strings are the entry identity the fingerprint and diff key on.",
-        "code_ref": "syscontext.py (SDK_IMPORTS)"
+        "missing": "The numeric values of the named constants are never given: EVIDENCE_CAP=8, LINE_CAP=160, FILE_CAP=2,000,000 bytes, EP_MODULE_MAIN_CAP=6, and the scheme matcher's 2\u201332 char scheme length bound.",
+        "code_ref": "spec_eval/syscontext.py (module constants)"
       },
       {
         "severity": "minor",
-        "missing": "AWS resolution details are unstated: service ids in the plumbing set (runtime, extensions, util, core, config, auth) are dropped, an id of \u22644 chars is upper-cased while longer ids are title-cased, and an unrecognized `.client(\"x\")` id only yields an entry when `import boto3` was seen earlier in the SAME file.",
-        "code_ref": "syscontext.py (_scan_file)"
+        "missing": "AWS service-name derivation rules for ids outside the display table are unstated: ids of \u22644 chars are upper-cased and longer ones hyphen-split/title-cased, and SDK plumbing namespaces (runtime, extensions, util, core, config, auth) are skipped rather than reported as services.",
+        "code_ref": "spec_eval/syscontext.py (_scan_file)"
       },
       {
         "severity": "minor",
-        "missing": "`overview_evidence(ctx_result, ep_result=None)` \u2014 the single composer that concatenates the entry-point block THEN the system block (blank-line joined) and returns None when neither observed anything \u2014 is absent from the spec.",
-        "code_ref": "syscontext.py (overview_evidence)"
+        "missing": "boto3 bookkeeping is per file and conditional: a known `.client(id)` resolves on any line without an import, an unknown id only yields a title-cased entry when boto3 was imported in that same file, and `AWS (service not resolved)` is emitted only when boto3 was imported and no client id resolved in that file.",
+        "code_ref": "spec_eval/syscontext.py (_scan_file)"
       },
       {
         "severity": "minor",
-        "missing": "Under `scope_dir`, scoped entries have `evidence_total` REWRITTEN to the in-scope site count (not the repo-wide total), contradicting the general rule that `evidence_total` always counts all sites.",
-        "code_ref": "syscontext.py (_scoped)"
+        "missing": "`overview_evidence(ctx_result, ep_result=None)` \u2014 the single composer that joins the entry-point block then the system block with a blank line and returns None when neither observed anything, so `generate --overview` and `diagram` always get identical evidence in identical order \u2014 is absent from the spec.",
+        "code_ref": "spec_eval/syscontext.py (overview_evidence)"
       },
       {
         "severity": "minor",
-        "missing": "The fixed `Not scanned: \u2026` sentence is never quoted, though the spec says the rubric reproduces it verbatim; its exact wording (per-extension counts, the 'language(s) outside the scan's support' clause, and the 'Add the extension(s) to code_ext' remedy) would be reinvented differently.",
-        "code_ref": "syscontext.py (unscanned_note)"
+        "missing": "Entry-point name/target label conventions are unspecified: dotted module name with target 'command-line interface' (cli-main) or 'run as a script' (module-main), the app-object variable name with '<Framework> app object (constructed)', and `python -m <pkg>` (package dir dotted, or repo basename at root).",
+        "code_ref": "spec_eval/syscontext.py (_scan_entrypoints_file)"
       },
       {
         "severity": "minor",
-        "missing": "`diff_receipt` takes an optional `sha` rendered as a ` @ <sha>` suffix, emits `0 system-context changes` for clean, and prints delta lines beneath the re-baseline head as well as the drift head.",
-        "code_ref": "syscontext.py (diff_receipt)"
+        "missing": "The entry-point kind ordering used for sorting (script \u2192 package-main \u2192 web-app \u2192 cli-main \u2192 module-main) is never stated, unlike the system KIND_ORDER.",
+        "code_ref": "spec_eval/syscontext.py (EP_KIND_ORDER)"
       },
       {
         "severity": "minor",
-        "missing": "Entry-point naming/precedence rules are unspecified: a `__main__.py` short-circuits any `__main__` guard in the same file (never a cli-main), package-main is stamped at line 1 with match `__main__.py`, cli-main/module-main names are the dotted module path with targets `command-line interface` / `run as a script`.",
-        "code_ref": "syscontext.py (_scan_entrypoints_file)"
+        "missing": "Per-file entry-point precedence rules: only the FIRST `__main__` guard in a file is used, a `__main__.py` file suppresses its own guard entry entirely, and a framework app object is emitted in addition to (not instead of) a guard entry.",
+        "code_ref": "spec_eval/syscontext.py (_scan_entrypoints_file)"
       },
       {
         "severity": "minor",
-        "missing": "Web-app detection is only an assignment form `<var> = <Framework>(` over the list Flask/FastAPI/Sanic/Quart/Bottle/Tornado, with the entry `name` being the assigned variable and `target` the string `<Framework> app object (constructed)`.",
-        "code_ref": "syscontext.py (FRAMEWORK_APP_FACTORIES)"
+        "missing": "Framework app-object detection requires an assignment-shaped construction (`name = Flask(`) and covers a fixed factory list \u2014 Flask, FastAPI, Sanic, Quart, Bottle, Tornado (Quart appears here but not in the inbound-framework table).",
+        "code_ref": "spec_eval/syscontext.py (FRAMEWORK_APP_FACTORIES)"
       },
       {
         "severity": "minor",
-        "missing": "CLI-main detection markers are unstated: only `ArgumentParser(`, `add_subparsers(`, `@click.group`, or `@click.command` upgrade a bare guard to `cli-main`.",
-        "code_ref": "syscontext.py (_scan_entrypoints_file)"
+        "missing": "`diff_receipt`'s concrete output shapes are unspecified: the clean line '0 system-context changes', the optional ' @ <sha>' annotation, the fixed re-baseline explanation text, and that a rebaseline receipt also prints the \u00b1delta lines.",
+        "code_ref": "spec_eval/syscontext.py (diff_receipt)"
       },
       {
         "severity": "minor",
-        "missing": "Recognized-but-unsupported source files are counted into `unscanned` BEFORE the test/generated/user-exclusion and illustrative-directory filters, so a `.cpp` under `tests/` still inflates the language-gap note.",
-        "code_ref": "syscontext.py (scan)"
+        "missing": "The recognized-but-unsupported extension list backing `unscanned` (~30 extensions: .c/.cpp/.h/.m/.scala/.groovy/.clj/.ex/.erl/.hs/.ml/.fs/.vb/.pl/.r/.jl/.dart/.lua/.zig/.nim \u2026) and the fixed note's remediation clause ('Add the extension(s) to `code_ext` \u2026') are not given.",
+        "code_ref": "spec_eval/syscontext.py (OTHER_SOURCE_EXT)"
       },
       {
         "severity": "minor",
-        "missing": "Google detection specifics: `google.cloud.<svc>` / `from google.cloud import <svc>` / `@google-cloud/<svc>` render as `Google Cloud <Title Cased svc>` (infra), and `from google import genai` maps to `Google Gemini API` (application).",
-        "code_ref": "syscontext.py (_GOOGLE_CLOUD_RE)"
+        "missing": "Unsupported-extension files are counted into `unscanned` before any exclusion filtering, so a .cpp file under tests/ or examples/ still increments the language-gap counts.",
+        "code_ref": "spec_eval/syscontext.py (scan)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The full documentation-domain skip list (schema.org, json-schema.org, pypi.org, npmjs.com, opensource.org, creativecommons.org, shields.io, readthedocs.io, stackoverflow.com, example.org/.net) and the extra connection schemes recognized (gs, smtp, ftp/sftp, nats, mqtt, jdbc:sqlserver, mongodb+srv, rediss) are only partially exemplified.",
+        "code_ref": "spec_eval/syscontext.py (SKIP_HOST_SUFFIXES, SCHEME_SYSTEMS)"
+      },
+      {
+        "severity": "minor",
+        "missing": "`from google import genai` is detected as a distinct 'Google Gemini API' application entry, and Google Cloud entries are named 'Google Cloud <title-cased service id>' with underscores/hyphens converted.",
+        "code_ref": "spec_eval/syscontext.py (_GOOGLE_GENAI_RE)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The compiled stamp patterns are deliberately public module surface (STAMP_RE, ARCH_STAMP_RE) for other modules to match against, and the comment format is `<!-- <name>: <hex> -->` with whitespace tolerance.",
+        "code_ref": "spec_eval/syscontext.py (_Stamp)"
       }
     ]
   },
@@ -458,62 +509,47 @@
     "label": "verify",
     "code_files": 1,
     "doc_files": 1,
-    "sufficiency": 0.79,
+    "sufficiency": 0.8,
     "gaps": [
       {
         "severity": "major",
-        "missing": "The repo-level driver is not described: it resolves pairs from `config[\"pairs\"]` or falls back to `coverage.infer_pairs(repo, config)`, matches result records to pairs by `label`, skips records with no matching pair or no findings, and rewrites `rec[\"findings\"]` in place.",
+        "missing": "The repo-level entry point is undescribed: how pairs are resolved (config `pairs`, else inferred via coverage.infer_pairs), that result records are matched to pairs by `label`, that records with no matching pair or no findings are skipped, and that results are mutated in place and returned.",
         "code_ref": "spec_eval/verify.py (verify_repo)"
       },
       {
         "severity": "minor",
-        "missing": "The verifier prompt also carries the pair's concatenated code, and both doc and code are truncated to caps (`audit.DOC_CAP`/`audit.CODE_CAP`, overridable via `audit.caps_from(config)`), so \"the whole document\" is bounded.",
+        "missing": "The verification prompt also carries the pair's code text (not just the document and findings), and each finding is listed with index, severity, summary, doc_ref, code_ref and evidence.",
         "code_ref": "spec_eval/verify.py (verify_pair)"
       },
       {
         "severity": "minor",
-        "missing": "If the doc globs resolve to zero files (`nd == 0`), verification is skipped entirely and the findings are returned unverified \u2014 a second no-op path beyond the empty-findings case in AC-8.",
+        "missing": "Document and code are read through size caps (defaults from audit.CODE_CAP/DOC_CAP, overridable via `caps_from(config)`), so the 'whole document' is actually truncated at a cap.",
         "code_ref": "spec_eval/verify.py (verify_pair)"
       },
       {
         "severity": "minor",
-        "missing": "The window for the position check defaults to 3 lines (`abs(hit - cited) <= 3`) and is a parameter; the spec only says \"a small window\".",
+        "missing": "When no document content can be read for the pair (zero doc files matched), findings are returned unverified with no model call.",
+        "code_ref": "spec_eval/verify.py (verify_pair)"
+      },
+      {
+        "severity": "minor",
+        "missing": "The position-check window is \u00b13 lines, and the match is substring containment within a single document line (any occurrence within the window passes; the rejection message reports the first occurrence).",
         "code_ref": "spec_eval/verify.py (check_not_asserted)"
       },
       {
         "severity": "minor",
-        "missing": "Quote presence is a substring match against a single document line (`quote in line`), so a quote spanning line breaks or normalized whitespace fails and the withdrawal is rejected.",
-        "code_ref": "spec_eval/verify.py (check_not_asserted)"
-      },
-      {
-        "severity": "minor",
-        "missing": "`doc_ref` line extraction accepts both `file:L50` and `file:50` via `:L?(\\d+)` and yields None otherwise, which is what makes the window check conditional.",
+        "missing": "A cited line is extracted from `doc_ref` by matching `:L<digits>` or `:<digits>`; a doc_ref in any other shape is treated as citing no line, so only presence is checked.",
         "code_ref": "spec_eval/verify.py (_cited_line)"
       },
       {
         "severity": "minor",
-        "missing": "The verdict is attached to each finding under the key `verification`, and downstream filtering treats a missing key as upheld (`f.get(\"verification\", {}).get(\"verdict\", \"upheld\")`).",
-        "code_ref": "spec_eval/verify.py (verify_pair / upheld)"
-      },
-      {
-        "severity": "minor",
-        "missing": "The verifier call is capped at 2000 max tokens (verdicts only, no evidence re-quoting).",
+        "missing": "The verifier call is capped at 2000 max output tokens, on the rationale that it returns verdicts only.",
         "code_ref": "spec_eval/verify.py (VERIFY_MAX_TOKENS)"
       },
       {
         "severity": "minor",
-        "missing": "The findings listing sent to the verifier has a fixed shape \u2014 index, severity, summary, doc_ref, code_ref, and evidence per finding \u2014 and indices are what the model must key verdicts by.",
-        "code_ref": "spec_eval/verify.py (verify_pair)"
-      },
-      {
-        "severity": "minor",
-        "missing": "Default and downgraded verdicts have specified `why` strings (\"no verdict returned; upheld by default\", \"withdrawal rejected: \u2026\" naming absence vs. position with the found line number), and a rejected withdrawal preserves the quote while clearing the ground.",
-        "code_ref": "spec_eval/verify.py (parse_verdicts / check_not_asserted)"
-      },
-      {
-        "severity": "minor",
-        "missing": "An out-of-range or non-integer `index` in a verdict entry is skipped rather than aborting parsing, and the rubric's `not-asserted` instruction includes the \"if the property appears anywhere else in the doc at the needed strength, the ground does not apply\" clause.",
-        "code_ref": "spec_eval/verify.py (parse_verdicts / VERIFY_RUBRIC)"
+        "missing": "Default/downgraded verdicts carry specific placeholder text: missing verdicts get why 'no verdict returned; upheld by default' with empty quote, while a withdrawal downgraded for a bad ground keeps the model's doc_quote and why.",
+        "code_ref": "spec_eval/verify.py (parse_verdicts)"
       }
     ]
   }

@@ -5,7 +5,7 @@
     "tables_digest": "db2e26940c8b6587"
   },
   "repo": "spec-eval",
-  "files_scanned": 14,
+  "files_scanned": 15,
   "unscanned": {},
   "entries": [
     {
@@ -18,7 +18,7 @@
       "evidence": [
         {
           "file": "spec_eval/providers.py",
-          "line": 111,
+          "line": 173,
           "match": "import anthropic"
         }
       ],
@@ -34,12 +34,12 @@
       "evidence": [
         {
           "file": "spec_eval/providers.py",
-          "line": 129,
+          "line": 202,
           "match": "from google import genai"
         },
         {
           "file": "spec_eval/providers.py",
-          "line": 130,
+          "line": 203,
           "match": "from google.genai import types"
         }
       ],
@@ -55,7 +55,7 @@
       "evidence": [
         {
           "file": "spec_eval/providers.py",
-          "line": 121,
+          "line": 183,
           "match": "from openai import OpenAI"
         }
       ],
