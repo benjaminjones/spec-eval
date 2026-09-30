@@ -6,16 +6,32 @@
     "findings": [
       {
         "severity": "medium",
-        "summary": "The per-side file count (and therefore the skip decision and the `code_files`/`doc_files` fields) counts only non-empty, readable files that were emitted, not the files the globs matched, so a side whose globs match only empty files is reported as having matched zero files.",
-        "code_ref": "spec_eval/audit.py:L44",
-        "doc_ref": "spec_eval/audit.md:\u00a72 \"Skipped pair\" / \u00a73 \"Skip semantics\" / AC-1",
-        "evidence": "Code: `if c.strip(): chunks.append(...)` \u2026 `return (text[:cap] + ...), len(chunks), capped`; then `if nc == 0 or nd == 0: return {..., \"skipped\": f\"no files matched (code={nc}, docs={nd})\", ...}`. Doc: \"Skipped pair | A pair where either side matched **zero** files\" and \"**Skip semantics.** If either side matched zero files, the pair is **not** sent to the model\"; AC-1: \"A pair whose code globs match 3 files and doc globs match 2 files | audited | Result has `code_files=3`, `doc_files=2`\".",
-        "suggestion": "Either track matched-file count separately from contributed-section count (report `code_files`/`doc_files` as glob matches, skip only on zero matches), or reword the doc to say a pair is skipped when a side contributes zero readable non-empty files and that `code_files`/`doc_files` count contributing files.",
+        "class": "drift",
+        "summary": "The doc defines the rubric as fixed, but the code lets a config key `rubric.drift` replace `DRIFT_RUBRIC` with the contents of a file path for every pair in the run.",
+        "code_ref": "spec_eval/audit.py:L108-L138 (rubric_from), L207 (audit_repo)",
+        "doc_ref": "spec_eval/audit.md:L24",
+        "evidence": "doc (L24): \"| Rubric | `DRIFT_RUBRIC`, the fixed system prompt sent with every pair. |\"\ncode (L207-L208): `rubric = rubric_from(config, \"drift\", DRIFT_RUBRIC, repo)` / `return [audit_pair(repo, p, model, code_cap, doc_cap, markers, rubric) for p in pairs]`\ncode (L192): `providers.gen(model, rubric or DRIFT_RUBRIC, user, ...)`\ncode (L109): \"The grading rubric, config-overridable per check: `rubric: {sufficiency, drift}` \u2192 a FILE path.\"",
+        "suggestion": "Reword the Rubric row to \"`DRIFT_RUBRIC` by default, config-overridable per check via `rubric: {drift}` pointing at a file path; the resolved rubric is the system prompt sent with every pair\", and add a Behavior note that a missing or empty rubric file is a hard error (`SystemExit`), never a silent fallback.",
         "verification": {
           "verdict": "upheld",
           "ground": null,
-          "doc_quote": "| AC-1 | A pair whose code globs match 3 files and doc globs match 2 files | audited | Result has `code_files=3`, `doc_files=2`, and `findings` from the model. |",
-          "why": "The acceptance table and the skip-semantics passage both frame the counts and skip decision in terms of files the globs matched (\"matched **zero** files\", \"globs match 3 files ... `code_files=3`\"), and no passage states the counts are of emitted readable, non-empty files \u2014 INV-4 only says such files \"contribute to an assembled side\", which does not correct the count/skip rule."
+          "doc_quote": "| Rubric | `DRIFT_RUBRIC`, the fixed system prompt sent with every pair. |",
+          "why": "The cited line names the rubric as `DRIFT_RUBRIC` and calls it fixed, and no other passage in the doc mentions the `rubric:` config override, so the assertion stands as written."
+        }
+      },
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "The Config shape in the Definitions table (and the Contracts section) enumerates the optional config keys but omits `rubric`, which the code reads.",
+        "code_ref": "spec_eval/audit.py:L127 (rubric_from)",
+        "doc_ref": "spec_eval/audit.md:L16",
+        "evidence": "doc (L16): \"| Config | A YAML or JSON document of shape `{pairs: [...][, caps: {code, docs}][, rationale_markers: [...]]}`. |\"\ndoc (L59): \"- **Config** \u2192 `{pairs: [{label, code:[glob], docs:[glob]}]}` or empty/absent `pairs`.\"\ncode (L127): `v = ((config or {}).get(\"rubric\") or {}).get(key)`",
+        "suggestion": "Extend the documented config shape to `{pairs: [...][, caps: {code, docs}][, rationale_markers: [...]][, rubric: {drift, sufficiency}]}` in both the Definitions table and the Contracts section.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-asserted",
+          "doc_quote": "| Config | A YAML or JSON document of shape `{pairs: [...][, caps: {code, docs}][, rationale_markers: [...]]}`. |",
+          "why": "The cited line enumerates optional keys but never says these are the only or all permitted keys, so listing three does not amount to the exhaustiveness claim the finding needs."
         }
       }
     ]
@@ -27,46 +43,23 @@
     "findings": [
       {
         "severity": "medium",
-        "summary": "The doc says the data-flow diagram ends at the observed external systems, but the rubric in code mandates it terminate in the user-facing result and treats external systems only as boundary nodes.",
-        "code_ref": "spec_eval/authoring.py:L161",
-        "doc_ref": "spec_eval/authoring.md:L72",
-        "evidence": "Doc: \"`diagram_block` builds just the repo's Architecture section body \u2014 an invocation sequenceDiagram (scanner-verified entry points, provenance-noted) plus a pure data-flow pipeline **ending at the observed external systems** \u2014 for the `diagram` subcommand\". Code (`ARCH_DIAGRAM_RUBRIC`, subsection (b)): \"It MUST span the pipeline end to end and TERMINATE in the user-facing result (a) shows the User receiving \u2014 generated samples, a served response, a written report. An intermediate artifact ... is NOT that result ... External systems come ONLY from the OBSERVED SYSTEM EVIDENCE block, **at the boundary**, joined by dashed -.-> edges labeled with the transfer\". A repo with no observed external systems still gets a data-flow diagram, and it must end at the user-facing result node, not at an external system.",
-        "suggestion": "Reword the doc to: \"plus a pure data-flow pipeline that terminates in the user-facing result, with any observed external systems drawn at the boundary\".",
+        "class": "drift",
+        "summary": "AC-16 specifies link repair inside an `OVERVIEW.md` sitting at `src/a/`, but `generate_repo` only ever writes `OVERVIEW.md` at the repo root, where the repair branch is dead by construction, so the criterion can never be met as written.",
+        "code_ref": "spec_eval/authoring.py:L607",
+        "doc_ref": "spec_eval/authoring.md:L169",
+        "evidence": "Doc (AC-16): \"| `OVERVIEW.md` at `src/a/`, link written as `(src/a/list.md)`, that file exists | `generate_repo` runs | the written link is `(list.md)` and the repair count appears in the note. |\"\n\nCode (`generate_repo`, the only OVERVIEW.md write path): `md, fixed, broken = repair_links(md, repo, \"OVERVIEW.md\")` \u2026 `emit(\"OVERVIEW.md\", \".\", _repo_overview, \u2026)` \u2014 the doc path is hard-coded to the repo root, so `doc_dir = os.path.dirname(\"OVERVIEW.md\")` is `\"\"`. In `repair_links` the two probes then collapse to the same test: `os.path.exists(os.path.join(repo, doc_dir, path))` == `os.path.exists(os.path.join(repo, path))`, so a link either returns early unchanged or falls through to `broken` \u2014 `fixed` is always 0 and no repair count can appear in the note. The only overview the repair can fire on is the per-dir `os.path.join(d, \"README.md\")`, repaired via `repair_links(md, repo, readme)`.",
+        "suggestion": "Restate AC-16 against the surface that actually exercises the repair: \"Given a per-dir `README.md` at `src/a/` whose link is written as `(src/a/list.md)` and that file exists, When `generate_repo` runs, Then the written link is `(list.md)` and the repair count appears in the note.\" (The same mis-located `src/a/OVERVIEW.md` example appears in the \u00a73 'Resolving links from the document' paragraph and in `repair_links`' own docstring; update those to `src/a/README.md` too so the illustration matches a reachable path.)",
         "verification": {
           "verdict": "upheld",
           "ground": null,
-          "doc_quote": "`diagram_block` builds just the repo's Architecture section body \u2014 an invocation sequenceDiagram (scanner-verified entry points, provenance-noted) plus a pure data-flow pipeline ending at the observed external systems \u2014 for the `diagram` subcommand, reusing the same synthesis engine with a diagram-only rubric.",
-          "why": "The doc directly asserts the data-flow pipeline ends at the observed external systems, and no other passage in the doc states the terminate-in-user-facing-result rule, so the finding stands."
-        }
-      },
-      {
-        "severity": "medium",
-        "summary": "The 'Freshness stamp' section describes only the conditional system-context fingerprint, but the repo OVERVIEW.md is also stamped unconditionally with an architecture fingerprint.",
-        "code_ref": "spec_eval/authoring.py:L497",
-        "doc_ref": "spec_eval/authoring.md:L66",
-        "evidence": "Doc: \"**Freshness stamp.** When the repo `OVERVIEW.md` renders a System context section (an evidence block was present), an invisible `<!-- system-context-fingerprint: <digest> -->` comment (`syscontext.stamp_comment`) is appended to the file ... The per-dir `README.md` overviews are not stamped.\" Code (`_repo_overview`): \"if syscontext.evidence_block(ctx): md = md.rstrip() + \\\"\\\\n\\\\n\\\" + syscontext.stamp_comment(ctx)\" followed unconditionally by \"md = md.rstrip() + \\\"\\\\n\\\\n\\\" + syscontext.architecture_stamp_comment(ctx, ep, files)\". Two receipts can be written, one of them on every authored OVERVIEW.md regardless of evidence; `_STAMP_COMMENT_RE` likewise matches both `system-context` and `architecture` fingerprints.",
-        "suggestion": "Add the architecture fingerprint to the Freshness stamp paragraph: state that `OVERVIEW.md` always receives `<!-- architecture-fingerprint: ... -->` (stamped from `ctx`, `ep`, and `module_set`), while the system-context fingerprint is written only when an evidence block was present.",
-        "verification": {
-          "verdict": "upheld",
-          "ground": null,
-          "doc_quote": "**Freshness stamp.** When the repo `OVERVIEW.md` renders a System context section (an evidence block was\npresent), an invisible `<!-- system-context-fingerprint: <digest> -->` comment (`syscontext.stamp_comment`) is\nappended to the file, recording the scan the section came from.",
-          "why": "withdrawal rejected: the quoted line does not appear in the document"
-        }
-      },
-      {
-        "severity": "low",
-        "summary": "The Definitions table enumerates status as authored/skipped/failed and omits `stray`, which the code emits and the same doc lists elsewhere.",
-        "code_ref": "spec_eval/authoring.py:L560",
-        "doc_ref": "spec_eval/authoring.md:L32",
-        "evidence": "Doc \u00a72: \"status | Per-target outcome: `authored`, `skipped` (a file was already there), **or** `failed` (the reply was not a document ...)\". Code: \"results.append({\\\"code\\\": \\\"-\\\", \\\"spec\\\": rel, \\\"status\\\": \\\"stray\\\", ...})\". Doc \u00a73 Result reporting contradicts its own table: \"`status` (`authored` | `skipped` | `failed` | `stray`)\".",
-        "suggestion": "Add `stray` to the `status` row in the Definitions table so it matches the Result-reporting sentence and the code's four emitted values.",
-        "verification": {
-          "verdict": "withdrawn",
-          "ground": "stated-elsewhere",
-          "doc_quote": "**Result reporting.** Returns a list of records, one per target, each carrying `code`, `spec`, `status` (`authored` | `skipped` | `failed` | `stray`), and optionally `note`.",
-          "why": "The same document states the complete status set including `stray` in the Result reporting passage (and INV-15), so the loose Definitions row does not make the doc wrong."
+          "doc_quote": "| AC-16 | `OVERVIEW.md` at `src/a/`, link written as `(src/a/list.md)`, that file exists | `generate_repo` runs | the written link is `(list.md)` and the repair count appears in the note. |",
+          "why": "The cited line literally makes the claim in the strength the finding needs \u2014 an `OVERVIEW.md` at `src/a/` whose link `generate_repo` repairs \u2014 and the narrative passage ('`src/a/list.md` inside `src/a/OVERVIEW.md` resolves to `src/a/src/a/list.md`') repeats rather than corrects that scenario, so no named withdrawal ground applies."
         }
       }
+    ],
+    "rationale_masked": 2,
+    "truncated": [
+      "docs input capped at ~28,000 chars"
     ]
   },
   {
@@ -75,73 +68,145 @@
     "doc_files": 1,
     "findings": [
       {
-        "severity": "medium",
-        "summary": "The generate result contract enumerates only two statuses, but the code produces (and branches on) four.",
-        "code_ref": "spec_eval/cli.py:L224-L227",
-        "doc_ref": "spec_eval/cli.md:L75",
-        "evidence": "doc \u00a74: \"`res` (generate) \u2014 list of `{ status, spec, note? }`; status \u2208 {`authored`, `skipped`}.\"  code: `authored = sum(1 for r in res if r[\"status\"] == \"authored\")` / `failed = ... == \"failed\"` / `skipped = ... == \"skipped\"` / `stray = ... == \"stray\"` (doc \u00a73 itself says \"prints each result's status (`authored` / `skipped` / `failed` / `stray`)\").",
-        "suggestion": "Change the contract line to `status \u2208 {authored, skipped, failed, stray}` so the closed set matches the four statuses the code counts.",
+        "severity": "high",
+        "class": "drift",
+        "summary": "The doc guarantees every command but `diagram` writes a JSON + Markdown pair and appends a run record, but the `compare` command writes only `compare.json` and never calls `runlog.append_run`.",
+        "code_ref": "spec_eval/cli.py:L257-L297",
+        "doc_ref": "spec_eval/cli.md:L64",
+        "evidence": "doc: \"**Artifacts & logging.** Every command except `diagram` creates `--out` if needed, writes both a JSON and (except generate, which writes only JSON) a Markdown file, and calls `runlog.append_run` with the command, repo, model \u2026 `diagram` has no `--out` at all: it never writes an artifact there and never appends a run record\"\ncode: `elif args.cmd == \"compare\": os.makedirs(args.out, exist_ok=True) \u2026 json.dump(res, open(os.path.join(args.out, \"compare.json\"), \"w\"), indent=2) \u2026 print(f\"wrote compare.json \u2192 {os.path.abspath(args.out)}\")` \u2014 no Markdown write and no `runlog.append_run(...)` anywhere in the branch.",
+        "suggestion": "Amend the Artifacts & logging paragraph to carve out `compare` alongside `generate`/`diagram`: it creates `--out`, writes `compare.json` only (no Markdown), and appends no run record \u2014 or add a `runlog.append_run(..., \"compare\", ...)` call and a `compare.md` writer to match the stated rule.",
         "verification": {
-          "verdict": "withdrawn",
-          "ground": "stated-elsewhere",
-          "doc_quote": "Writes `generated.json` and prints each result's status (`authored` / `skipped` / `failed` / `stray`), spec path, and any `note`",
-          "why": "The \u00a73 behavior narrative states the full four-status set correctly, so the document as a whole is not wrong about the statuses the code produces."
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "**Artifacts & logging.** Every command except `diagram` creates `--out` if needed, writes both a JSON and (except generate, which writes only JSON) a Markdown file, and calls `runlog.append_run` with the command, repo, model (null for `coverage` and `context`), and command-specific metrics.",
+          "why": "The doc makes an explicit universal claim over every command but `diagram`, and `compare` is a command that writes no Markdown and never appends a run record."
         }
       },
       {
         "severity": "medium",
-        "summary": "The documented generate run-log key set omits `failed` and `stray`, which the code always writes.",
-        "code_ref": "spec_eval/cli.py:L235-L237",
+        "class": "drift",
+        "summary": "The CLI exposes a seventh subcommand, `compare`, that the doc's capability list and command-surface enumeration omit entirely.",
+        "code_ref": "spec_eval/cli.py:L103-L115",
+        "doc_ref": "spec_eval/cli.md:L38",
+        "evidence": "doc: \"the command-line surface for the six checks\" \u2026 \"**Command surface.** A required subcommand selects the capability: `audit`, `sufficiency`, `generate`, `coverage`, `context`, `diagram`.\"\ncode: `_cmp = sub.add_parser(\"compare\", help=\"COMPARE two `--reps` runs \u2014 noise share, vendor delta against its standard error, and TOST equivalence. Makes NO model calls.\")` with positionals `a` (`REPS_A.json`) / `b` (`REPS_B.json`) and flags `--margin`, `--out/-o`, `--allow-sha-mismatch`.",
+        "suggestion": "Add `compare` to the capability list (seven checks) and to the command-surface enumeration, documenting its two positional reps files and `--margin` / `--out` / `--allow-sha-mismatch` flags, plus the `SystemExit(2)` on a refused comparison.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "**Command surface.** A required subcommand selects the capability: `audit`, `sufficiency`, `generate`, `coverage`, `context`, `diagram`.",
+          "why": "The doc closes the set with a count elsewhere (\"the command-line surface for the six checks\", \"six distinct capabilities from one command surface\"), so the seventh subcommand `compare` contradicts an asserted enumeration."
+        }
+      },
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "`sufficiency` accepts `--max-calls` and `--reps` and can write a third artifact, `sufficiency-reps.json`, none of which the doc mentions.",
+        "code_ref": "spec_eval/cli.py:L98-L101",
+        "doc_ref": "spec_eval/cli.md:L38",
+        "evidence": "doc: \"`audit` and `sufficiency` share a base argument set (`repo`, `--config/-c`, `--model/-m`, `--out/-o`, `--env`, `--fingerprint/--no-fingerprint`); `audit` adds `--verify`.\" and \"**sufficiency.** Runs `sufficiency_repo`, writes `sufficiency.json` and `sufficiency.md`.\"\ncode: `_add_max_calls(_suff)` \u2026 `_suff.add_argument(\"--reps\", type=int, default=1, metavar=\"N\", \u2026)`; and `if reps > 1: json.dump({\"model\": \u2026, \"git_sha\": runlog.git_sha(args.repo), \"reps_requested\": reps, \"reps\": all_reps}, open(os.path.join(args.out, \"sufficiency-reps.json\"), \"w\"), indent=2)`.",
+        "suggestion": "Document that `sufficiency` adds `--reps N` (default 1) and `--max-calls N` (default unset/unlimited), that `N>1` also writes `sufficiency-reps.json` carrying the model, repo, git sha and every rep, and that rep 1 drives the single-run report.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-asserted",
+          "doc_quote": "`audit` and `sufficiency` share a base argument set (`repo`, `--config/-c`, `--model/-m`, `--out/-o`, `--env`, `--fingerprint/--no-fingerprint`); `audit` adds `--verify`.",
+          "why": "The cited line calls it a *base* argument set and never says sufficiency accepts only these flags or writes only two artifacts, so the finding supplies an exhaustiveness the line does not carry."
+        }
+      },
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "The doc says `generate` logs three metrics, but the code logs five \u2014 `failed` and `stray` are also written to the run log.",
+        "code_ref": "spec_eval/cli.py:L334-L335",
         "doc_ref": "spec_eval/cli.md:L53",
-        "evidence": "doc: \"- Logs `authored`, `skipped`, and `flagged` (targets whose record carries a `note` \u2026).\"  code: `runlog.append_run(args.out, args.repo, \"generate\", args.model, {\"authored\": authored, \"skipped\": skipped, \"failed\": failed, \"stray\": stray, \"flagged\": ...})`.",
-        "suggestion": "List `authored`, `skipped`, `failed`, `stray`, and `flagged` in the generate logging bullet.",
+        "evidence": "doc: \"- Logs `authored`, `skipped`, and `flagged` (targets whose record carries a `note` \u2014 e.g. a partial view).\"\ncode: `runlog.append_run(args.out, args.repo, \"generate\", args.model, {\"authored\": authored, \"skipped\": skipped, \"failed\": failed, \"stray\": stray, \"flagged\": sum(1 for r in res if r.get(\"note\"))})`",
+        "suggestion": "Update the bullet to \"Logs `authored`, `skipped`, `failed`, `stray`, and `flagged`\", consistent with the section's own insistence that every status is counted by name.",
         "verification": {
           "verdict": "withdrawn",
           "ground": "not-asserted",
           "doc_quote": "- Logs `authored`, `skipped`, and `flagged` (targets whose record carries a `note` \u2014 e.g. a partial view).",
-          "why": "The cited line lists three logged keys but never says these are the only keys, so it does not carry the exhaustiveness the finding needs."
+          "why": "The cited line lists three logged metrics without \"only\"/\"exactly\", and it remains true of code that also logs `failed` and `stray`."
         }
       },
       {
         "severity": "medium",
-        "summary": "The `cov` result-shape contract omits the `unmodeled` field the coverage branch reads and logs.",
-        "code_ref": "spec_eval/cli.py:L260,L267",
-        "doc_ref": "spec_eval/cli.md:L73",
-        "evidence": "doc \u00a74: \"`cov` (coverage) \u2014 `{ pct, covered[], uncovered[], spec_worthy, orphans[] }`.\"  code: `for g in cov.get(\"unmodeled\", []):` \u2026 and `\"unmodeled_md\": sum(g[\"files\"] for g in cov.get(\"unmodeled\", []))` (doc \u00a73 also describes the \u26a0 `unmodeled:` lines).",
-        "suggestion": "Add `unmodeled[]` (entries of `{dir, files}`) to the `cov` shape in the contracts section.",
+        "class": "drift",
+        "summary": "The audit section describes the summary count and run log only in terms of *audited* pairs, but the code introduces a separate *graded* denominator that it both prints and logs as `pairs_graded`.",
+        "code_ref": "spec_eval/cli.py:L200-L208",
+        "doc_ref": "spec_eval/cli.md:L44",
+        "evidence": "doc: \"Prints the count of high/medium drift findings across *audited* pairs (pairs not marked `skipped`) \u2026 Logs `high_med_drift`, `pairs_audited`, `pairs_truncated`, and a per-module drift load.\"\ncode: `graded = sum(1 for r in results if not r.get(\"skipped\") and not report.not_graded(r))` \u2026 `if graded != audited: print(f\"{total} high/medium drift finding(s) across {graded} graded pair(s) ({audited} attempted, {len(results)} total).\")` \u2026 `{\"high_med_drift\": total, \"pairs_audited\": audited, \"pairs_graded\": graded, \"pairs_truncated\": truncated, \u2026}`",
+        "suggestion": "Describe the graded-vs-attempted distinction (an ungraded pair stays in the denominator rather than reading as clean) and add `pairs_graded` to the list of logged metrics.",
         "verification": {
-          "verdict": "withdrawn",
-          "ground": "stated-elsewhere",
-          "doc_quote": "Logs `coverage_pct`, `covered`, `spec_worthy`, `orphans`, and `unmodeled_md`.",
-          "why": "The same document's \u00a73 coverage narrative states that the coverage result carries unmodeled markdown groups (printed as \u26a0 `unmodeled:` lines and logged as `unmodeled_md`), so the doc does state the property the finding says is missing."
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "Prints the count of high/medium drift findings across *audited* pairs (pairs not marked `skipped`), a \u26a0 warning when any pair was graded on a partial view (input cap or reply token cap; the per-pair detail is in the report), the written paths, and the model call and token counts (no dollar figure).",
+          "why": "The doc positively defines the printed denominator as audited pairs (\"pairs not marked `skipped`\"), while the code prints a different `graded` denominator whenever the two diverge."
         }
       },
       {
         "severity": "low",
-        "summary": "`context --check` is documented as reading `<repo>/OVERVIEW.md`, but the code falls back to `README.md` when OVERVIEW.md is absent.",
-        "code_ref": "spec_eval/cli.py:L293",
+        "class": "drift",
+        "summary": "The `--check` gate is documented as reading `<repo>/OVERVIEW.md`, but the code resolves the staleness target as OVERVIEW.md *or*, failing that, README.md.",
+        "code_ref": "spec_eval/cli.py:L391-L393",
         "doc_ref": "spec_eval/cli.md:L56",
-        "evidence": "doc: \"It also reads `<repo>/OVERVIEW.md` and prints a \u26a0 *overview stale* warning \u2026\"  code: `overview_path = _diagram_target(args.repo)  # OVERVIEW.md, else README.md \u2014 the doc`, whose helper loops `for name in (\"OVERVIEW.md\", \"README.md\")`.",
-        "suggestion": "Reword to \"reads `<repo>/OVERVIEW.md`, else `<repo>/README.md`\" to match the same target resolution `diagram --write` uses.",
+        "evidence": "doc: \"It also reads `<repo>/OVERVIEW.md` and prints a \u26a0 *overview stale* warning when the overview's system-context fingerprint stamp no longer matches the fresh scan\"\ncode: `overview_path = _diagram_target(args.repo)` where `_diagram_target` iterates `for name in (\"OVERVIEW.md\", \"README.md\")`, and the warning prints `doc = os.path.basename(overview_path)`.",
+        "suggestion": "Change the phrase to \"reads `<repo>/OVERVIEW.md` (or `README.md` if no OVERVIEW.md exists)\", matching the resolution order already documented for `diagram --write`.",
         "verification": {
           "verdict": "upheld",
           "ground": null,
           "doc_quote": "It also reads `<repo>/OVERVIEW.md` and prints a \u26a0 *overview stale* warning when the overview's system-context fingerprint stamp no longer matches the fresh scan (`syscontext.overview_stale`)",
-          "why": "The cited line names OVERVIEW.md as the doc `context --check` reads and no other passage states the README.md fallback for `context --check`, so the claim stands as written."
+          "why": "The doc names a specific file for the `--check` staleness read, and no passage about `context --check` mentions the README.md fallback the code actually uses."
+        }
+      }
+    ]
+  },
+  {
+    "label": "compare",
+    "code_files": 1,
+    "doc_files": 1,
+    "findings": [
+      {
+        "severity": "high",
+        "class": "drift",
+        "summary": "A pair whose `sufficiency` is null in every rep of *both* inputs is silently discarded in `load_reps` and can never appear in `dropped_pairs`, violating AC-2/INV-1's promise that an unscored pair is listed rather than silently dropped.",
+        "code_ref": "spec_eval/compare.py:L181",
+        "doc_ref": "spec_eval/compare.md:L87",
+        "evidence": "code: `if s is None: continue` (L127) means the label never enters `by_label`; `compare` then computes `dropped = sorted((set(la) | set(lb)) - set(shared))` (L181) \u2014 a label missing from *both* `la` and `lb` is in neither the union nor `shared`, so it is reported nowhere. doc: \"**AC-2** | a pair with `sufficiency: null` in every rep | that pair appears in `dropped_pairs`\" and \"**INV-1** \u2026 A pair either vendor failed to score is excluded and listed.\"",
+        "suggestion": "Have `load_reps` also return the set of labels seen but unscored (e.g. `null_labels`), and union it into `dropped` in `compare` so a pair both vendors failed to score is still listed in `dropped_pairs`.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| **AC-2** | a pair with `sufficiency: null` in every rep | that pair appears in `dropped_pairs` |",
+          "why": "AC-2 as written is unqualified about which input the all-null reps come from, and INV-1 repeats that a pair either vendor failed to score is \"excluded and listed\", so the doc does assert the listing the code omits when both sides are null."
+        }
+      },
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "INV-11 states `noise_share` carries a `definition` field on every emission, but the one-rep return path emits `noise_share` with no `definition` key.",
+        "code_ref": "spec_eval/compare.py:L149",
+        "doc_ref": "spec_eval/compare.md:L72",
+        "evidence": "doc: \"**INV-11** `noise_share` **rises with noise** \u2014 it is the complement of a classic ICC, and carries a `definition` field saying so on every emission.\" code (L149-152): `return {\"within_vendor_variance\": None, \"total_variance\": None, \"noise_share\": None, \"unavailable_because\": \u2026, \"pairs_with_replication\": 0}` \u2014 no `definition`; only the fully-computed branch sets `\"definition\": \"within-vendor variance / total variance; RISES with noise\u2026\"` (L160). The unreachable `len(all_scores) < 2` branch (L154) omits it too.",
+        "suggestion": "Add the same `definition` string to both early-return branches of `noise()` (or build the dict from one shared base that always includes `definition`).",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "- **INV-11** `noise_share` **rises with noise** \u2014 it is the complement of a classic ICC, and carries a\n  `definition` field saying so on every emission.",
+          "why": "The cited line itself contains the \"on every emission\" strength the finding relies on, and INV-5/AC-8's description of the one-rep null path does not restate the definition rule correctly elsewhere, it simply omits it."
         }
       },
       {
         "severity": "low",
-        "summary": "The \"Artifacts & logging\" paragraph claims every command creates `--out`, writes JSON+Markdown, and calls `append_run`, none of which the `diagram` branch does.",
-        "code_ref": "spec_eval/cli.py:L330-L360",
-        "doc_ref": "spec_eval/cli.md:L64",
-        "evidence": "doc: \"Every command creates `--out` if needed, writes both a JSON and (except generate, which writes only JSON) a Markdown file, and calls `runlog.append_run` \u2026\"  code (diagram branch): no `os.makedirs(args.out, \u2026)`, no `json.dump`, no `runlog.append_run` \u2014 and the parser gives `diagram` no `--out` at all (consistent with INV-6: \"no `--out`, no report, no run log\").",
-        "suggestion": "Scope the sentence to the five artifact-writing commands, e.g. \"Every command except `diagram` \u2026\".",
+        "class": "drift",
+        "summary": "The `noise()` docstring calls this quantity \"the spec's `ICC` field\", but the spec has no `ICC` field \u2014 it names the emitted key `noise_share` (which is what the code actually emits).",
+        "code_ref": "spec_eval/compare.py:L136",
+        "doc_ref": "spec_eval/compare.md:L54",
+        "evidence": "code (L136): \"Within-vendor variance as a share of total \u2014 the spec's `ICC` field\" and (L139) \"It is reported under the name the programme pre-registered\". doc (L54): \"| `noise.<vendor>.noise_share` | Within-vendor variance \u00f7 total |\"; the only mention of ICC is INV-11's \"it is the complement of a classic ICC\".",
+        "suggestion": "Update the docstring to say the field is emitted as `noise_share` (the complement of a classic ICC), removing the stale reference to a spec `ICC` field.",
         "verification": {
-          "verdict": "withdrawn",
-          "ground": "stated-elsewhere",
-          "doc_quote": "| INV-6 | `diagram` with neither `--write` nor `--add-section` writes nothing: it prints the mermaid block to stdout only (no `--out`, no report, no run log); progress and the usage summary go to stderr. |",
-          "why": "The invariant table (and the diagram narrative's \"writes nothing \u2014 no `--out`, no report, no run log\") states the diagram exception correctly, so the loose \"Every command\" sentence is not the document's rule."
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| `noise.<vendor>.noise_share` | Within-vendor variance \u00f7 total |",
+          "why": "The \"What is reported\" table normatively names the emitted field `noise_share`, and the only ICC mention (INV-11's \"complement of a classic ICC\") is a comparison, not a field name, so the docstring's \"the spec's `ICC` field\" does conflict with the doc as written."
         }
       }
     ]
@@ -152,66 +217,104 @@
     "doc_files": 1,
     "findings": [
       {
-        "severity": "medium",
-        "summary": "`unmodeled_markdown` never consults the config pairs' `docs` globs, so an explicitly pair-declared spec that lives in a docs-only directory is reported as unmodeled \u2014 contradicting INV-8's claim that no file is ever both unmodeled and paired.",
+        "severity": "low",
+        "class": "drift",
+        "summary": "The Definitions row defines UNMODELED markdown as having \"no code sibling\", but the implementation (and the doc's own \u00a73 and INV-8) require the file's whole directory to contain no candidate code.",
         "code_ref": "spec_eval/coverage.py:L119",
-        "doc_ref": "spec_eval/coverage.md:\u00a74 INV-8",
-        "evidence": "Code (`unmodeled_markdown`) filters only on directory, user-excludes and conventional stems: `if d in code_dirs: continue` / `if classify_exclude(md, user_excludes) == \"user\": continue` / `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue` \u2014 `pair_docs` is built only inside `coverage()` for the orphan pass (`if md in pair_docs: continue  # explicitly paired \u2014 governed, wherever its code is`) and is never passed to `unmodeled_markdown`. Doc: \"INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.\" with \"Pair | `{label, code[], docs[]}` \u2014 links code globs to spec doc(s).\" So a config `pairs: [{docs: [\"docs/*.md\"]}]` covering 3+ docs in a docs-only dir yields a group the report labels \"outside the same-stem pairing model\" even though those docs are paired.",
-        "suggestion": "Thread `pair_docs` into `unmodeled_markdown` and skip any `md in pair_docs` (mirroring the orphan pass), or restate INV-8 as \"no file is ever both unmodeled and *same-stem* paired\".",
-        "verification": {
-          "verdict": "upheld",
-          "ground": null,
-          "doc_quote": "INV-8 | Every path in `unmodeled` sits in a directory holding no candidate code file, so no file is ever both unmodeled and paired.",
-          "why": "The cited line is a normative invariant that explicitly asserts, with \"never\", that no file is both unmodeled and paired, and no other passage states the pair-docs exemption for `unmodeled` (\u00a73 only lists directory/user-exclude/conventional-doc filters), so no named ground applies."
-        }
-      },
-      {
-        "severity": "medium",
-        "summary": "`SKILL.md` \u2014 the doc's headline example of markdown that should be reported as unmodeled \u2014 is filtered out by `CONVENTIONAL_DOC_STEMS`, which contains `\"skill\"`.",
-        "code_ref": "spec_eval/coverage.py:L52",
-        "doc_ref": "spec_eval/coverage.md:\u00a73 Unmodeled markdown detection",
-        "evidence": "Code: `CONVENTIONAL_DOC_STEMS = {\"readme\", \u2026, \"skill\", \u2026}` and in `unmodeled_markdown`: `if os.path.splitext(os.path.basename(md))[0].lower() in CONVENTIONAL_DOC_STEMS: continue  # README/CHANGELOG/\u2026 are docs, not an unmodeled corpus`. `os.path.splitext(\"SKILL.md\")[0].lower() == \"skill\"`, so every `SKILL.md` is dropped. Doc: \"two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references)\". A repo of `skills/a/SKILL.md`, `skills/b/SKILL.md`, `skills/c/SKILL.md` reports an empty `unmodeled`, the exact case the section says it exists to surface.",
-        "suggestion": "Either drop `\"skill\"` from the stem set used by `unmodeled_markdown` (keep it for orphan detection, e.g. via a separate set or a flag), or amend the doc so `SKILL.md` itself is stated to be excluded and only its reference files count toward a group.",
+        "doc_ref": "spec_eval/coverage.md:L22",
+        "evidence": "doc \u00a72: \"| UNMODELED | A directory tree of at least 3 markdown files that same-stem pairing cannot reach \u2014 no code sibling, not a conventional doc. |\"  vs code: `code_dirs = {os.path.dirname(rel) for rel in candidate}` \u2026 `if d in code_dirs: continue  # sits beside code \u2014 the pairing model already sees it`. doc \u00a73 states the real rule: \"A file qualifies when it sits in a directory holding no candidate code\", and INV-8 repeats it. Under the table's wording, a `.md` with no same-stem code file sitting in a directory that holds other code would be UNMODELED; the code instead routes exactly that file to `orphans`.",
+        "suggestion": "Reword the Definitions row to match \u00a73/INV-8, e.g. \"\u2026that same-stem pairing cannot reach \u2014 sits in a directory holding no candidate code, not a conventional doc\".",
         "verification": {
           "verdict": "withdrawn",
-          "ground": "not-normative",
-          "doc_quote": "**Why:** two real bodies of writing are invisible to a same-stem model \u2014 a spec tree keyed by requirement id (`spec/functional/FR-021-\u2026.md`) and behavior implemented AS markdown (an agent skill's `SKILL.md` and its references).",
-          "why": "The only place `SKILL.md` is named as an unmodeled example is this \"**Why:**\" rationale sentence; the section's normative rule (\"A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name\") and AC-4 (`skills/*/reference.md`) make no claim that `SKILL.md` itself is reported."
-        }
-      },
-      {
-        "severity": "low",
-        "summary": "The module docstring's glossary is stale: it defines COVERED as pair-glob matches only and CANDIDATE as `.py` files already minus the exclusion taxonomy, contradicting the spec's definitions and the language-agnostic implementation.",
-        "code_ref": "spec_eval/coverage.py:L4",
-        "doc_ref": "spec_eval/coverage.md:\u00a72 Definitions",
-        "evidence": "Code docstring: \"COVERED   = files matched by any pair's `code` globs in the config.\" / \"CANDIDATE = repo code files (.py) minus the EXCLUDES taxonomy \u2026\". Implementation and doc disagree: `DEFAULT_CODE_EXT = (\".py\", \".ts\", \u2026 \".cs\")`, `covered` also grows via the co-located `<stem>.md` and `per-dir` folder-spec branches, and the doc says \"CANDIDATE | Every code file under the repo (by extension), minus pruned directories\" with \"SPEC-WORTHY | CANDIDATE minus all excluded files\".",
-        "suggestion": "Update the module docstring to match: COVERED = pair glob OR sibling `<stem>.md` OR per-dir folder spec; CANDIDATE = all `code_ext` files minus pruned dirs; SPEC-WORTHY = CANDIDATE minus the exclusion tiers.",
-        "verification": {
-          "verdict": "upheld",
-          "ground": null,
-          "doc_quote": "| CANDIDATE | Every code file under the repo (by extension), minus pruned directories. |",
-          "why": "\u00a72 verbatim defines CANDIDATE as by-extension-minus-pruned-dirs and COVERED as pair-glob OR sibling `<stem>.md` OR per-dir folder spec, exactly the assertions the finding attributes to it, so it stands as written."
+          "ground": "stated-elsewhere",
+          "doc_quote": "Markdown that same-stem pairing cannot reach is grouped by top-level directory and reported when a group holds at least 3 files. A file qualifies when it sits in a directory holding no candidate code, is not user-excluded, and is not a conventional doc name.",
+          "why": "The \u00a73 behavior narrative (L63) and INV-8 (L101) both state the directory-level rule exactly as the code implements it; the Definitions row at L22 is a loose gloss of the same rule, so the document is not wrong."
         }
       }
-    ]
+    ],
+    "rationale_masked": 10
   },
   {
     "label": "providers",
     "code_files": 1,
     "doc_files": 1,
-    "findings": []
+    "findings": [
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "The spec's definitions table says `max_tokens` is not passed to OpenAI, but the v1/responses fallback path forwards it as `max_output_tokens`.",
+        "code_ref": "spec_eval/providers.py:L148",
+        "doc_ref": "spec_eval/providers.md:L16",
+        "evidence": "doc (\u00a72 Definitions): \"| `max_tokens` | Upper bound on generated output tokens. Default 1200. Applies to Anthropic and Google; not passed to OpenAI or the `claude-code` bridge. |\"  \u2014  code (`_gen_openai_responses`): \"r = client.responses.create(model=model, instructions=system, input=user, max_output_tokens=max_tokens)\", reached from `gen` via \"return _gen_openai_responses(client, model, system, user, max_tokens)\". Only the chat-completions path omits the cap.",
+        "suggestion": "Amend the definitions row to: \"Applies to Anthropic, Google, and the OpenAI v1/responses fallback (as `max_output_tokens`); not passed to OpenAI chat completions or the `claude-code` bridge.\"",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "| `max_tokens` | Upper bound on generated output tokens. Default 1200. Applies to Anthropic and Google; not passed to OpenAI or the `claude-code` bridge. |",
+          "why": "The cited line asserts flatly that `max_tokens` is not passed to OpenAI, and no other passage qualifies this for the `v1/responses` path, which forwards it as `max_output_tokens`."
+        }
+      },
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "The process-wide call ceiling (`MAX_CALLS`, `set_max_calls`, `CallBudgetExceeded`, the pre-call `_guard()`) is a public part of the module that the spec's Error semantics and Contracts sections never mention.",
+        "code_ref": "spec_eval/providers.py:L167",
+        "doc_ref": "spec_eval/providers.md:L51",
+        "evidence": "code: \"class CallBudgetExceeded(RuntimeError)\", \"MAX_CALLS = None\", \"def set_max_calls(n): ... Set the process-wide call ceiling\", and `gen` opens with \"_guard()   # before the request, so the ceiling counts calls MADE\", which raises `CallBudgetExceeded` before any vendor call  \u2014  doc (\u00a73): \"**Error semantics.** An unrecognized provider raises `ValueError` naming the offending provider and listing the valid prefixes.\" and \u00a74 Contracts lists only `DEFAULT_MODEL`, `gen`, `parse_model`, `USAGE`, `LAST`.",
+        "suggestion": "Add `MAX_CALLS`/`set_max_calls(n)` to the Contracts list and a definitions row, and extend Error semantics: `gen` raises `CallBudgetExceeded` (a `RuntimeError`) before issuing a request once `USAGE[\"calls\"]` has reached the ceiling; `None`/`0` means unlimited.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "not-asserted",
+          "doc_quote": "**Error semantics.** An unrecognized provider raises `ValueError` naming the offending provider and listing the valid prefixes.",
+          "why": "The cited line makes a single positive statement about unrecognized providers and contains no exhaustiveness word (only/all/never), so it does not assert that the module raises no other errors or that the Contracts list is the complete public surface \u2014 indeed the doc documents another error path elsewhere (\"Fails loudly if the CLI is not on PATH\", AC-13)."
+        }
+      }
+    ]
   },
   {
     "label": "report",
     "code_files": 1,
     "doc_files": 1,
-    "findings": []
+    "findings": [
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "The Purpose section (and the `write_markdown` return-value contract) promises the headline equals the total high+medium findings shown below it, but the headline counts `drift_load`, which excludes findings that are `stale` or withdrawn \u2014 so the two disagree whenever such a finding is rendered.",
+        "code_ref": "spec_eval/report.py:L18",
+        "doc_ref": "spec_eval/report.md:L7",
+        "evidence": "doc L7: \"**Every number in a report's headline is a faithful count of what follows it.** If the header says \\\"*3 high/medium drift finding(s) across 2 audited pair(s)*\\\", then exactly 2 non-skipped pairs appear below and their high+medium findings total exactly 3.\"\ndoc L73: \"| return of `write_markdown` | `total` = integer count of high/medium findings across audited pairs. |\"\ncode L18-21: `return sum(1 for f in r[\"findings\"] if f[\"severity\"] in (\"high\", \"medium\") and f.get(\"class\", \"drift\") != \"stale\" and f.get(\"verification\", {}).get(\"verdict\", \"upheld\") != \"withdrawn\")`\ncode L80: `total = sum(drift_load(r) for r in results if not r.get(\"skipped\"))`\n(contradicted by the doc's own AC-13, L92: \"One pair with one `drift` and one `stale` high finding \u2026 headline reads `1 high/medium drift finding(s)`; both findings appear\", and AC-11, L87.)",
+        "suggestion": "Reword L7 and the L73 contract row to match the `Drift load` definition at L18 \u2014 e.g. \"\u2026then exactly 2 non-skipped pairs appear below and their high+medium findings that are neither withdrawn nor classed `stale` total exactly 3\", and \"`total` = sum of per-pair drift load across audited pairs\".",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "| AC-13 | One pair with one `drift` and one `stale` high finding | `write_markdown` | headline reads `1 high/medium drift finding(s)`; both findings appear; the stale one renders `**[stale \u00b7 high]**`. |",
+          "why": "The same document states the rule correctly in the Definitions table (\"Drift load\" excludes withdrawn and `stale` findings; \"Stale finding\" is \"Shown in the report, not counted in the drift load\"), in the Behavior section (\"a `stale` finding renders `**[stale \u00b7 severity]**` and does not raise that count\"), and in AC-11/AC-13 \u2014 the Purpose line and the contract row are the loose passages, not a wrong document."
+        }
+      }
+    ],
+    "rationale_masked": 2
   },
   {
     "label": "rubric",
     "code_files": 1,
     "doc_files": 1,
-    "findings": []
+    "findings": [
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "The Definitions table's `Finding` row enumerates a finding's fields but omits `class`, which the rubric's output schema requires on every finding.",
+        "code_ref": "spec_eval/rubric.py:L43",
+        "doc_ref": "spec_eval/rubric.md:L18",
+        "evidence": "Code (rubric.py:43): `{\"findings\":[{\"severity\":\"high|medium|low\",\"class\":\"drift|stale\",\"code_ref\":...,\"doc_ref\":...,\"summary\":...,\"evidence\":...,\"suggestion\":...}]}` \u2014 and the doc's own \u00a73 (L47) and \u00a74 output shape (L58) both list `class`. Doc (rubric.md:18): \"| Finding | One reported drift instance: severity, optional code/doc references, summary, evidence, suggestion. |\" \u2014 no `class`, and \"drift instance\" excludes the `stale` class the same doc defines at L31.",
+        "suggestion": "Update the `Finding` row to \"One reported code\u2194doc disagreement: severity, class, optional code/doc references, summary, evidence, suggestion\" so the definitions table matches the emitted field set and admits `stale`-class findings.",
+        "verification": {
+          "verdict": "withdrawn",
+          "ground": "stated-elsewhere",
+          "doc_quote": "**Output format.** The reviewer must emit strict JSON with no preamble: an object with a `findings` array. Each finding carries `severity`, `class`, `code_ref`, `doc_ref`, `summary`, `evidence`, and `suggestion`. When no drift exists, the output is `{\"findings\": []}`.",
+          "why": "The Definitions row at L18 is a loose gloss of the term, while the same document states the finding's field set correctly \u2014 including `class` \u2014 in \u00a73 (L47) and the \u00a74 output-shape contract (L58), so the document is not wrong."
+        }
+      }
+    ]
   },
   {
     "label": "runlog",
@@ -226,19 +329,51 @@
     "findings": [
       {
         "severity": "medium",
-        "summary": "The spec says the `truncated` field is present only when an input side exceeded its cap, but the shared helper also adds a note when the model's reply hit the token cap, so `truncated` can appear with neither input cut.",
-        "code_ref": "spec_eval/sufficiency.py:L39",
+        "class": "drift",
+        "summary": "The spec says `truncated` is present only when an input side was cut, but the code also populates it when the model's reply hit the output-token cap, so the key appears with no input truncation.",
+        "code_ref": "spec_eval/sufficiency.py:L39 (via spec_eval/audit.py:truncation_notes L171-178)",
         "doc_ref": "spec_eval/sufficiency.md:L64-65",
-        "evidence": "Code \u2014 sufficiency.py L39 delegates to the shared helper: `notes = audit.truncation_notes(code_capped, doc_capped, code_cap, doc_cap)`; audit.py L95-99: `notes = ([f\"code input capped at ~{code_cap:,} chars\"] if code_capped else []) + ([f\"docs input capped at ~{doc_cap:,} chars\"] if doc_capped else []); if providers.LAST[\"truncated\"]: notes.append(\"reply hit the token cap\")` \u2014 so `if notes: rec[\"truncated\"] = notes` fires on reply truncation alone. Doc \u2014 sufficiency.md: \"Either live shape may carry `truncated` \u2014 a list of partial-view notes (an input side over its cap), present only when an input was cut.\" The sibling spec states it correctly (audit.md L47: \"an input side over its cap, and/or the model reply cut off at the token cap\").",
-        "suggestion": "Reword sufficiency.md \u00a74 to match audit.md: \"`truncated`, present only when something was cut, is a list of partial-view notes (an input side over its cap, and/or the model reply cut off at the token cap).\"",
+        "evidence": "doc: \"Either live shape may carry `truncated` \u2014 a list of partial-view notes (an input side over its cap), present only when an input was cut.\"  code: `notes = audit.truncation_notes(code_capped, doc_capped, code_cap, doc_cap)` where `truncation_notes` does `if providers.LAST[\"truncated\"]: notes.append(\"reply hit the token cap\")` in addition to the two input-cap notes.",
+        "suggestion": "Reword \u00a74 to: `truncated` is a list of partial-view notes \u2014 one per input side over its cap, plus a `reply hit the token cap` note when the model's response was cut \u2014 present whenever any of those occurred.",
         "verification": {
           "verdict": "upheld",
           "ground": null,
           "doc_quote": "Either live shape may carry `truncated` \u2014 a list of partial-view notes (an input side over its cap), present\nonly when an input was cut.",
-          "why": "The cited line explicitly restricts `truncated` to input-cut cases with the word \"only\", and no other passage in this doc broadens it to reply truncation, so the code's reply-cap note contradicts the doc as written."
+          "why": "The cited line states the exclusivity (\"present only when an input was cut\") in exactly the strength the finding needs, and the adjacent parse-failure sentence never says the key can appear from an output-cap note alone."
+        }
+      },
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "The documented model call states the system prompt is always `SUFFICIENCY_RUBRIC`, but the code passes a config-overridable rubric loaded by `audit.rubric_from(config, \"sufficiency\", ...)`, which the spec never mentions.",
+        "code_ref": "spec_eval/sufficiency.py:L38,L67",
+        "doc_ref": "spec_eval/sufficiency.md:L53",
+        "evidence": "doc: \"**Model call:** `providers.gen(model, SUFFICIENCY_RUBRIC, user, max_tokens=audit.REVIEW_MAX_TOKENS)`\"  code: `resp = providers.gen(model, rubric or SUFFICIENCY_RUBRIC, user, max_tokens=audit.REVIEW_MAX_TOKENS)` and `rubric = audit.rubric_from(config, \"sufficiency\", SUFFICIENCY_RUBRIC, repo)`.",
+        "suggestion": "State the contract as `providers.gen(model, rubric or SUFFICIENCY_RUBRIC, ...)` and document that `rubric.sufficiency` in the config replaces the built-in rubric (`SUFFICIENCY_RUBRIC` is the default only).",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "**Model call:** `providers.gen(model, SUFFICIENCY_RUBRIC, user, max_tokens=audit.REVIEW_MAX_TOKENS)` where `user` embeds the label, the fenced code, and the spec text.",
+          "why": "The contract states the call with `SUFFICIENCY_RUBRIC` as the system prompt with no \"by default\" or override qualifier anywhere in the doc, so it does assert what the finding claims."
+        }
+      },
+      {
+        "severity": "medium",
+        "class": "drift",
+        "summary": "The spec bounds the result's `sufficiency` to `[0.0, 1.0]`, but the parser coerces whatever the model returned to float with no range check or clamp, so an out-of-range score propagates into the result.",
+        "code_ref": "spec_eval/sufficiency.py:L51",
+        "doc_ref": "spec_eval/sufficiency.md:L23,L56",
+        "evidence": "doc: \"| sufficiency | Score in `[0.0, 1.0]` ... |\" and \"`{label, code_files, doc_files, sufficiency: float\u2208[0,1], ...}`\"  code: `\"sufficiency\": float(d.get(\"sufficiency\", 0))` \u2014 no clamping or validation.",
+        "suggestion": "Either clamp on parse (e.g. `min(1.0, max(0.0, float(...)))`) or drop the `\u2208[0,1]` bound from the result-shape contract and say the score is the model's value coerced to float.",
+        "verification": {
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "`{label, code_files, doc_files, sufficiency: float\u2208[0,1], gaps: [{severity, missing[, code_ref]}][, truncated]}`",
+          "why": "The result-shape contract (and the definitions row \"Score in `[0.0, 1.0]`\") bounds the emitted field unqualified, and the other passages (\u00a73 parsing, INV-3) are merely silent on range rather than stating the bound correctly."
         }
       }
-    ]
+    ],
+    "rationale_masked": 4
   },
   {
     "label": "syscontext",
@@ -246,45 +381,18 @@
     "doc_files": 1,
     "findings": [
       {
-        "severity": "medium",
-        "summary": "`evidence_block` returns `\"\"` before it can append the `Not scanned:` language-gap line, so a repo with only unsupported source files produces no gap statement in the evidence block that INV-7 names as one of its three carriers.",
-        "code_ref": "spec_eval/syscontext.py:L614",
-        "doc_ref": "spec_eval/syscontext.md:L49",
-        "evidence": "Code (`evidence_block`): `entries = _scoped(result, scope_dir)` / `if not entries:` / `        return \"\"` \u2014 the `note = unscanned_note(result)` / `if note and scope_dir is None:` branch is unreachable in that case. Doc L49: \"every surface that shows the inventory carries the fixed `Not scanned: \u2026` line \u2014 the CLI summary, the report, and the repo-level evidence block\"; INV-7 (L81) repeats \"surfaced with the fixed `Not scanned:` line in the CLI output, the report, and the repo-level evidence block \u2014 a language gap is stated, never silent.\" This is exactly the case the doc calls the worst failure shape (\"a confidently near-empty report on a repo it couldn't read\"), and it also collides with INV-6 (L80).",
-        "suggestion": "Either emit the gap line alone when there are no entries but `unscanned` is non-empty (keeping INV-6's \"no System context section\" contract by making it a standalone note), or amend INV-7/L49 to carve out the empty-entry case explicitly (\"\u2026the repo-level evidence block, except when the block is empty per INV-6, where the report and CLI carry it\").",
-        "verification": {
-          "verdict": "upheld",
-          "ground": null,
-          "doc_quote": "| INV-7 | Recognized source files outside `code_ext` are counted into `unscanned` and surfaced with the fixed `Not scanned:` line in the CLI output, the report, and the repo-level evidence block \u2014 a language gap is stated, never silent. |",
-          "why": "The doc asserts unconditionally \u2014 in both the narrative L49 and INV-7 \u2014 that the repo-level evidence block carries the `Not scanned:` line, with no exception for the no-entries case, so the early `return \"\"` contradicts a stated rule."
-        }
-      },
-      {
-        "severity": "medium",
-        "summary": "`_scoped` overwrites `evidence_total` with the count of in-scope sites, so a scoped entry's `evidence_total` is neither repo-wide nor a count of every observed site in that directory once the per-directory cap bites.",
-        "code_ref": "spec_eval/syscontext.py:L593",
-        "doc_ref": "spec_eval/syscontext.md:L19",
-        "evidence": "Code: `scoped.append({**rec, \"evidence\": ev, \"evidence_total\": len(ev)})   # kept in-scope sites` \u2014 `ev` is already truncated to at most `EVIDENCE_CAP` sites per directory by `add()`. Doc L19: \"`evidence_total` always counts all of them repo-wide\"; INV-5 (L79): \"`evidence_total` still counts every observed site \u2014 capping is visible, never silent.\" With 12 Redis sites in one directory, the per-dir `evidence_block` renders \"(+7 more site(s))\" and the four dropped sites are silent.",
-        "suggestion": "Either carry the true in-scope observed count through `add()` (e.g. a per-directory tally alongside `evidence_total`) so the scoped view can report it, or document in \u00a72/INV-5 that `_scoped`/`evidence_block(scope_dir=\u2026)` recomputes `evidence_total` as the number of retained in-scope sites.",
-        "verification": {
-          "verdict": "upheld",
-          "ground": null,
-          "doc_quote": "At most `EVIDENCE_CAP` sites are kept per entry **per directory** (so per-dir scoping always finds a dir's own sites); `evidence_total` always counts all of them repo-wide.",
-          "why": "The cited line does carry the claim in the strength the finding needs (\"always ... repo-wide\"), reinforced by INV-5's \"`evidence_total` still counts every observed site \u2014 capping is visible, never silent\", and no passage scopes evidence_total's recomputation in the per-dir view."
-        }
-      },
-      {
         "severity": "low",
-        "summary": "The Reduction paragraph says evidence sites are \"capped at `EVIDENCE_CAP`\", omitting the per-directory qualifier the code actually implements (and that \u00a72/INV-5 state correctly).",
-        "code_ref": "spec_eval/syscontext.py:L413",
-        "doc_ref": "spec_eval/syscontext.md:L41",
-        "evidence": "Code: `if sum(1 for e in rec[\"evidence\"] if os.path.dirname(e[\"file\"]) == d) < EVIDENCE_CAP:` \u2014 an entry can retain up to `EVIDENCE_CAP` sites *per directory*, so a single entry may hold far more than 8 sites. Doc L41: \"evidence sites accumulate (sorted by file then line, capped at `EVIDENCE_CAP`, full count in `evidence_total`)\" vs. L19: \"At most `EVIDENCE_CAP` sites are kept per entry **per directory**\".",
-        "suggestion": "Change L41 to \"capped at `EVIDENCE_CAP` per directory\" to match \u00a72, INV-5, and the code.",
+        "class": "drift",
+        "summary": "The doc says `diff_receipt` renders one delta line per changed system *with an evidence site*, but `_delta_lines` emits removed systems with no `file:line` at all.",
+        "code_ref": "spec_eval/syscontext.py:L737",
+        "doc_ref": "spec_eval/syscontext.md:L51",
+        "evidence": "Doc (syscontext.md:51): \"`diff_receipt` renders the outcome as named `+`/`-` delta lines in the SPEC-HEALTH click-to-verify style \u2014 one line per changed system with an evidence site, never a full-table reprint or an evidence-churn row.\"\n\nCode (syscontext.py:733-737):\n```\n    for e in d[\"added\"]:\n        ev = f\" \u2014 {e['evidence']}\" if e[\"evidence\"] else \"\"\n        lines.append(f\"  + {e['system']} ({e['direction']}, via {', '.join(e['via'])}){ev}\")\n    for e in d[\"removed\"]:\n        lines.append(f\"  - {e['system']} ({e['direction']})\")\n```\nOnly the `added` branch appends `ev`; the `removed` branch drops both `via` and the evidence ref, even though `_delta_entry` computed one from the baseline. (AC-21 in the same doc \u2014 \"`added` = Redis (with a `file:line`), `removed` = PostgreSQL\" \u2014 describes the diff dict, not the receipt, so the \u00a73 sentence is the only statement about receipt rendering and it overclaims.)",
+        "suggestion": "Reword the doc sentence to \"one line per changed system, each added system with an evidence site (a removed system has no current site to cite)\" \u2014 or, if the click-to-verify guarantee is meant to hold for both, render the baseline's `e['evidence']` on the `-` lines too.",
         "verification": {
-          "verdict": "withdrawn",
-          "ground": "stated-elsewhere",
-          "doc_quote": "At most `EVIDENCE_CAP` sites are kept per entry **per directory** (so per-dir scoping always finds a dir's own sites); `evidence_total` always counts all of them repo-wide.",
-          "why": "The per-directory qualifier is stated correctly in \u00a72's evidence-site definition and in INV-5, so the loose Reduction narrative does not make the document wrong."
+          "verdict": "upheld",
+          "ground": null,
+          "doc_quote": "`diff_receipt` renders the outcome as named `+`/`-` delta lines in the SPEC-HEALTH click-to-verify style \u2014 one line per changed system with an evidence site, never a full-table reprint or an evidence-churn row.",
+          "why": "The cited line itself states that every changed-system receipt line carries an evidence site, and the only other passage on this (AC-21, the \u0394entry contract) describes `diff`'s dict rather than the receipt's rendering, so no named withdrawal ground applies."
         }
       }
     ]
@@ -295,17 +403,18 @@
     "doc_files": 1,
     "findings": [
       {
-        "severity": "high",
-        "summary": "The `not-asserted` position/presence check is silently skipped whenever the finding's `doc_ref` carries no parseable line number (or is null), so a withdrawal quoting text that appears nowhere in the document survives \u2014 contradicting INV-4 and AC-9, which state the conversion to `upheld` unconditionally.",
-        "code_ref": "spec_eval/verify.py:L123",
-        "doc_ref": "spec_eval/verify.md:L50",
-        "evidence": "Code (verify.py:L121-124): `want = _cited_line(finding.get(\"doc_ref\"))` / `quote = (verdict.get(\"doc_quote\") or \"\").strip()` / `if want is None or not quote:` / `return verdict  # nothing to check against; leave the model's call alone` \u2014 the absent-quote branch at L127 (`if not hits: ... upheld`) is never reached for such findings. `_cited_line` returns None for a null `doc_ref` or one without a `:L<n>` component, and the audit finding schema permits `\"doc_ref\": \"file:Lxx or null\"`. Doc (verify.md:L50, INV-4): \"A `not-asserted` withdrawal whose quote is absent from the document, or found only outside the window around the cited line, is converted to `upheld`.\" Doc (verify.md:L66, AC-9): \"A `not-asserted` withdrawal quoting text that appears nowhere in the document | checked | Converted to `upheld`, with the why naming the absent quote.\" Doc (verify.md:L35): \"the quoted line must appear in the document at all, and within a small window of the line the finding cited. A quote found nowhere is rejected outright\". Doc (verify.md:L5) also makes the quote load-bearing: \"each settled by quoting one line that exists; a finding that cannot be withdrawn on a named ground with a quote is upheld\" \u2014 yet an empty `doc_quote` likewise takes the early return and the withdrawal stands.",
-        "suggestion": "Split the two checks so the presence test is unconditional for `not-asserted`: reject the withdrawal when the quote is empty, and when the quote is non-empty run the `hits` search regardless of `want`, applying the window comparison only when `want is not None`. E.g. `if not quote: return upheld(...)`; `hits = [...]`; `if not hits: return upheld(\"quoted line does not appear in the document\")`; `if want is not None and not any(abs(h-want) <= window for h in hits): return upheld(position message)`. Alternatively, if skipping the check for line-less `doc_ref`s is intended, state that exception in INV-4/AC-9 and in \u00a73.",
+        "severity": "medium",
+        "class": "drift",
+        "summary": "The spec states the verification call carries the whole document, but `verify_pair` reads the doc side through the same character cap as the audit and silently sends a truncated document when the pair's docs exceed it.",
+        "code_ref": "spec_eval/verify.py:L147",
+        "doc_ref": "spec_eval/verify.md:L25",
+        "evidence": "Doc (verify.md:25): \"Verification is **per pair, not per finding**. One call carries the whole document plus every finding raised on that pair, because the question is *does this document say it* and half a document cannot answer that.\"\n\nCode (verify.py:142-147):\n    def verify_pair(repo, pair, findings, model, code_cap=audit.CODE_CAP, doc_cap=audit.DOC_CAP):\n        ...\n        doc, nd, _ = audit._read_globs(repo, pair.get(\"docs\", []), doc_cap)\n\nand `audit._read_globs` truncates (audit.py:53-55):\n    text = \"\\n\\n\".join(chunks)\n    capped = len(text) > cap\n    return (text[:cap] + (\"\\n...[truncated]\" if capped else \"\")), len(chunks), capped\n\nwith `DOC_CAP = 28000` (audit.py:24). The `capped` flag is discarded (`_`), so unlike `audit_pair` \u2014 which records it via `truncation_notes` into `rec[\"truncated\"]` \u2014 the verify pass surfaces no partial-view note. Sibling specs state the cap explicitly (audit.md:21 \"capped at the doc cap (`caps.docs`, default **28 000 chars**)\"; sufficiency.md:20 likewise); verify.md instead asserts the whole document.",
+        "suggestion": "Either state the cap in verify.md \u00a73 (\"one call carries the pair's document, capped at the doc cap (`caps.docs`, default 28 000 chars), plus every finding raised on that pair\") and add a note/invariant for the truncated case, or keep the guarantee and make the code honour it \u2014 surface the discarded `capped` flag as a partial-view note on the record so a verification run against a truncated document is visible to the reader.",
         "verification": {
           "verdict": "upheld",
           "ground": null,
-          "doc_quote": "| INV-4 | A `not-asserted` withdrawal whose quote is absent from the document, or found only outside the window around the cited line, is converted to `upheld`. |",
-          "why": "INV-4 states the conversion unconditionally (its first disjunct, quote absent from the document, presupposes no cited line), and AC-9 repeats it (\"A `not-asserted` withdrawal quoting text that appears nowhere in the document | checked | Converted to `upheld`\"), so the doc does assert what the finding claims and no named withdrawal ground applies."
+          "doc_quote": "Verification is **per pair, not per finding**. One call carries the whole document plus every finding raised on that pair, because the question is *does this document say it* and half a document cannot answer that.",
+          "why": "Line 25 in the normative Behavior section directly asserts that the call carries the whole document, no cap or truncation is stated anywhere else in verify.md, and the assertion is not scoped or merely rationale \u2014 the \"because\" clause is rationale but the preceding clause is a behavioural claim."
         }
       }
     ]

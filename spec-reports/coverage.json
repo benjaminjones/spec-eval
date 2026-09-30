@@ -1,10 +1,11 @@
 {
   "pct": 100.0,
-  "spec_worthy": 11,
+  "spec_worthy": 12,
   "covered": [
     "spec_eval/audit.py",
     "spec_eval/authoring.py",
     "spec_eval/cli.py",
+    "spec_eval/compare.py",
     "spec_eval/coverage.py",
     "spec_eval/providers.py",
     "spec_eval/report.py",
@@ -27,17 +28,25 @@
       "tests/contract/test_artifact_hygiene.py",
       "tests/contract/test_audit_parse.py",
       "tests/contract/test_authoring_output.py",
+      "tests/contract/test_bridge_error.py",
+      "tests/contract/test_call_budget.py",
       "tests/contract/test_caps_sync.py",
+      "tests/contract/test_compare.py",
       "tests/contract/test_coverage.py",
       "tests/contract/test_diagram.py",
+      "tests/contract/test_health_contract_sync.py",
+      "tests/contract/test_openai_responses.py",
       "tests/contract/test_overview_context.py",
       "tests/contract/test_overview_sections_sync.py",
       "tests/contract/test_prompt_snippets_sync.py",
       "tests/contract/test_providers.py",
       "tests/contract/test_python_floor.py",
+      "tests/contract/test_rationale_masking.py",
       "tests/contract/test_report.py",
+      "tests/contract/test_rubric_override.py",
       "tests/contract/test_rubric_sync.py",
       "tests/contract/test_runlog.py",
+      "tests/contract/test_status_vocabulary_sync.py",
       "tests/contract/test_sufficiency_refs.py",
       "tests/contract/test_synthesis_recursion.py",
       "tests/contract/test_syscontext.py",
@@ -68,11 +77,20 @@
     },
     {
       "dir": "spec-reports",
-      "files": 3,
+      "files": 4,
       "sample": [
         "spec-reports/coverage.md",
         "spec-reports/report.md",
         "spec-reports/sufficiency.md"
+      ]
+    },
+    {
+      "dir": "tests",
+      "files": 30,
+      "sample": [
+        "tests/fixtures/rubric-baseline/2026-08-06-7f711da/report.md",
+        "tests/fixtures/rubric-baseline/2026-08-19-treated/tx-1/report.md",
+        "tests/fixtures/rubric-baseline/2026-08-19-treated/tx-10/report.md"
       ]
     }
   ]

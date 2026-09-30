@@ -11,40 +11,22 @@ authored by `spec-eval generate` and graded by its own `audit` / `sufficiency` c
 reports sit beside this file.
 
 ## Verdict
-> **Coverage 100%** (11/11 modules) · **drift 8** high/medium · **sufficiency 0.86** avg (1.0 = no gaps found —
-> an indicator, not a guarantee) as of 2026-08-06, detector **`claude-code`**, **verified** (`audit --verify`).
-> The 11th module, `verify`, is the opt-in second pass added this cycle.
-> **Drift is 8, not 0, and that is the honest reading rather than a regression.** The previous receipt measured
-> a tree that has since gained a module, a persisted `evidence` field, a withdrawn-finding render and a changed
-> drift-load definition. Nine of the ten upheld findings are doc-accuracy gaps of the usual kind; the one
-> `high` is real — `verify`'s presence check read the cited line first and returned early when there was none,
-> so a withdrawal quoting text absent from the document survived on exactly the findings that named no line to
-> check against, contradicting its own INV-4. **It was found in code under eight hours old and fixed the same
-> day:** `verify.py` landed at 00:33 in `7d4c0b7`, the `audit` ran at 08:24 on `7f711da`, the fix is `1a44a72`.
-> *Provenance — the three numbers were measured at three commits, not one, which the contract now records
-> field by field.* `coverage` ran at `0ceeff6`
-> (00:42), `audit` at `7f711da` (08:24), `sufficiency` at `1a44a72` (20:07), with the `verify` fix landing
-> between the last two. `1a44a72` changes no source outside `verify.py`, `verify.md` and their tests — its
-> other three files are this run's own `spec-reports/` output — so the `verify` row's 0.79 is the one score
-> that gap could have moved; every drift finding is from `7f711da`. Coverage is file
-> counting rather than a judgement, so its commit is the least load-bearing of the three. `0ceeff6` is a
-> pre-squash commit and is not reachable from `main` — the run log keeps the SHA the run actually saw.
-> **The second pass withdrew 7 findings and all 7 hold up on inspection.** Five were `stated-elsewhere` — a
-> loose sentence or contract-table row graded against another passage of the same document that states the
-> rule correctly. The direction varies and is worth noting: in three the graded text is the Contracts or
-> Definitions table and the correcting text is the §3 narrative, twice *above* it, not below.
-> One was `not-asserted`: a three-item list read as exhaustive when the line never says "only". One was
-> `not-normative`: a `**Why:**` rationale sentence graded as a promise about behaviour. Those three grounds are
-> the whole of what this cycle's withdrawals rested on.
-> **Read the drift number with `verified: true` in mind.** It excludes the 7 withdrawals — 4 of them `medium`,
-> which the count would otherwise have included, and 3 `low`, which it never counts — so it is not comparable
-> to a number from a run without the flag. **Unverified, this run would have read 12.** The withdrawn findings
-> are listed in `report.md` with their ground and the doc line, struck through rather than deleted.
-> **By design, and it moved this run.** The standing exemption is that the `authoring` rubric is *summarized*,
-> not restated — the spec's own don't-restate discipline, with the full text in `authoring.py`, mirrored in
-> the skill, pinned by `test_rubric_sync`. That gap did not fire at all this time; `syscontext`'s detection
-> tables graded `[minor]` rather than `[major]`, the wobble the run history describes. `authoring`'s four new
-> `[major]`s are a different thing and two of them are actionable — see Gaps.
+> **Coverage 100%** (12/12 modules) · **drift 12** high/medium · **sufficiency 0.82** avg (1.0 = no gaps found —
+> an indicator, not a guarantee) as of 2026-09-29, detector **`claude-code`**, **verified** (`audit --verify`).
+> The 12th module, `compare`, is graded here for the first time.
+> **Drift is 12, up from 8, and the tree it measures is not the tree the last row measured.** Since 2026-08-06
+> the package gained a subcommand and a module (`compare`), a process-wide call ceiling in `providers`, and
+> `--max-calls` / `--reps` on `sufficiency` — none of which the specs describe. That is where the increase sits:
+> `cli` went 0→3 and its sufficiency fell 0.86→0.62, `compare` arrives at 0→2, `providers` 0→1. **The code grew
+> and the specs did not follow.** Nine of the twelve are doc-accuracy gaps of the usual kind.
+> **One of the twelve was introduced by the documentation pass that preceded this run, and is recorded as such.**
+> `cli.md`'s Artifacts & logging paragraph read "Every command creates `--out`…"; it was amended to "Every command
+> **except `diagram`**…" to settle an internal disagreement with the command table. The code registers **seven**
+> subcommands, and `compare` writes only `compare.json` with no Markdown and no `runlog.append_run` — so the
+> sentence became more precise and stayed wrong, about a second exception the document never listed. A more
+> specific false claim is worse than a vague one, and the amendment is the reason this finding is `high`.
+> *Provenance.* `coverage`, `context`, `audit --verify` and `sufficiency` all ran at `4f88931`, so unlike the
+> previous row every number here comes from one commit.
 
 ## Pipeline contract  *(machine-written; field names + types FROZEN)*
 ```yaml
@@ -129,22 +111,23 @@ modules:
 ```
 
 ## Fingerprint  *(markdown unicode bars — diffable; the full run sits beside this file)*
-> **detector `claude-code` · 2026-08-06, `--verify`.** A different model or date can move these bars — check the
+> **detector `claude-code` · 2026-09-29, `--verify`, all four commands at `4f88931`.** A different model or date can move these bars — check the
 > run history below before reading a change as real.
 
 | Module | Spec completeness | Sufficiency | Drift |
 |---|---|---|---|
-| `authoring`   | `██████████████░░░░░░` | 0.72 | ⚠ 2 |
-| `verify`      | `████████████████░░░░` | 0.79 | ⚠ 1 |
-| `report`      | `█████████████████░░░` | 0.84 | ✓ clean |
-| `audit`       | `█████████████████░░░` | 0.85 | ⚠ 1 |
-| `cli`         | `█████████████████░░░` | 0.86 | ✓ clean |
-| `providers`   | `█████████████████░░░` | 0.87 | ✓ clean |
-| `syscontext`  | `█████████████████░░░` | 0.87 | ⚠ 2 |
-| `coverage`    | `██████████████████░░` | 0.88 | ⚠ 1 |
-| `sufficiency` | `██████████████████░░` | 0.88 | ⚠ 1 |
-| `runlog`      | `██████████████████░░` | 0.92 | ✓ clean |
-| `rubric`      | `███████████████████░` | 0.93 | ✓ clean |
+| `cli`         | `████████████░░░░░░░░` | 0.62 | ⚠ 3 |
+| `providers`   | `██████████████░░░░░░` | 0.72 | ⚠ 1 |
+| `compare`     | `███████████████░░░░░` | 0.76 | ⚠ 2 |
+| `audit`       | `████████████████░░░░` | 0.80 | ⚠ 1 |
+| `verify`      | `████████████████░░░░` | 0.80 | ⚠ 1 |
+| `syscontext`  | `████████████████░░░░` | 0.82 | ✓ clean |
+| `authoring`   | `█████████████████░░░` | 0.85 | ⚠ 1 |
+| `sufficiency` | `█████████████████░░░` | 0.85 | ⚠ 3 |
+| `report`      | `█████████████████░░░` | 0.87 | ✓ clean |
+| `coverage`    | `██████████████████░░` | 0.88 | ✓ clean |
+| `runlog`      | `██████████████████░░` | 0.90 | ✓ clean |
+| `rubric`      | `██████████████████░░` | 0.92 | ✓ clean |
 
 ## Gaps / sufficiency misses  *(the backlog; full list in [sufficiency.md](sufficiency.md))*
 Only two modules carry a `[major]` this run; everything below them is enumeration and print-format detail.
@@ -189,3 +172,4 @@ Every gap carries a searchable `file.py (symbol)` pointer.
 | 2026-07-21 | claude-code | 100% | 0.91 | authoring 0.87 | 0 / 0 | `fc67265` | prompt-chat release (#6–#8): `overview_min_files` true minimum + recorded skips, SPEC-HEALTH moved into `spec-reports/`, README prompt blocks + standing prompts. Audit clean **incl. the changed `authoring` pair**; former [major] (rubric summarized, by design) now graded [minor]; 0.86→0.91 same detector = wobble + the sync work landing more semantics in the specs. |
 | 2026-07-27 | claude-code | 100% | 0.91→0.88 | authoring 0.80 | 0 / 0 | `e573694` | **system-context feature + drift check (#11–#14)** → new 10th module `syscontext`. The audit **caught 6 real drifts across three runs (4 → 2 → 1)** — all doc-accuracy fixes incl. the `_tables_digest` completeness (found by review **and** dogfood — the matching + gating regexes), `cli --check` docs, `audit`/`authoring`/`rubric` over-claims, and a §1 four→five miscount — and **closed the one fixable [major]** (OVERVIEW.md stamp undocumented). Clean re-measure confirms 0/0. 0.91→0.88 = the new module + drift-check surface, not regression; `syscontext` table sampling joins the `authoring` rubric as a by-design [major]↔[minor] wobble. |
 | 2026-08-06 | claude-code | 100% | 0.88→0.86 | verify 0.79 | 1 / 7 | `0ceeff6` · `7f711da` · `1a44a72` | **evidence field + opt-in second pass (#25)** → new 11th module `verify`; first run with `--verify`, so the drift count excludes 7 withdrawals and is not comparable to the rows above. Drift 0→8 after a week that added a module, a persisted `evidence` field and a changed drift-load definition. One SHA per measurement: coverage · audit · sufficiency. The one **high** is real, found in code under eight hours old and fixed the same day at `1a44a72`: `verify`'s presence check returned early when a finding cited no line, so an invented quote survived on exactly the withdrawals with no line to check against — contradicting its own INV-4. **All 7 withdrawals hold up on inspection** — 5 `stated-elsewhere` (a loose sentence or table row against a correct passage elsewhere in the same doc), 1 `not-asserted` (a three-item list read as exhaustive), 1 `not-normative` (a `**Why:**` clause graded as a promise). Unverified the row would read 12 / 0. **Contract change (frozen fields):** `audit_sha` became one SHA per measuring command — `coverage_sha`, `audit_sha`, `sufficiency_sha` — because this run's three numbers came from three commits and one field could not say which. `null` means that command did not run. Pinned to the template by `test_health_contract_sync`. **Acted on since:** 3 of the 8 — the `verify` **high** at `1a44a72` (#29), and both `authoring` **medium**s at `1a227a5` (#31: the data-flow diagram's termination, and the undocumented architecture fingerprint receipt). 5 remain open — `audit` 1, `coverage` 1, `sufficiency` 1, `syscontext` 2. The row's 8 is what this run measured at `7f711da` and is left as measured; re-running to lower it would score the gaps this run named. |
+| 2026-09-29 | claude-code | 100% | 0.86→0.82 | cli 0.62 | 1 / 7 | `4f88931` | **documentation pass (#59) + first grading of `compare`** → 12th module. Every number at ONE commit this time, unlike the row above. Drift 8→12 on a like-for-like verified basis, and the tree is not the same tree: since 2026-08-06 the package gained the `compare` subcommand and module, a process-wide call ceiling in `providers`, and `--max-calls` / `--reps` on `sufficiency`, none of them specced. That is where the rise sits — `cli` 0→3 with sufficiency 0.86→0.62, `compare` 0→2, `providers` 0→1 — so **the code grew and the specs did not follow**. **One of the 12 was introduced by #59 itself and is left in the count.** `cli.md`'s Artifacts & logging paragraph was amended from "Every command creates `--out`…" to "Every command **except `diagram`**…" to settle an internal disagreement with the command table; the code registers seven subcommands and `compare` writes only `compare.json`, no Markdown, no `runlog.append_run`. The sentence became more precise and stayed wrong about a second exception the document never listed, which is why it grades `high` — a more specific false claim is worse than a vague one. It is recorded rather than quietly repaired, on the same principle as the row above: re-running to lower the number would score the gap this run named. **The 7 withdrawals** match the previous run's count and were spot-checked: each cites a ground from the closed set and a document line that exists. **Acted on since:** 0 of 12 — this row is the measurement, not the repair. |
