@@ -9,7 +9,7 @@ import os
 
 DEFAULT_MODEL = "anthropic:claude-opus-4-8"   # THE single default model; the CLI's --model defaults read this
 _clients = {}
-USAGE = {"in": 0, "out": 0, "calls": 0, "truncated": 0}   # exact token + call tallies; the tool reports usage, never a dollar figure
+USAGE = {"in": 0, "out": 0, "calls": 0, "truncated": 0, "retries": 0}   # exact token + call tallies; the tool reports usage, never a dollar figure
 LAST = {"truncated": False}   # the call JUST made (calls are sequential); read it right after gen() returns
 
 
@@ -163,8 +163,36 @@ def _gen_openai_responses(client, model, system, user, max_tokens):
     return "".join(parts)
 
 
-def gen(model_spec, system, user, max_tokens=1200):
-    _guard()                     # before the request, so the ceiling counts calls MADE
+# --- transient-failure retry -------------------------------------------------------------------------
+# A model call can fail for two very different reasons, and treating them alike is the bug this
+# addresses. A missing CLI, a bad model name or a reached call ceiling will fail identically on every
+# attempt: retrying wastes time and hides the cause. A timeout or a 429/5xx is a property of the
+# moment, and a run that discards its completed work because of one is expensive for no reason -- a
+# 12-pair audit lost all 12 calls to a single `Request timed out`, twice.
+#
+# So: retry ONLY on signals that name a transient condition, a small bounded number of times, and
+# COUNT EVERY RETRY into USAGE so a run that needed them is distinguishable from one that did not. A
+# retry that leaves no trace turns a flaky run into a clean-looking one.
+RETRY_ATTEMPTS = 3
+RETRY_BACKOFF_SECONDS = 4          # multiplied by the attempt number
+
+_TRANSIENT = (
+    "timed out", "timeout", "connection reset", "connection aborted", "connection error",
+    "temporarily unavailable", "rate limit", "429", "502", "503", "504",
+    "overloaded", "service unavailable",
+)
+
+
+def _is_transient(exc):
+    """True when the message names a condition that could plausibly differ on a second attempt.
+
+    Deliberately a message match rather than an exception-type match: the bridge raises RuntimeError
+    for every failure mode, so the type carries no information and the text is all there is."""
+    m = str(exc).lower()
+    return any(s in m for s in _TRANSIENT)
+
+
+def _gen_once(model_spec, system, user, max_tokens=1200):
     prov, model = parse_model(model_spec)
     if prov == "claude-code":
         return _gen_claude_code(model, system, user)
@@ -213,3 +241,24 @@ def gen(model_spec, system, user, max_tokens=1200):
                truncated="MAX_TOKENS" in (getattr(fr, "name", None) or str(fr or "")))
         return r.text or ""
     raise ValueError(f"unknown provider '{prov}' (use anthropic: / openai: / google: / claude-code)")
+
+
+def gen(model_spec, system, user, max_tokens=1200):
+    """One model call, retried on a transient failure. See the retry policy above.
+
+    The call ceiling is checked ONCE, before the first attempt, so a retry does not consume budget
+    twice for one logical call -- `--max-calls` limits the questions asked, not the packets sent.
+    """
+    import time
+    _guard()                     # before the request, so the ceiling counts calls MADE
+    last = None
+    for attempt in range(1, RETRY_ATTEMPTS + 1):
+        try:
+            return _gen_once(model_spec, system, user, max_tokens=max_tokens)
+        except Exception as exc:                                       # noqa: BLE001
+            last = exc
+            if attempt == RETRY_ATTEMPTS or not _is_transient(exc):
+                raise
+            USAGE["retries"] += 1
+            time.sleep(RETRY_BACKOFF_SECONDS * attempt)
+    raise last                                                          # unreachable

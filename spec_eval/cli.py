@@ -249,7 +249,8 @@ def main(argv=None):
             print(f"⚠ {truncated} pair(s) scored on a partial view (input cap or reply token cap) — "
                   f"flagged per pair in sufficiency.md")
         print(f"wrote sufficiency.md + sufficiency.json → {os.path.abspath(args.out)}")
-        print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + {providers.USAGE['out']:,} out tokens")
+        print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + {providers.USAGE['out']:,} out tokens"
+              + (f" · {providers.USAGE['retries']} transient retry(ies)" if providers.USAGE['retries'] else ""))
         runlog.append_run(args.out, args.repo, "sufficiency", args.model,
                           {"avg_sufficiency": round(avg, 2), "pairs_scored": scored, "pairs_truncated": truncated,
                            "per_module": {r["label"]: r["sufficiency"] for r in results if r.get("sufficiency") is not None}})
@@ -329,7 +330,8 @@ def main(argv=None):
         if stray:
             print(f"⚠ {stray} file(s) appeared on disk that this run did not target — the model wrote them "
                   f"directly. Nothing was deleted; review them in `git status` before committing.")
-        print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + {providers.USAGE['out']:,} out tokens")
+        print(f"{providers.USAGE['calls']} model call(s), {providers.USAGE['in']:,} in + {providers.USAGE['out']:,} out tokens"
+              + (f" · {providers.USAGE['retries']} transient retry(ies)" if providers.USAGE['retries'] else ""))
         runlog.append_run(args.out, args.repo, "generate", args.model,
                           {"authored": authored, "skipped": skipped, "failed": failed, "stray": stray,
                            "flagged": sum(1 for r in res if r.get("note"))})
