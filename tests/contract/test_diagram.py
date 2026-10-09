@@ -364,3 +364,59 @@ def test_every_reserved_id_is_covered_not_just_the_one_that_broke():
 def test_the_rubric_also_tells_the_model_to_avoid_them():
     """Belt and braces: the rewrite is the guarantee, the instruction reduces how often it fires."""
     assert "reserved" in ARCH_DIAGRAM_RUBRIC.lower()
+
+
+# --- a `;` in sequence message text is a statement separator ----------------------------------------------
+
+def _sequence(body):
+    return "```mermaid\nsequenceDiagram\n" + body + "```"
+
+
+def test_a_semicolon_in_a_message_is_replaced():
+    """`;` separates statements in Mermaid, and sequence message text is unquoted — so
+    `A->>B: one; two` parses as two statements and the block fails, with `two`'s first word read as
+    an actor."""
+    md, fixed = authoring.escape_sequence_text(_sequence(
+        "    A->>B: corpus mode; without --execute it prices and stops\n"))
+    assert fixed == 1
+    assert ";" not in md
+    assert "corpus mode — without --execute it prices and stops" in md
+
+
+def test_a_semicolon_in_a_note_is_replaced():
+    md, fixed = authoring.escape_sequence_text(_sequence(
+        "    Note over A: one thing; another thing\n"))
+    assert fixed == 1 and "one thing — another thing" in md
+
+
+def test_the_arrow_and_actors_are_untouched():
+    md, _ = authoring.escape_sequence_text(_sequence("    CLI-->>U: a; b\n"))
+    assert "CLI-->>U:" in md
+
+
+def test_a_colon_inside_the_text_is_not_a_boundary():
+    """Message text routinely contains a colon — a file:line citation, a label. Splitting on the
+    last colon instead of the first would move the replacement into the wrong half."""
+    md, _ = authoring.escape_sequence_text(_sequence(
+        "    A->>B: loads m0, m1: prompt and provenance; then runs\n"))
+    assert "loads m0, m1: prompt and provenance — then runs" in md
+
+
+def test_a_clean_sequence_block_is_returned_untouched():
+    src = _sequence("    A->>B: plain text with --execute inside it\n")
+    md, fixed = authoring.escape_sequence_text(src)
+    assert md == src and fixed == 0
+
+
+def test_flowchart_labels_are_left_alone():
+    """A flowchart label is QUOTED, so a `;` there is safe. Replacing it would rewrite prose to fix
+    a problem that does not exist in that grammar."""
+    src = "```mermaid\nflowchart LR\n    a[\"stage one; stage two\"]\n```"
+    md, fixed = authoring.escape_sequence_text(src)
+    assert md == src and fixed == 0
+
+
+def test_a_participant_declaration_is_not_treated_as_a_message():
+    src = _sequence("    participant CLI as tool (console script)\n")
+    md, fixed = authoring.escape_sequence_text(src)
+    assert md == src and fixed == 0
