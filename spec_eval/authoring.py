@@ -170,7 +170,9 @@ ARCH_DIAGRAM_RUBRIC = (
     "stage is never folded and labels are never shrunk to fit. State each folded fact in a one-line note under "
     "the diagram. Group into 2-5 lifecycle-stage subgraphs (subgraph id[\"Label\"] ... end), "
     "each styled stroke-only (style id fill:none,stroke:#94a3b8,stroke-dasharray:4 4); never a `direction` "
-    "statement inside a subgraph. SHAPES: stadium ([\"...\"]) = invocation surface, rect = runnable script, "
+    "statement inside a subgraph. NODE IDS are short identifiers and must avoid Mermaid reserved "
+    "words (call, class, style, end, graph, click, href, direction, default, linkStyle, o, x) — one "
+    "as an id makes the whole block fail to render. SHAPES: stadium ([\"...\"]) = invocation surface, rect = runnable script, "
     "[[\"...\"]] = imported library, [(\"...\")] = data artifact, [/\"...\"/] = external system or terminal "
     "output. COLOR: exactly these classDefs, applied with ::: to every node — each sets fill+stroke+color "
     "together so GitHub's dark mode cannot break contrast; no theme, no %%{init}%%, no linkStyle: "
@@ -308,6 +310,74 @@ def _document_or_none(md, note):
 
 _SCANNER_VERIFIED_RE = re.compile(r"(Note over [^:\n]+:\s*)scanner-verified entry point\s*\(\s*([^)]*?)\s*\)")
 _CONVENTIONAL_NOTE = "conventional invocation (per the module intents, not scanner-detected)"
+
+
+# Reserved in Mermaid's flowchart grammar at the position a node id occupies. A node declared with
+# one of these ids makes the WHOLE block fail to parse, which GitHub shows as "Unable to render rich
+# display" — so the cost is the entire diagram, not one node.
+_MERMAID_RESERVED_IDS = frozenset({
+    "graph", "subgraph", "end", "click", "call", "href", "class", "classDef", "style",
+    "linkStyle", "direction", "default", "flowchart", "o", "x",
+})
+_FLOWCHART_BLOCK_RE = re.compile(r"```mermaid\n(\s*(?:flowchart|graph)\b.*?)```", re.S)
+_SHAPE_DECL_RE = re.compile(r"^\s*([A-Za-z_]\w*)\s*[\[(\{]", re.M)
+_KEYWORD_LINE_RE = re.compile(r"^\s*(?:end|subgraph|direction|classDef|linkStyle|click)\b")
+
+
+def _sub_outside_quotes(pattern, repl, line):
+    """Substitute only outside double-quoted spans.
+
+    **A LABEL IS PROSE.** A first version of this rewrote the id everywhere on the line and turned
+    the label `"Model call<br/>x.py"` into `"Model call_node<br/>x.py"` — corrupting the text a
+    reader sees in order to fix a token the parser reads. Mermaid labels routinely contain the same
+    word as the node id, because both come from the same stage name."""
+    out, last, quoted = [], 0, False
+    for n, ch in enumerate(line):
+        if ch == '"':
+            seg = line[last:n]
+            out.append(seg if quoted else pattern.sub(repl, seg))
+            out.append(ch)
+            last, quoted = n + 1, not quoted
+    tail = line[last:]
+    out.append(tail if quoted else pattern.sub(repl, tail))
+    return "".join(out)
+
+
+def rename_reserved_node_ids(md):
+    """Rename flowchart node ids that collide with Mermaid keywords. Returns `(markdown, renamed)`.
+
+    **Why a rewrite and not a rubric instruction alone:** the ids are chosen by a model from stage
+    names, and `call`, `class`, `end` and `style` are all ordinary words for a pipeline stage. One
+    of them makes the entire block unparseable — the reader sees no diagram at all — and the failure
+    is invisible locally, surfacing only when a rendered page is viewed. A deterministic pass cannot
+    be talked out of it.
+
+    Scoped to `flowchart`/`graph` blocks, because the same words are legal elsewhere: `end` closes a
+    subgraph, and in a `sequenceDiagram` `end` closes a block. Within a flowchart, only ids seen in
+    a SHAPE DECLARATION are renamed — that position is unambiguous — and lines that are pure
+    keywords are skipped so a `subgraph`/`end` pair is never rewritten.
+    """
+    renamed = 0
+
+    def _fix_block(m):
+        nonlocal renamed
+        block = m.group(1)
+        clashing = {i for i in _SHAPE_DECL_RE.findall(block) if i in _MERMAID_RESERVED_IDS}
+        if not clashing:
+            return m.group(0)
+        lines = block.split("\n")
+        for ident in sorted(clashing):
+            pattern = re.compile(rf"\b{re.escape(ident)}\b")
+            for n, line in enumerate(lines):
+                if _KEYWORD_LINE_RE.match(line):
+                    continue
+                new = _sub_outside_quotes(pattern, f"{ident}_node", line)
+                if new != line:
+                    lines[n] = new
+            renamed += 1
+        return "```mermaid\n" + "\n".join(lines) + "```"
+
+    return _FLOWCHART_BLOCK_RE.sub(_fix_block, md or ""), renamed
 
 
 def verify_scanner_labels(md, ep_result):
@@ -604,6 +674,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
             if md is None:                                 # non-document, and never stamp a chat reply
                 return None, guard_note
             md, downgraded = verify_scanner_labels(md, ep)
+            md, _renamed = rename_reserved_node_ids(md)
             md, fixed, broken = repair_links(md, repo, "OVERVIEW.md")
             if syscontext.evidence_block(ctx):   # stamp the fingerprint this System context section was
                 md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # rendered from, so `--check` can
@@ -712,6 +783,7 @@ def diagram_block(repo, config, model, on_progress=None):
                                       unfence=False,          # a mermaid diagram keeps its ```mermaid fence
                                       single_pass=True)       # one picture, drawn once, over every module
     md, downgraded = verify_scanner_labels(md, ep)   # the diagram's own provenance claims, held to the scan
+    md, _renamed = rename_reserved_node_ids(md)      # a keyword as a node id breaks the whole block
     sliced = len(_pack(items, reduce_cap)) > 1                  # the same packing the pass just force-fitted
     note = _cap_note(
         f"{len(items)} module intents exceeded the reduce cap — each was sliced to an equal share for the "

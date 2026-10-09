@@ -295,3 +295,72 @@ def test_set_architecture_section_preserves_a_trailing_system_context_stamp(tmp_
     out = authoring.set_architecture_section(md, "```mermaid\nflowchart TD\n  a --> b\n```\n> caveat")
     assert "old" not in out and "flowchart TD" in out
     assert syscontext.read_stamp(out) == "aaaa1111bbbb"        # system-context stamp NOT swallowed
+
+
+# --- reserved node ids: a keyword in that position breaks the whole block ----------------------------------
+
+def _flowchart(body):
+    return "```mermaid\nflowchart LR\n" + body + "```"
+
+
+def test_a_reserved_word_used_as_a_node_id_is_renamed():
+    """`call` is the callback form of `click <node> call <callback>()`, so a node declared with that
+    id makes the entire block unparseable — the reader sees no diagram, not one bad node."""
+    md, renamed = authoring.rename_reserved_node_ids(_flowchart(
+        '    call["Checking stage"]:::process\n    admit ==> call\n    call ==> out\n'))
+    assert renamed == 1
+    assert "call_node" in md and "==> call\n" not in md
+    assert "    call[" not in md
+
+
+def test_the_label_text_is_not_rewritten():
+    """A label is prose, and routinely contains the same word as the id because both come from the
+    stage name. Rewriting it corrupts what a reader sees to fix a token the parser reads."""
+    md, _ = authoring.rename_reserved_node_ids(_flowchart(
+        '    call["Model call<br/>x.py"]:::process\n    a -->|"the call prompt"| call\n'))
+    assert '"Model call<br/>x.py"' in md
+    assert '"the call prompt"' in md
+
+
+def test_a_style_or_class_reference_to_the_node_follows_the_rename():
+    """A dangling `style` target is a silent no-op, so the node loses its styling without erroring."""
+    md, _ = authoring.rename_reserved_node_ids(_flowchart(
+        '    call["S"]:::process\n    style call fill:none\n'))
+    assert "style call_node fill:none" in md
+
+
+def test_subgraph_and_end_are_left_alone():
+    """`end` closes a subgraph. Renaming it would break every container in the diagram."""
+    body = '    subgraph s1["Stage"]\n        call["S"]\n    end\n    a ==> call\n'
+    md, _ = authoring.rename_reserved_node_ids(_flowchart(body))
+    assert 'subgraph s1["Stage"]' in md and "\n    end\n" in md
+
+
+def test_a_clean_diagram_is_returned_untouched():
+    """The common case must be byte-identical, or this pass becomes a source of diff noise."""
+    src = _flowchart('    admit["A"]:::process\n    admit ==> out\n')
+    md, renamed = authoring.rename_reserved_node_ids(src)
+    assert md == src and renamed == 0
+
+
+def test_only_flowchart_blocks_are_touched():
+    """In a sequenceDiagram the same words are legal and mean something else."""
+    seq = ("```mermaid\nsequenceDiagram\n    participant call as Caller\n"
+           "    call->>other: go\n```")
+    md, renamed = authoring.rename_reserved_node_ids(seq)
+    assert md == seq and renamed == 0
+
+
+def test_every_reserved_id_is_covered_not_just_the_one_that_broke():
+    """The ids are chosen from stage names, and `class`, `style`, `end` and `graph` are all ordinary
+    words for a pipeline stage."""
+    for ident in ("class", "style", "graph", "href", "default"):
+        md, renamed = authoring.rename_reserved_node_ids(_flowchart(
+            f'    {ident}["Stage"]:::process\n    a ==> {ident}\n'))
+        assert renamed == 1, ident
+        assert f"{ident}_node" in md, ident
+
+
+def test_the_rubric_also_tells_the_model_to_avoid_them():
+    """Belt and braces: the rewrite is the guarantee, the instruction reduces how often it fires."""
+    assert "reserved" in ARCH_DIAGRAM_RUBRIC.lower()
