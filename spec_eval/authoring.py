@@ -324,6 +324,44 @@ _SHAPE_DECL_RE = re.compile(r"^\s*([A-Za-z_]\w*)\s*[\[(\{]", re.M)
 _KEYWORD_LINE_RE = re.compile(r"^\s*(?:end|subgraph|direction|classDef|linkStyle|click)\b")
 
 
+_SEQUENCE_BLOCK_RE = re.compile(r"```mermaid\n(\s*sequenceDiagram\b.*?)```", re.S)
+# A message or a note: everything after the first `:` is free text, and that grammar has no quoting,
+# so a `;` there is read as a STATEMENT SEPARATOR and splits the line in two.
+_SEQ_TEXT_RE = re.compile(r"^(\s*(?:(?:Note|note)\s+(?:over|left of|right of)\s+[^:]+|[^:\n]*?"
+                          r"(?:-->>|->>|-->|->|--x|-x|--\)|-\))[^:\n]*?)\s*:)(.*)$")
+
+
+def escape_sequence_text(md):
+    """Replace `;` in sequenceDiagram message and note text. Returns `(markdown, fixed)`.
+
+    A semicolon is a STATEMENT SEPARATOR in Mermaid, and a sequence diagram's message text is
+    unquoted, so `A->>B: one thing; another` parses as two statements and the block fails. The
+    second half becomes a new statement whose first word is read as an actor.
+
+    Flowchart labels are unaffected because they are quoted, so this is scoped to sequence blocks.
+
+    **Why an em dash and not an entity:** `&#59;` does make the block parse, but it renders
+    literally as `&;` — the diagram is then readable-but-wrong, which is worse than a clear
+    substitution. A semicolon in this prose always joins two clauses, and an em dash joins them
+    correctly."""
+    fixed = 0
+
+    def _fix_block(m):
+        nonlocal fixed
+        out = []
+        for line in m.group(1).split("\n"):
+            hit = _SEQ_TEXT_RE.match(line)
+            if hit and ";" in hit.group(2):
+                text = re.sub(r"\s*;\s*", " \u2014 ", hit.group(2)).rstrip()
+                out.append(hit.group(1) + text)
+                fixed += 1
+            else:
+                out.append(line)
+        return "```mermaid\n" + "\n".join(out) + "```"
+
+    return _SEQUENCE_BLOCK_RE.sub(_fix_block, md or ""), fixed
+
+
 def _sub_outside_quotes(pattern, repl, line):
     """Substitute only outside double-quoted spans.
 
@@ -675,6 +713,7 @@ def generate_repo(repo, config, model, overwrite=False, on_progress=None):
                 return None, guard_note
             md, downgraded = verify_scanner_labels(md, ep)
             md, _renamed = rename_reserved_node_ids(md)
+            md, _escaped = escape_sequence_text(md)
             md, fixed, broken = repair_links(md, repo, "OVERVIEW.md")
             if syscontext.evidence_block(ctx):   # stamp the fingerprint this System context section was
                 md = md.rstrip() + "\n\n" + syscontext.stamp_comment(ctx)   # rendered from, so `--check` can
@@ -784,6 +823,7 @@ def diagram_block(repo, config, model, on_progress=None):
                                       single_pass=True)       # one picture, drawn once, over every module
     md, downgraded = verify_scanner_labels(md, ep)   # the diagram's own provenance claims, held to the scan
     md, _renamed = rename_reserved_node_ids(md)      # a keyword as a node id breaks the whole block
+    md, _escaped = escape_sequence_text(md)          # a `;` in message text splits the statement
     sliced = len(_pack(items, reduce_cap)) > 1                  # the same packing the pass just force-fitted
     note = _cap_note(
         f"{len(items)} module intents exceeded the reduce cap — each was sliced to an equal share for the "
